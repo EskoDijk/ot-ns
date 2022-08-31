@@ -15,7 +15,6 @@ Python libraries use the CLI to manage simulations.
 * [exit](#exit)
 * [go](#go-duration-seconds--ever)
 * [joins](#joins)
-* [log](#log-level)
 * [move](#move-node-id-x-y)
 * [netinfo](#netinfo-version-string-commit-string-real-yn)
 * [node](#node-node-id-command)
@@ -25,7 +24,7 @@ Python libraries use the CLI to manage simulations.
 * [pings](#pings)
 * [plr](#plr)
 * [radio](#radio-node-id-node-id--on--off--ft-fail-duration-fail-interval)
-* [radiomodel](#radiomodel)
+* [radiomodel](#radiomodel-modelname)
 * [scan](#scan-node-id)
 * [speed](#speed)
 * [title](#title-string)
@@ -176,21 +175,6 @@ Connect finished joiner sessions.
 node=2    join=4.899s session=5.000s
 Done
 ```
-### log \[\<level\>\]
-
-Inspect the current log level, or set a new log level. The default is taken from the command line argument,
-or 'warn' if nothing specified. Use 'debug' to see detailed log messages.
-
-```bash
-> log
-warn
-Done
-> log debug
-Done
-> log
-debug
-Done
-```
 
 ### move \<node-id\> \<x\> \<y\>
 
@@ -320,17 +304,20 @@ Done
 
 `ft 10 60` means the nodes' radio will on average be non-functional for 10 seconds every 60 seconds. 
 
-### radiomodel \[\"\<modelName\>\"\]
+### radiomodel \[\<modelName\>\]
 
 Get the name of the currently used radiomodel (RF propagation model and radio chip characteristics for all nodes)
-or set the current model to another model.
+or set the current model to another model by providing the name. For a list of current models see 
+[radiomodel.Create()](../radiomodel/radiomodel.go)
 
 ```bash
 > radiomodel
-InterfereAll
-Done
-> radiomodel "Ideal"
 Ideal
+Done
+> radiomodel MutualInterference
+MutualInterference
+> radiomodel
+MutualInterference
 Done
 ```
 

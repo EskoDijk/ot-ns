@@ -31,8 +31,9 @@ import (
 	"sort"
 	"time"
 
-	"github.com/openthread/ot-ns/dispatcher"
 	"github.com/openthread/ot-ns/progctx"
+
+	"github.com/openthread/ot-ns/dispatcher"
 	. "github.com/openthread/ot-ns/types"
 	"github.com/openthread/ot-ns/visualize"
 	"github.com/pkg/errors"
@@ -70,6 +71,7 @@ func NewSimulation(ctx *progctx.ProgCtx, cfg *Config, dispatcherCfg *dispatcher.
 	dispatcherCfg.Host = cfg.DispatcherHost
 	dispatcherCfg.Port = cfg.DispatcherPort
 	dispatcherCfg.DumpPackets = cfg.DumpPackets
+	dispatcherCfg.UnitDistance = cfg.UnitDistance
 
 	s.d = dispatcher.NewDispatcher(s.ctx, dispatcherCfg, s)
 	s.vis = s.d.GetVisualizer()

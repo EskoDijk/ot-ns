@@ -215,8 +215,6 @@ func (rt *CmdRunner) execute(cmd *Command, output io.Writer) {
 		rt.executeWeb(cc, cc.Web)
 	} else if cmd.NetInfo != nil {
 		rt.executeNetInfo(cc, cc.NetInfo)
-	} else if cmd.LogLevel != nil {
-		rt.executeLogLevel(cc, cc.LogLevel)
 	} else if cmd.RadioModel != nil {
 		rt.executeRadioModel(cc, cc.RadioModel)
 	} else {
@@ -308,8 +306,7 @@ func (rt *CmdRunner) executeAddNode(cc *CommandContext, cmd *AddCmd) {
 	}
 
 	if cmd.RadioRange != nil {
-		cfg.RadioRange = 0.1 * float64(cmd.RadioRange.Val)
-		cfg.RadioRangeViz = cmd.RadioRange.Val
+		cfg.RadioRange = cmd.RadioRange.Val
 	}
 
 	if cmd.Executable != nil {
@@ -628,14 +625,6 @@ func (rt *CmdRunner) executeWeb(cc *CommandContext, webcmd *WebCmd) {
 	}
 }
 
-func (rt *CmdRunner) executeLogLevel(cc *CommandContext, cmd *LogLevelCmd) {
-	if len(cmd.Level) == 0 {
-		cc.outputf("%v\n", simplelogger.GetLevel().String())
-	} else {
-		simplelogger.SetLevel(simplelogger.ParseLevel(cmd.Level))
-	}
-}
-
 func (rt *CmdRunner) executeRadioModel(cc *CommandContext, cmd *RadioModelCmd) {
 	var name string
 	if len(cmd.Model) == 0 {
@@ -652,7 +641,7 @@ func (rt *CmdRunner) executeRadioModel(cc *CommandContext, cmd *RadioModelCmd) {
 		if ok {
 			cc.outputf("%v\n", name)
 		} else {
-			cc.outputf("(Model '%v' does not exist.)\n", name)
+			cc.outputf("(Radiomodel '%v' does not exist.)\n", name)
 		}
 	}
 }
