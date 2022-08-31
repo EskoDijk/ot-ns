@@ -27,11 +27,11 @@
 package dispatcher
 
 import (
-	"encoding/binary"
 	"fmt"
 	"math"
 	"net"
 
+	"github.com/openthread/ot-ns/radiomodel"
 	"github.com/openthread/ot-ns/threadconst"
 	. "github.com/openthread/ot-ns/types"
 	"github.com/simonlingoogle/go-simplelogger"
@@ -78,30 +78,36 @@ type Node struct {
 	peerAddr      *net.UDPAddr
 	failureCtrl   *FailureCtrl
 	isFailed      bool
-	radioRange    int
+	radioRange    float64
+	radioRangeViz int
+	radioNode     *radiomodel.RadioNode
 	pendingPings  []*pingRequest
 	pingResults   []*PingResult
 	joinerState   OtJoinerState
 	joinerSession *joinerSession
 	joinResults   []*JoinResult
+	msgId         uint64
 }
 
-func newNode(d *Dispatcher, nodeid NodeId, x, y int, radioRange int) *Node {
-	simplelogger.AssertTrue(radioRange >= 0)
+func newNode(d *Dispatcher, nodeid NodeId, cfg *NodeConfig) *Node {
+	simplelogger.AssertTrue(cfg.RadioRange >= 0)
 
 	nc := &Node{
-		D:           d,
-		Id:          nodeid,
-		CurTime:     d.CurTime,
-		CreateTime:  d.CurTime,
-		X:           x,
-		Y:           y,
-		ExtAddr:     InvalidExtAddr,
-		Rloc16:      threadconst.InvalidRloc16,
-		Role:        OtDeviceRoleDisabled,
-		peerAddr:    nil, // peer address will be set when the first event is received
-		radioRange:  radioRange,
-		joinerState: OtJoinerStateIdle,
+		D:             d,
+		Id:            nodeid,
+		CurTime:       d.CurTime,
+		CreateTime:    d.CurTime,
+		X:             cfg.X,
+		Y:             cfg.Y,
+		ExtAddr:       InvalidExtAddr,
+		Rloc16:        threadconst.InvalidRloc16,
+		Role:          OtDeviceRoleDisabled,
+		peerAddr:      nil, // peer address will be set when the first Event is received
+		radioRange:    cfg.RadioRange,
+		radioRangeViz: cfg.RadioRangeViz,
+		radioNode:     radiomodel.NewRadioNode(),
+		joinerState:   OtJoinerStateIdle,
+		msgId:         0,
 	}
 
 	nc.failureCtrl = newFailureCtrl(nc, NonFailTime)
@@ -113,18 +119,27 @@ func (node *Node) String() string {
 	return fmt.Sprintf("Node<%016x@%d,%d>", node.ExtAddr, node.X, node.Y)
 }
 
-func (node *Node) Send(elapsed uint64, data []byte) {
-	msg := make([]byte, len(data)+11)
-	binary.LittleEndian.PutUint64(msg[:8], elapsed)
-	msg[8] = eventTypeRadioReceived
-	binary.LittleEndian.PutUint16(msg[9:11], uint16(len(data)))
-	n := copy(msg[11:], data)
-	simplelogger.AssertTrue(n == len(data))
-
-	node.SendMessage(msg)
+// SendEvent sends Event evt serialized to the node, over UDP.
+// WARNING modifies the evt.Delay value based on the target node's CurTime.
+func (node *Node) sendEvent(evt *Event) {
+	evt.NodeId = node.Id
+	oldTime := node.CurTime
+	evt.Delay = evt.Timestamp - oldTime // compute Delay value for this target node.
+	node.msgId++
+	evt.MsgId = node.msgId
+	// time keeping - move node's time to the current send-event's time.
+	simplelogger.AssertTrue(evt.Timestamp == node.D.CurTime)
+	node.sendRawData(evt.Serialize())
+	if evt.Timestamp > oldTime {
+		node.failureCtrl.OnTimeAdvanced(oldTime)
+	}
+	node.CurTime = evt.Timestamp
+	node.D.setAlive(node.Id)
+	node.D.alarmMgr.SetNotified(node.Id)
 }
 
-func (node *Node) SendMessage(msg []byte) {
+// sendRawData is INTERNAL to send bytes to UDP socket of node
+func (node *Node) sendRawData(msg []byte) {
 	if node.peerAddr != nil {
 		_, _ = node.D.udpln.WriteToUDP(msg, node.peerAddr)
 	} else {
@@ -132,10 +147,19 @@ func (node *Node) SendMessage(msg []byte) {
 	}
 }
 
+// GetDistanceTo gets the distance in screen pixels to another Node.
 func (node *Node) GetDistanceTo(other *Node) (dist int) {
 	dx := other.X - node.X
 	dy := other.Y - node.Y
 	dist = int(math.Sqrt(float64(dx*dx + dy*dy)))
+	return
+}
+
+// GetDistanceInMeters gets the distance in meters to another Node.
+func (node *Node) GetDistanceInMeters(other *Node) (dist float64) {
+	dx := float64(other.X-node.X) * 0.10 // TODO make scaling configurable.
+	dy := float64(other.Y-node.Y) * 0.10 // Now, 1 pixel is hardcoded to 0.1m.
+	dist = math.Sqrt(dx*dx + dy*dy)
 	return
 }
 

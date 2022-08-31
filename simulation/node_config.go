@@ -26,16 +26,7 @@
 
 package simulation
 
-type NodeConfig struct {
-	ID             int
-	X, Y           int
-	IsMtd          bool
-	IsRouter       bool
-	RxOffWhenIdle  bool
-	RadioRange     int
-	ExecutablePath string
-	Restore        bool
-}
+import . "github.com/openthread/ot-ns/types"
 
 func DefaultNodeConfig() *NodeConfig {
 	return &NodeConfig{
@@ -45,7 +36,8 @@ func DefaultNodeConfig() *NodeConfig {
 		IsRouter:       true,
 		IsMtd:          false,
 		RxOffWhenIdle:  false,
-		RadioRange:     160,
+		RadioRange:     16.0, // in meters, max cut-off range. Actual range determined by radio model.
+		RadioRangeViz:  160,  // radio-range visualized distance in pixels (for animations), 1 px = 0.10 m.
 		ExecutablePath: "",
 		Restore:        false,
 	}

@@ -52,7 +52,8 @@ const (
 )
 
 var (
-	DoneOrErrorRegexp = regexp.MustCompile(`(Done|Error \d+: .*)`)
+	DoneOrErrorRegexp        = regexp.MustCompile(`(Done|Error \d+: .*)`)
+	logLineTimestampedRegexp = regexp.MustCompile(`(\d\d:\d\d:\d\d\.\d\d\d )+`)
 )
 
 type NodeUartType int
@@ -112,6 +113,8 @@ func newNode(s *Simulation, id NodeId, cfg *NodeConfig) (*Node, error) {
 
 	go node.lineReader(node.pipeOut, NodeUartTypeRealTime)
 	go node.lineReader(node.virtualUartReader, NodeUartTypeVirtualTime)
+	go node.errorReader(node.pipeErr)
+
 	return node, nil
 }
 
@@ -212,6 +215,7 @@ func (node *Node) Command(cmd string, timeout time.Duration) []string {
 	output, result = output[:len(output)-1], output[len(output)-1]
 	if result != "Done" {
 		panic(result)
+
 	}
 	return output
 }
@@ -585,6 +589,20 @@ func (node *Node) GetSingleton() bool {
 	}
 }
 
+// errorReader reads text from a stderr pipe and will log panic if anything found.
+func (node *Node) errorReader(reader io.Reader) {
+	// close the line channel after routine exits
+	scanner := bufio.NewScanner(otoutfilter.NewOTOutFilter(bufio.NewReader(reader), node.String()))
+	scanner.Split(bufio.ScanLines)
+
+	for scanner.Scan() {
+		line := scanner.Text()
+		if len(line) > 0 {
+			simplelogger.Panicf(line)
+		}
+	}
+}
+
 func (node *Node) lineReader(reader io.Reader, uartType NodeUartType) {
 	// close the line channel after line reader routine exit
 	scanner := bufio.NewScanner(otoutfilter.NewOTOutFilter(bufio.NewReader(reader), node.String()))
@@ -597,6 +615,7 @@ func (node *Node) lineReader(reader io.Reader, uartType NodeUartType) {
 			simplelogger.Debugf("%v's UART type is %v", node, uartType)
 			node.uartType = uartType
 		}
+		line = node.removeLogTimestamp(line) // Remove any OT debug log timestamp used.
 
 		select {
 		case node.pendingLines <- line:
@@ -630,21 +649,21 @@ func (node *Node) TryExpectLine(line interface{}, timeout time.Duration) (bool, 
 				return false, outputLines
 			}
 
-			simplelogger.Debugf("%v - %s", node, readLine)
+			//simplelogger.Debugf("%v - %s", node, readLine)
 
 			outputLines = append(outputLines, readLine)
 			if node.isLineMatch(readLine, line) {
 				// found the exact line
 				return true, outputLines
 			} else {
-				// hack: output scan result here, should have better implementation
+				// FIXME hack: output scan result here, should have better implementation
 				//| J | Network Name     | Extended PAN     | PAN  | MAC Address      | Ch | dBm | LQI |
 				if strings.HasPrefix(readLine, "|") || strings.HasPrefix(readLine, "+") {
 					fmt.Printf("%s\n", readLine)
 				}
 			}
 		default:
-			node.S.Dispatcher().RecvEvents()
+			node.S.Dispatcher().RecvEvents() // RecvEvents case for reading lines from (new) nodes for setup
 		}
 	}
 }
@@ -652,7 +671,7 @@ func (node *Node) TryExpectLine(line interface{}, timeout time.Duration) (bool, 
 func (node *Node) expectLine(line interface{}, timeout time.Duration) []string {
 	found, output := node.TryExpectLine(line, timeout)
 	if !found {
-		simplelogger.Panicf("expect line timeout: %#v", line)
+		simplelogger.Panicf("expect line timeout: %#v (got instead: %#v)", line, output)
 	}
 
 	return output
@@ -684,8 +703,9 @@ func (node *Node) isLineMatch(line string, _expectedLine interface{}) bool {
 	case *regexp.Regexp:
 		return expectedLine.MatchString(line)
 	case []string:
+		// []string matches if at least one of the multiple lines matches.
 		for _, s := range expectedLine {
-			if s == line {
+			if node.isLineMatch(s, expectedLine) {
 				return true
 			}
 		}
@@ -693,6 +713,14 @@ func (node *Node) isLineMatch(line string, _expectedLine interface{}) bool {
 		simplelogger.Panic("unknown expected string")
 	}
 	return false
+}
+
+func (node *Node) removeLogTimestamp(line string) string {
+	idx := logLineTimestampedRegexp.FindStringIndex(line)
+	if idx == nil {
+		return line
+	}
+	return line[idx[1]:]
 }
 
 func (node *Node) DumpStat() string {
@@ -733,7 +761,7 @@ func (node *Node) onUartWrite(data []byte) {
 
 func (node *Node) detectVirtualTimeUART() {
 	// Input newline to both Virtual Time UART and stdin and check where node outputs newline
-	node.S.Dispatcher().SendToUART(node.Id, []byte("\n"))
+	node.S.Dispatcher().SendToUART(node.Id, []byte("\n\n"))
 	_, _ = node.pipeIn.Write([]byte("\n"))
 
 	node.expectLine("", DefaultCommandTimeout)
