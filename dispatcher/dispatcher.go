@@ -29,16 +29,15 @@ package dispatcher
 import (
 	"fmt"
 	"math"
-	"math/rand"
 	"net"
 	"os"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/openthread/ot-ns/dissectpkt"
 	"github.com/openthread/ot-ns/dissectpkt/wpan"
+	"github.com/openthread/ot-ns/energy"
 	"github.com/openthread/ot-ns/pcap"
 	"github.com/openthread/ot-ns/progctx"
 	"github.com/openthread/ot-ns/radiomodel"
@@ -47,6 +46,8 @@ import (
 	"github.com/openthread/ot-ns/visualize"
 	"github.com/pkg/errors"
 	"github.com/simonlingoogle/go-simplelogger"
+	"math/rand"
+	"strconv"
 )
 
 const (
@@ -136,9 +137,11 @@ type Dispatcher struct {
 		DispatchByShortAddrFail uint64
 		DispatchAllInRange      uint64
 	}
-	watchingNodes map[NodeId]struct{}
-	stopped       bool
-	radioModel    radiomodel.RadioModel
+	watchingNodes map[NodeId]struct {
+	}
+	energyAnalyser *energy.EnergyAnalyser
+	stopped        bool
+	radioModel     radiomodel.RadioModel
 }
 
 func NewDispatcher(ctx *progctx.ProgCtx, cfg *Config, cbHandler CallbackHandler) *Dispatcher {
@@ -698,7 +701,8 @@ func (d *Dispatcher) sendTxDoneEvent(evt *Event) {
 
 // sendOneRadioEvent sends RadioFrame Event from Node srcnode to Node dstnode via radio model.
 // Returns true if a frame was dispatched, false if not dispatched due to Tx-failure cases.
-func (d *Dispatcher) sendOneRadioFrameEvent(evt *Event, srcNode *Node, dstNode *Node) bool {
+func (d *Dispatcher) sendOneRadioFrameEvent(evt *Event,
+	srcNode *Node, dstNode *Node) bool {
 	simplelogger.AssertTrue(EventTypeRadioRx == evt.Type)
 	simplelogger.AssertTrue(srcNode != dstNode)
 
@@ -906,7 +910,8 @@ func (d *Dispatcher) handleStatusPush(srcid NodeId, data string) {
 			mode := ParseNodeMode(sp[1])
 			d.vis.SetNodeMode(srcid, mode)
 		} else if sp[0] == "radio_state" {
-			// TODO: calculate energy consumption based on radio state changes of each node
+			params := strings.Split(sp[1], ",")
+			d.changeNodeRadioState(srcid, params[0], params[1])
 		} else {
 			simplelogger.Warnf("unknown status push: %s=%s", sp[0], sp[1])
 		}
@@ -920,6 +925,7 @@ func (d *Dispatcher) AddNode(nodeid NodeId, cfg *NodeConfig) {
 	d.nodes[nodeid] = node
 	d.alarmMgr.AddNode(nodeid)
 	d.setAlive(nodeid)
+	d.energyAnalyser.AddNode(nodeid, d.CurTime)
 	d.vis.AddNode(nodeid, cfg.X, cfg.Y, cfg.RadioRange)
 }
 
@@ -1073,6 +1079,10 @@ func (d *Dispatcher) advanceTime(ts uint64) {
 		elapsedRealTime := time.Since(d.speedStartRealTime) / time.Microsecond
 		if elapsedRealTime > 0 && ts/1000000 != oldTime/1000000 {
 			d.vis.AdvanceTime(ts, float64(elapsedTime)/float64(elapsedRealTime))
+
+			if d.energyAnalyser != nil && ts%energy.ComputePeriod == 0 {
+				d.energyAnalyser.StoreNetworkEnergy(ts)
+			}
 		}
 
 		if d.cfg.Real {
@@ -1170,6 +1180,7 @@ func (d *Dispatcher) DeleteNode(id NodeId) {
 	}
 	d.alarmMgr.DeleteNode(id)
 	d.deletedNodes[id] = struct{}{}
+	d.energyAnalyser.DeleteNode(id)
 
 	d.vis.DeleteNode(id)
 	node.radioNode.Delete()
@@ -1364,4 +1375,22 @@ func (d *Dispatcher) GetRadioModel() radiomodel.RadioModel {
 
 func (d *Dispatcher) SetRadioModel(model radiomodel.RadioModel) {
 	d.radioModel = model
+}
+
+func (d *Dispatcher) SetEnergyAnalyser(e *energy.EnergyAnalyser) {
+	d.energyAnalyser = e
+}
+
+func (d *Dispatcher) changeNodeRadioState(nodeid NodeId, state, channel string) {
+	node := d.nodes[nodeid]
+
+	if d.energyAnalyser != nil {
+		node.SetRadioStateFromString(state, d.CurTime)
+	}
+
+	u, err := strconv.ParseUint(channel, 10, 8)
+	simplelogger.AssertNil(err, "changeNodeRadioState: invalid channel %s", channel)
+	simplelogger.AssertTrue(u >= minChannel && u <= maxChannel)
+
+	node.RadioChannel = uint8(u)
 }
