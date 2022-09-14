@@ -112,12 +112,17 @@ func isLongDataframe(evt *Event, phy *phyParameters) bool {
 }
 
 // getFrameDurationUs gets the duration of the PHY frame in us indicated by evt of type eventTypeRadioFrame*
+// The minimum duration is set to 1 us for the moment.
 func getFrameDurationUs(evt *Event, phy *phyParameters) uint64 {
-	var n uint64
+	var n uint
 	simplelogger.AssertTrue(len(evt.Data) >= RadioMessagePsduOffset)
-	n = uint64(len(evt.Data) - RadioMessagePsduOffset) // PSDU size 5..127
-	n += uint64(phy.phyHeaderSize)                     // add PHY preamble, sfd, PHR bytes
-	return n * uint64(phy.symbolTimeUs) * uint64(phy.symbolsPerOctet)
+	n = uint(len(evt.Data) - RadioMessagePsduOffset) // PSDU size 5..127
+	n += phy.phyHeaderSize                           // add PHY preamble, sfd, PHR bytes
+	dt := phy.symbolTimeUs * phy.symbolsPerOctet * float64(n)
+	if dt < 1.0 {
+		dt = 1.0
+	}
+	return toUs(dt)
 }
 
 // interferePsduData simulates the interference (garbling) of PSDU data based on a given SIR level (dB).
