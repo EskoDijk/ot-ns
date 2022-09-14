@@ -10,27 +10,19 @@ import (
 
 type ChannelId = uint8
 
-// IEEE 802.15.4-2015 O-QPSK PHY
+// Radio parameters resulting from OpenThread node settings
 const (
-	symbolTimeUs      uint64    = 16
-	symbolsPerOctet             = 2
-	aMaxSifsFrameSize           = 18 // as defined in IEEE 802.15.4-2015
-	phyHeaderSize               = 6
-	ccaTimeUs                   = symbolTimeUs * 8
-	aifsTimeUs                  = symbolTimeUs * 12
-	lifsTimeUs                  = symbolTimeUs * 20
-	sifsTimeUs                  = symbolTimeUs * 12
-	minChannelNumber  ChannelId = 11
-	maxChannelNumber  ChannelId = 26
+	receiveSensitivityDbm    int8      = -100 // TODO for now MUST be manually kept equal to OT: SIM_RECEIVE_SENSITIVITY
+	DefaultTxPowerDbm        int8      = 0    // Default, RadioTxEvent msg will override it. OT: SIM_TX_POWER
+	DefaultCcaEdThresholdDbm int8      = -91  // Default, RadioTxEvent msg will override it. OT: SIM_CCA_ENERGY_DETECT_THRESHOLD
+	otMinChannelNumber       ChannelId = 11
+	otMaxChannelNumber       ChannelId = 26
+	otMaxMacFrameSize        uint      = 127
 )
 
-// default radio parameters
+// Radio parameters defined for/by model
 const (
-	receiveSensitivityDbm        = -100 // TODO for now MUST be manually kept equal to OT: SIM_RECEIVE_SENSITIVITY
-	DefaultTxPowerDbm            = 0    // Default, RadioTxEvent msg will override it. OT: SIM_TX_POWER
-	DefaultCcaEdThresholdDbm     = -91  // Default, RadioTxEvent msg will override it. OT: SIM_CCA_ENERGY_DETECT_THRESHOLD
 	radioRangeIndoorDistInMeters = 37.0 // Handtuned - for indoor model, how many meters r is RadioRange disc until Link
-	// quality drops below 1.
 )
 
 // RSSI parameter encodings
@@ -67,6 +59,13 @@ type RadioModel interface {
 
 	// GetName gets the display name of this RadioModel
 	GetName() string
+
+	// GetKbps gets the current PHY bitrate in kbit/s as modeled by the RadioModel.
+	GetKbps() float64
+
+	// SetKbps sets the current PHY bitrate in kbit/s as modeled by the RadioModel as close as possible to
+	// the 'kbps' parameter. It returns the actual set kbps.
+	SetKbps(kbps float64) float64
 
 	// init initializes the RadioModel
 	init()
@@ -108,17 +107,17 @@ func Create(modelName string) RadioModel {
 }
 
 // IsLongDataFrame checks whether the radio frame in evt is 802.15.4 "long" (true) or not.
-func IsLongDataframe(evt *Event) bool {
-	return (len(evt.Data) - RadioMessagePsduOffset) > aMaxSifsFrameSize
+func IsLongDataframe(evt *Event, phy *phyParameters) bool {
+	return (len(evt.Data) - RadioMessagePsduOffset) > int(phy.aMaxSifsFrameSize)
 }
 
 // getFrameDurationUs gets the duration of the PHY frame in us indicated by evt of type eventTypeRadioFrame*
-func getFrameDurationUs(evt *Event) uint64 {
+func getFrameDurationUs(evt *Event, phy *phyParameters) uint64 {
 	var n uint64
 	simplelogger.AssertTrue(len(evt.Data) >= RadioMessagePsduOffset)
-	n = (uint64)(len(evt.Data) - RadioMessagePsduOffset) // PSDU size 5..127
-	n += phyHeaderSize                                   // add PHY preamble, sfd, PHR bytes
-	return n * symbolTimeUs * symbolsPerOctet
+	n = uint64(len(evt.Data) - RadioMessagePsduOffset) // PSDU size 5..127
+	n += uint64(phy.phyHeaderSize)                     // add PHY preamble, sfd, PHR bytes
+	return n * uint64(phy.symbolTimeUs) * uint64(phy.symbolsPerOctet)
 }
 
 // InterferePsduData simulates the interference (garbling) of PSDU data based on a given SIR level (dB).

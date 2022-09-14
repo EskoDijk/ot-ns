@@ -12,6 +12,7 @@ import (
 type RadioModelMutualInterference struct {
 	ActiveTransmitters map[ChannelId]map[NodeId]*RadioNode
 	MinSirDb           int
+	phy                phyParameters
 }
 
 func (rm *RadioModelMutualInterference) CheckRadioReachable(evt *Event, src *RadioNode, dst *RadioNode) bool {
@@ -53,12 +54,12 @@ func (rm *RadioModelMutualInterference) TxStart(node *RadioNode, q EventQueue, e
 	// before CCA can commence.
 	var delay uint64
 	if !isAck {
-		var ifs uint64 = sifsTimeUs
+		ifs := rm.phy.sifsTimeUs
 		if node.IsLastTxLong {
-			ifs = lifsTimeUs
+			ifs = rm.phy.lifsTimeUs
 		}
-		if ifs > ccaTimeUs {
-			ifs -= ccaTimeUs // CCA time may be part of the IFS. TODO check vs 15.4 standards
+		if ifs > rm.phy.ccaTimeUs {
+			ifs -= rm.phy.ccaTimeUs // CCA time may be part of the IFS. TODO check vs 15.4 standards
 		}
 		if evt.Timestamp >= ifs && node.TimeLastTxEnded > (evt.Timestamp-ifs) {
 			// must delay additionally until allowed to send again
@@ -67,7 +68,7 @@ func (rm *RadioModelMutualInterference) TxStart(node *RadioNode, q EventQueue, e
 			delay = 0 // No delay needed, proceed straight to CCA start
 		}
 	} else {
-		delay = aifsTimeUs // ack is sent after fixed delay and no CCA.
+		delay = rm.phy.aifsTimeUs // ack is sent after fixed delay and no CCA.
 	}
 	// create an internal event to continue the transmission procedure later on
 	nextEvt := evt.Copy()
@@ -93,7 +94,7 @@ func (rm *RadioModelMutualInterference) TxOngoing(node *RadioNode, q EventQueue,
 		}
 		// next event is for CCA period end
 		nextEvt := evt.Copy()
-		nextEvt.Timestamp += ccaTimeUs
+		nextEvt.Timestamp += rm.phy.ccaTimeUs
 		q.AddEvent(&nextEvt)
 
 	case 3: // CCA second sample point and decision
@@ -117,7 +118,7 @@ func (rm *RadioModelMutualInterference) TxOngoing(node *RadioNode, q EventQueue,
 
 			// schedule the end-of-frame-transmission event, d us later.
 			nextEvt := evt.Copy()
-			nextEvt.Timestamp += getFrameDurationUs(evt)
+			nextEvt.Timestamp += getFrameDurationUs(evt, &rm.phy)
 			q.AddEvent(&nextEvt)
 		}
 
@@ -155,9 +156,25 @@ func (rm *RadioModelMutualInterference) GetName() string {
 	return "MutualInterference"
 }
 
+func (rm *RadioModelMutualInterference) GetKbps() float64 {
+	return rm.phy.kbps
+}
+
+func (rm *RadioModelMutualInterference) SetKbps(kbps float64) float64 {
+	if kbps < 1 {
+		kbps = 1
+	}
+	if kbps > 32000 {
+		kbps = 32000 // based on keeping CCA time at least 1 us
+	}
+	rm.phy.adaptKbps(kbps)
+	return rm.phy.kbps
+}
+
 func (rm *RadioModelMutualInterference) init() {
+	rm.phy = getPhyParameters_TL2()
 	rm.ActiveTransmitters = map[ChannelId]map[NodeId]*RadioNode{}
-	for c := minChannelNumber; c <= maxChannelNumber; c++ {
+	for c := otMinChannelNumber; c <= otMaxChannelNumber; c++ {
 		rm.ActiveTransmitters[c] = map[NodeId]*RadioNode{}
 	}
 }
@@ -195,9 +212,9 @@ func (rm *RadioModelMutualInterference) endTransmission(node *RadioNode, evt *Ev
 	delete(rm.ActiveTransmitters[evt.TxData.Channel], evt.NodeId)
 
 	// set values for future transmission
-	node.TimeLastTxEnded = evt.Timestamp     // for data frames and ACKs
-	node.IsLastTxLong = IsLongDataframe(evt) // for data frames and ACKs
-	node.TxPhase = 0                         // reset the phase back.
+	node.TimeLastTxEnded = evt.Timestamp              // for data frames and ACKs
+	node.IsLastTxLong = IsLongDataframe(evt, &rm.phy) // for data frames and ACKs
+	node.TxPhase = 0                                  // reset the phase back.
 }
 
 func (rm *RadioModelMutualInterference) ApplyInterference(evt *Event, src *RadioNode, dst *RadioNode) {

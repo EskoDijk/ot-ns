@@ -9,12 +9,12 @@ import (
 // transmit time can be set constant, or to realistic 802.15.4 frame time. RSSI at the receiver
 // can be set to an ideal constant RSSI value, or variable based on an average RF propagation model.
 type RadioModelIdeal struct {
-	Name string
-	// UseVariableRssi when true uses distance-dependent RSSI model, else fixed RSSI.
-	UseVariableRssi      bool
+	Name                 string
+	UseVariableRssi      bool // when true uses distance-dependent RSSI model, else fixed RSSI.
 	FixedRssi            int8
 	UseRealFrameDuration bool
 	FixedFrameDuration   uint64 // only used if UseRealFramDuration == false
+	phy                  phyParameters
 }
 
 func (rm *RadioModelIdeal) CheckRadioReachable(evt *Event, src *RadioNode, dst *RadioNode) bool {
@@ -45,7 +45,7 @@ func (rm *RadioModelIdeal) TxStart(node *RadioNode, q EventQueue, evt *Event) {
 
 	frameDuration := rm.FixedFrameDuration
 	if rm.UseRealFrameDuration {
-		frameDuration = getFrameDurationUs(evt)
+		frameDuration = getFrameDurationUs(evt, &rm.phy)
 	}
 
 	// signal Tx Done event to sender.
@@ -88,6 +88,21 @@ func (rm *RadioModelIdeal) GetName() string {
 	return rm.Name
 }
 
+func (rm *RadioModelIdeal) GetKbps() float64 {
+	if rm.UseRealFrameDuration {
+		return rm.phy.kbps
+	}
+	return 8000.0 * float64(rm.phy.phyHeaderSize+otMaxMacFrameSize) / float64(rm.FixedFrameDuration)
+}
+
+func (rm *RadioModelIdeal) SetKbps(kbps float64) float64 {
+	if rm.UseRealFrameDuration {
+		rm.phy.adaptKbps(kbps)
+	}
+	return rm.GetKbps()
+}
+
 func (rm *RadioModelIdeal) init() {
 	rm.Name = "Ideal"
+	rm.phy = getPhyParameters_TL2()
 }
