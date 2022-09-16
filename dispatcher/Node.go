@@ -109,6 +109,12 @@ func newNode(d *Dispatcher, nodeid NodeId, cfg *NodeConfig) *Node {
 
 	nc.failureCtrl = newFailureCtrl(nc, NonFailTime)
 
+	radioNodeInitEvent := &Event{
+		Type:      EventTypeRadioNodeInit,
+		NodeId:    nodeid,
+		Timestamp: d.CurTime,
+	}
+	d.evtQueue.AddEvent(radioNodeInitEvent)
 	return nc
 }
 

@@ -4,10 +4,23 @@ import (
 	"math"
 
 	. "github.com/openthread/ot-ns/types"
+	"github.com/simonlingoogle/go-simplelogger"
+)
+
+type NodeType uint8
+
+const (
+	ThreadNode NodeType = iota
+	RadioInterfererNode
+	UndefinedNode
 )
 
 // RadioNode is the status of a single radio node of the radio model, used by all radio models.
 type RadioNode struct {
+
+	// Type defines the type of RadioNode, e.g. Thread, interferer, Wi-Fi, BLE etc.
+	Type NodeType
+
 	// IsCcaFailed tracks whether the last CCA process failed (true), or not (false).
 	IsCcaFailed bool
 
@@ -47,6 +60,7 @@ type RadioNode struct {
 
 func NewRadioNode(cfg *NodeConfig) *RadioNode {
 	rn := &RadioNode{
+		Type:          UndefinedNode,
 		TxPower:       DefaultTxPowerDbm,
 		CcaEdThresh:   DefaultCcaEdThresholdDbm,
 		RxSensitivity: receiveSensitivityDbm,
@@ -54,6 +68,14 @@ func NewRadioNode(cfg *NodeConfig) *RadioNode {
 		Y:             float64(cfg.Y),
 		RadioRange:    float64(cfg.RadioRange),
 		InterferedBy:  make(map[NodeId]*RadioNode),
+	}
+	switch cfg.RfModelNodeType {
+	case "wifi":
+		rn.Type = RadioInterfererNode // TODO add properties for interference type here.
+	case "":
+		rn.Type = ThreadNode
+	default:
+		simplelogger.Panicf("Unknown RadioNode type: %v", rn.Type)
 	}
 	return rn
 }
@@ -66,7 +88,7 @@ func (rn *RadioNode) Delete() {
 	rn.IsDeleted = true
 }
 
-// GetDistanceInMeters gets the distance to another RadioNode (in dimensionless units).
+// GetDistanceTo gets the distance to another RadioNode (in dimensionless units).
 func (rn *RadioNode) GetDistanceTo(other *RadioNode) (dist float64) {
 	dx := other.X - rn.X
 	dy := other.Y - rn.Y

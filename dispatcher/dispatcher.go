@@ -1373,4 +1373,14 @@ func (d *Dispatcher) GetRadioModel() radiomodel.RadioModel {
 
 func (d *Dispatcher) SetRadioModel(model radiomodel.RadioModel) {
 	d.radioModel = model
+	// every time a new radiomodel is set, an init event is sent for
+	// every RadioNode that needs to register with the model.
+	for nodeid, _ := range d.nodes {
+		radioNodeInitEvent := &Event{
+			Type:      EventTypeRadioNodeInit,
+			NodeId:    nodeid,
+			Timestamp: d.CurTime,
+		}
+		d.evtQueue.AddEvent(radioNodeInitEvent)
+	}
 }

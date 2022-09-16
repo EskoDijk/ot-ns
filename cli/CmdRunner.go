@@ -294,6 +294,9 @@ func (rt *CmdRunner) executeAddNode(cc *CommandContext, cmd *AddCmd) {
 		cfg.IsRouter = false
 		cfg.IsMtd = true
 		cfg.RxOffWhenIdle = true
+	} else if cmd.Type.Val == "wifi" {
+		cfg.IsRouter = false
+		cfg.RfModelNodeType = "wifi"
 	} else {
 		panic("wrong node type")
 	}

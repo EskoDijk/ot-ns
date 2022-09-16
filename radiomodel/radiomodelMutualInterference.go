@@ -4,6 +4,7 @@ import (
 	"github.com/openthread/ot-ns/dissectpkt"
 	. "github.com/openthread/ot-ns/types"
 	"github.com/simonlingoogle/go-simplelogger"
+	"math/rand"
 )
 
 // RadioModelMutualInterference is a radio model where a transmission may interfere with another transmission
@@ -157,12 +158,91 @@ func (rm *RadioModelMutualInterference) txOngoing(node *RadioNode, q EventQueue,
 	}
 }
 
+func (rm *RadioModelMutualInterference) radioNodeInit(node *RadioNode, q EventQueue, evt *Event) {
+	if node.Type == RadioInterfererNode {
+		// reset state, and start operating.
+		node.TxPhase = 0
+		nextEvt := &Event{
+			Type:      EventTypeRadioTxOngoing,
+			NodeId:    evt.NodeId,
+			Timestamp: evt.Timestamp,
+			TxData: TxEventData{
+				Channel:    11,  // TODO take from config
+				TxPower:    0,   // TODO take from config
+				CcaEdTresh: -70, // TODO take from config
+			},
+		}
+		q.AddEvent(nextEvt)
+	}
+}
+
+func (rm *RadioModelMutualInterference) txInterfereOngoing(node *RadioNode, q EventQueue, evt *Event) {
+	simplelogger.AssertTrue(evt.Type == EventTypeRadioTxOngoing)
+
+	if node.TxPhase == 0 {
+		node.IsCcaFailed = false
+		node.IsTxFailed = false
+		node.InterferedBy = make(map[NodeId]*RadioNode) // clear map
+	}
+	node.TxPhase++
+
+	switch node.TxPhase {
+	case 1: // random delay until Tx of interfering frame
+		nextEvt := evt.Copy()
+		nextEvt.Timestamp += uint64(rand.Intn(2000)) // TODO param
+		q.AddEvent(&nextEvt)
+
+	case 2: // CCA first sample point
+		//perform CCA check at current time point 1.
+		if rm.ccaDetectsBusy(node, evt) {
+			node.IsCcaFailed = true
+		}
+		// next event is for CCA period end
+		nextEvt := evt.Copy()
+		nextEvt.Timestamp += 4 // TODO wifi CCA duration
+		q.AddEvent(&nextEvt)
+
+	case 3: // CCA second sample point and decision
+		if rm.ccaDetectsBusy(node, evt) {
+			node.IsCcaFailed = true
+		}
+		if node.IsCcaFailed {
+			// schedule the next Tx cycle
+			nextEvt := evt.Copy()
+			nextEvt.Timestamp += 0
+			q.AddEvent(&nextEvt)
+			// ... and reset back to start state.
+			node.TxPhase = 0
+		} else {
+			rm.startTransmission(node, evt)
+			// schedule the end-of-frame-transmission event, d us later.
+			nextEvt := evt.Copy()
+			nextEvt.Timestamp += 240 // TODO wifi frame duration
+			q.AddEvent(&nextEvt)
+		}
+
+	case 4: // End of frame transmit event
+		rm.endTransmission(node, evt)
+		// schedule the next Tx cycle
+		nextEvt := evt.Copy()
+		nextEvt.Timestamp += 0
+		q.AddEvent(&nextEvt)
+	}
+}
+
 func (rm *RadioModelMutualInterference) HandleEvent(node *RadioNode, q EventQueue, evt *Event) {
 	switch evt.Type {
 	case EventTypeRadioTx:
 		rm.TxStart(node, q, evt)
 	case EventTypeRadioTxOngoing:
-		rm.txOngoing(node, q, evt)
+		switch node.Type {
+		case RadioInterfererNode:
+			rm.txInterfereOngoing(node, q, evt)
+		default:
+			rm.txOngoing(node, q, evt)
+		}
+	case EventTypeRadioNodeInit:
+		rm.radioNodeInit(node, q, evt)
 	default:
 		simplelogger.Errorf("Radiomodel event type not implemented: %v", evt.Type)
 	}

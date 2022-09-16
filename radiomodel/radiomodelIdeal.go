@@ -79,6 +79,8 @@ func (rm *RadioModelIdeal) HandleEvent(node *RadioNode, q EventQueue, evt *Event
 	switch evt.Type {
 	case EventTypeRadioTx:
 		rm.TxStart(node, q, evt)
+	case EventTypeRadioNodeInit:
+		break
 	default:
 		simplelogger.Errorf("Radiomodel event type not implemented: %v", evt.Type)
 	}

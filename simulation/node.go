@@ -81,7 +81,6 @@ func newNode(s *Simulation, id NodeId, cfg *NodeConfig) (*Node, error) {
 	}
 	simplelogger.Debugf("node exe path: %s", otCliPath)
 	cmd := exec.CommandContext(context.Background(), otCliPath, strconv.Itoa(id))
-
 	node := &Node{
 		S:            s,
 		Id:           id,
@@ -146,12 +145,16 @@ func (node *Node) SetupNetworkParameters(sim *Simulation) {
 }
 
 func (node *Node) Start() {
-	node.IfconfigUp()
-	node.ThreadStart()
+	if node.cfg.RfModelNodeType == "" {
+		node.IfconfigUp()
+		node.ThreadStart()
 
-	simplelogger.Infof("%v - started, panid=0x%04x, channel=%d, eui64=%#v, extaddr=%#v, state=%s, networkkey=%#v, mode=%v", node,
-		node.GetPanid(), node.GetChannel(), node.GetEui64(), node.GetExtAddr(), node.GetState(),
-		node.GetNetworkKey(), node.GetMode())
+		simplelogger.Infof("%v - started, panid=0x%04x, channel=%d, eui64=%#v, extaddr=%#v, state=%s, networkkey=%#v, mode=%v", node,
+			node.GetPanid(), node.GetChannel(), node.GetEui64(), node.GetExtAddr(), node.GetState(),
+			node.GetNetworkKey(), node.GetMode())
+	} else {
+		simplelogger.Infof("%v - started, non-Thread RF node type=%v, channel=%v", node, node.cfg.RfModelNodeType, node.GetChannel())
+	}
 }
 
 func (node *Node) IsFED() bool {

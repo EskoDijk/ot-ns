@@ -54,6 +54,7 @@ const (
 
 	// Internal radiomodel events
 	EventTypeRadioTxOngoing eventType = 128
+	EventTypeRadioNodeInit  eventType = 129
 )
 
 const (
