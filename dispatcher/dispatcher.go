@@ -27,6 +27,7 @@
 package dispatcher
 
 import (
+	"encoding/hex"
 	"fmt"
 	"math"
 	"math/rand"
@@ -69,6 +70,7 @@ type Config struct {
 	Host        string
 	Port        int
 	DumpPackets bool
+	DumpEvents  bool
 	NoPcap      bool
 }
 
@@ -79,6 +81,7 @@ func DefaultConfig() *Config {
 		Host:        "localhost",
 		Port:        threadconst.InitialDispatcherPort,
 		DumpPackets: false,
+		DumpEvents:  false,
 	}
 }
 
@@ -457,6 +460,9 @@ func (d *Dispatcher) processNextEvent() bool {
 		} else {
 			// process the next queued non-alarm Event; similar to above alarm event.
 			evt := d.evtQueue.PopNext()
+			if d.cfg.DumpEvents {
+				d.dumpEvent(evt)
+			}
 			node := d.nodes[evt.NodeId]
 			if node != nil {
 				simplelogger.AssertTrue(evt.Timestamp == nextSendTime)
@@ -1290,9 +1296,14 @@ func (d *Dispatcher) NotifyCommand(nodeid NodeId) {
 func (d *Dispatcher) dumpPacket(item *Event) {
 	sb := strings.Builder{}
 	_, _ = fmt.Fprintf(&sb, "DUMP:PACKET:%d:%d:", item.Timestamp, item.NodeId)
-	for _, b := range item.Data {
-		_, _ = fmt.Fprintf(&sb, "%02X", b)
-	}
+	_, _ = fmt.Fprintf(&sb, strings.ToUpper(hex.EncodeToString(item.Data)))
+
+	_, _ = fmt.Fprintf(os.Stdout, "%s\n", sb.String())
+}
+
+func (d *Dispatcher) dumpEvent(ev *Event) {
+	sb := strings.Builder{}
+	_, _ = fmt.Fprintf(&sb, "DUMP:EVT:%d:%d:%v", ev.Timestamp, ev.NodeId, ev.String())
 
 	_, _ = fmt.Fprintf(os.Stdout, "%s\n", sb.String())
 }

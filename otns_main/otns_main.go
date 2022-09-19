@@ -75,6 +75,7 @@ type MainArgs struct {
 	DispatcherHost string
 	DispatcherPort int
 	DumpPackets    bool
+	DumpEvents     bool
 	NoPcap         bool
 	NoReplay       bool
 }
@@ -99,6 +100,7 @@ func parseArgs() {
 	flag.BoolVar(&args.Real, "real", false, "use real mode (for real devices)")
 	flag.StringVar(&args.ListenAddr, "listen", fmt.Sprintf("localhost:%d", threadconst.InitialDispatcherPort), "specify listen address")
 	flag.BoolVar(&args.DumpPackets, "dump-packets", false, "dump packets")
+	flag.BoolVar(&args.DumpEvents, "dump-events", false, "dump all internal simulation events")
 	flag.BoolVar(&args.NoPcap, "no-pcap", false, "do not generate Pcap")
 	flag.BoolVar(&args.NoReplay, "no-replay", false, "do not generate Replay")
 
@@ -251,6 +253,7 @@ func createSimulation(ctx *progctx.ProgCtx) *simulation.Simulation {
 	simcfg.DispatcherHost = args.DispatcherHost
 	simcfg.DispatcherPort = args.DispatcherPort
 	simcfg.DumpPackets = args.DumpPackets
+	simcfg.DumpEvents = args.DumpEvents
 
 	dispatcherCfg := dispatcher.DefaultConfig()
 	dispatcherCfg.NoPcap = args.NoPcap

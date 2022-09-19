@@ -52,6 +52,7 @@ func (rm *RadioModelIdeal) TxStart(node *RadioNode, q EventQueue, evt *Event) {
 	nextEvt := evt.Copy()
 	nextEvt.Type = EventTypeRadioTxDone
 	nextEvt.Timestamp += frameDuration
+	nextEvt.Delay = frameDuration
 	nextEvt.TxDoneData = TxDoneEventData{
 		Channel: evt.TxData.Channel,
 		Error:   OT_ERROR_NONE,
@@ -63,6 +64,7 @@ func (rm *RadioModelIdeal) TxStart(node *RadioNode, q EventQueue, evt *Event) {
 	nextEvt2 := evt.Copy()
 	nextEvt2.Type = EventTypeRadioRx
 	nextEvt2.Timestamp += frameDuration
+	nextEvt2.Delay = frameDuration
 	nextEvt2.RxData = RxEventData{
 		Channel: evt.TxData.Channel,
 		Error:   OT_ERROR_NONE,

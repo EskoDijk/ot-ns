@@ -70,6 +70,7 @@ func NewSimulation(ctx *progctx.ProgCtx, cfg *Config, dispatcherCfg *dispatcher.
 	dispatcherCfg.Host = cfg.DispatcherHost
 	dispatcherCfg.Port = cfg.DispatcherPort
 	dispatcherCfg.DumpPackets = cfg.DumpPackets
+	dispatcherCfg.DumpEvents = cfg.DumpEvents
 	s.d = dispatcher.NewDispatcher(s.ctx, dispatcherCfg, s)
 	s.d.SetRadioModel(radiomodel.Create(cfg.RadioModel))
 	s.vis = s.d.GetVisualizer()

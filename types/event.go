@@ -28,6 +28,7 @@ package types
 
 import (
 	"encoding/binary"
+	"encoding/hex"
 	"fmt"
 	"math"
 	"net"
@@ -116,18 +117,8 @@ const RadioMessagePsduOffset = 1
 // Serialize serializes this Event into []byte to send to OpenThread node,
 // including fields partially.
 func (e *Event) Serialize() []byte {
-	// Detect composite event types
-	var extraFields []byte
-	switch e.Type {
-	case EventTypeRadioRx:
-		extraFields = serializeRadioRxData(e.RxData)
-	case EventTypeRadioTxDone:
-		extraFields = serializeRadioTxDoneData(e.TxDoneData)
-	default:
-		break
-	}
-
-	payload := append(extraFields, e.Data...)
+	extraParams := e.serializeEventParams()
+	payload := append(extraParams, e.Data...)
 	msg := make([]byte, EventMsgHeaderLen+len(payload))
 	// e.Timestamp is not sent, only e.Delay.
 	binary.LittleEndian.PutUint64(msg[:8], e.Delay)
@@ -174,13 +165,36 @@ func (e *Event) Deserialize(data []byte) {
 	e.Timestamp = InvalidTimestamp
 }
 
-// DeserializeRadioTxEvent deserializes the specific extra TxEvent parameters that are provided in the
+func (e *Event) serializeEventParams() []byte {
+	var b []byte
+	switch e.Type {
+	case EventTypeRadioTx:
+		b = serializeRadioTxData(e.TxData)
+	case EventTypeRadioRx:
+		b = serializeRadioRxData(e.RxData)
+	case EventTypeRadioTxDone:
+		b = serializeRadioTxDoneData(e.TxDoneData)
+	default:
+		break
+	}
+	return b
+}
+
+// deserializeRadioTxEvent deserializes the specific extra TxEvent parameters that are provided in the
 // RadioTx event.
 func deserializeRadioTxData(data []byte) TxEventData {
 	n := len(data)
 	simplelogger.AssertTrue(n >= TxEventDataHeaderLen)
 	txData := TxEventData{Channel: data[0], TxPower: int8(data[1]), CcaEdTresh: int8(data[2])}
 	return txData
+}
+
+func serializeRadioTxData(txData TxEventData) []byte {
+	b := []byte{0, 0, 0}
+	b[0] = txData.Channel
+	b[1] = uint8(txData.TxPower)
+	b[2] = uint8(txData.CcaEdTresh)
+	return b
 }
 
 func serializeRadioRxData(rxData RxEventData) []byte {
@@ -207,9 +221,14 @@ func (e Event) Copy() Event {
 func (e *Event) String() string {
 	paylStr := ""
 	if len(e.Data) > 0 {
-		paylStr = fmt.Sprintf(",payl=%v", keepPrintableChars(string(e.Data)))
+		paylStr = fmt.Sprintf(",da=%v", strings.ToUpper(hex.EncodeToString(e.Data)))
 	}
-	s := fmt.Sprintf("Ev{%2d,dly=%v%v}", e.Type, e.Delay, paylStr)
+	paramStr := ""
+	paramBytes := e.serializeEventParams()
+	if len(paramBytes) > 0 {
+		paramStr = fmt.Sprintf(",p=%v", strings.ToUpper(hex.EncodeToString(paramBytes)))
+	}
+	s := fmt.Sprintf("Ev{tp=%2d,ts=%v,dl=%v%v%v}", e.Type, e.Timestamp, e.Delay, paramStr, paylStr)
 	return s
 }
 

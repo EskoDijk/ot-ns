@@ -38,6 +38,7 @@ func (rm *RadioModelMutualInterference) TxStart(node *RadioNode, q EventQueue, e
 		nextEvt := evt.Copy()
 		nextEvt.Type = EventTypeRadioTxDone
 		nextEvt.Timestamp += 1
+		nextEvt.Delay = 1
 		nextEvt.TxDoneData = TxDoneEventData{
 			Channel: evt.TxData.Channel,
 			Error:   OT_ERROR_ABORT,
@@ -59,7 +60,7 @@ func (rm *RadioModelMutualInterference) TxStart(node *RadioNode, q EventQueue, e
 	// node starts Tx - first phase is to wait any mandatory 802.15.4 silence time (LIFS/SIFS)
 	// before Tx can commence.
 	var delay uint64
-	if dissectpkt.IsAckFrame(node.FrameTxInfo) {
+	if !dissectpkt.IsAckFrame(node.FrameTxInfo) {
 		var timeStartCca uint64 = evt.Timestamp
 		if node.TimeNextTx > ccaTimeUs+turnaroundTimeUs { // check to avoid negative uint64
 			timeStartCca = node.TimeNextTx - ccaTimeUs - turnaroundTimeUs
@@ -77,6 +78,7 @@ func (rm *RadioModelMutualInterference) TxStart(node *RadioNode, q EventQueue, e
 	nextEvt := evt.Copy()
 	nextEvt.Type = EventTypeRadioTxOngoing
 	nextEvt.Timestamp += delay
+	nextEvt.Delay = delay
 	q.AddEvent(&nextEvt)
 }
 
@@ -98,6 +100,7 @@ func (rm *RadioModelMutualInterference) txOngoing(node *RadioNode, q EventQueue,
 		// next event is for CCA period end
 		nextEvt := evt.Copy()
 		nextEvt.Timestamp += ccaTimeUs
+		nextEvt.Delay = ccaTimeUs
 		q.AddEvent(&nextEvt)
 
 	case 3: // CCA second sample point and decision
@@ -110,6 +113,7 @@ func (rm *RadioModelMutualInterference) txOngoing(node *RadioNode, q EventQueue,
 			nextEvt := evt.Copy()
 			nextEvt.Type = EventTypeRadioTxDone
 			nextEvt.Timestamp += 1
+			nextEvt.Delay = 1
 			nextEvt.TxDoneData = TxDoneEventData{
 				Channel: evt.TxData.Channel,
 				Error:   OT_ERROR_CHANNEL_ACCESS_FAILURE,
@@ -122,6 +126,7 @@ func (rm *RadioModelMutualInterference) txOngoing(node *RadioNode, q EventQueue,
 			// move to next state after turnAroundTime
 			nextEvt := evt.Copy()
 			nextEvt.Timestamp += turnaroundTimeUs
+			nextEvt.Delay = turnaroundTimeUs
 			q.AddEvent(&nextEvt)
 		}
 
@@ -130,8 +135,10 @@ func (rm *RadioModelMutualInterference) txOngoing(node *RadioNode, q EventQueue,
 		rm.startTransmission(node, evt)
 
 		// schedule the end-of-frame-transmission event, d us later.
+		dur := getFrameDurationUs(evt)
 		nextEvt := evt.Copy()
-		nextEvt.Timestamp += getFrameDurationUs(evt)
+		nextEvt.Timestamp += dur
+		nextEvt.Delay = dur
 		q.AddEvent(&nextEvt)
 
 	case 5: // End of frame transmit event
@@ -139,6 +146,7 @@ func (rm *RadioModelMutualInterference) txOngoing(node *RadioNode, q EventQueue,
 		nextEvt := evt.Copy()
 		nextEvt.Type = EventTypeRadioTxDone
 		nextEvt.Timestamp += 1
+		nextEvt.Delay = 1
 		nextEvt.TxDoneData = TxDoneEventData{
 			Channel: evt.TxData.Channel,
 			Error:   OT_ERROR_NONE,
@@ -149,6 +157,7 @@ func (rm *RadioModelMutualInterference) txOngoing(node *RadioNode, q EventQueue,
 		nextEvt2 := evt.Copy()
 		nextEvt2.Type = EventTypeRadioRx
 		nextEvt2.Timestamp += 1
+		nextEvt2.Delay = 1
 		nextEvt2.RxData = RxEventData{
 			Channel: evt.TxData.Channel,
 			Error:   OT_ERROR_NONE,

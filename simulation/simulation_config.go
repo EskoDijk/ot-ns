@@ -48,6 +48,7 @@ type Config struct {
 	DispatcherHost string
 	DispatcherPort int
 	DumpPackets    bool
+	DumpEvents     bool
 	RadioModel     string
 }
 
