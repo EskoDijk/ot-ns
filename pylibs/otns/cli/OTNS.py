@@ -156,6 +156,23 @@ class OTNS(object):
         """
         self._do_command(f'log {level}')
 
+    @property
+    def radiomodelKbps(self) -> str:
+        """
+        :return: current radio model bit rate in kbit/s used
+        """
+        return self._expect_float(self._do_command(f'radiomodel kbps'))
+
+    @radiomodelKbps.setter
+    def radiomodelKbps(self, rate: float) -> None:
+        """
+        Set radiomodel bit rate in kbit/s for simulation. The actual value set may be
+        adapted to the nearest possible, based on the radio model.
+
+        :rate: float value of bit rate in kbps. E.g. 250.
+        """
+        assert not self._do_command(f'radiomodel kbps {rate}')[0].startswith('Error:')
+
     def set_poll_period(self, nodeid: int, period: float) -> None:
         ms = int(period * 1000)
         self.node_cmd(nodeid, f'pollperiod {ms}')

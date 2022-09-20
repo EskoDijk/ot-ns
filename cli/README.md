@@ -26,6 +26,7 @@ Python libraries use the CLI to manage simulations.
 * [plr](#plr)
 * [radio](#radio-node-id-node-id--on--off--ft-fail-duration-fail-interval)
 * [radiomodel](#radiomodel-modelname)
+* [radiomodel kbps](#radiomodel-kbps-phy-rate)
 * [scan](#scan-node-id)
 * [speed](#speed)
 * [title](#title-string)
@@ -337,6 +338,30 @@ Done
 MutualInterference
 > radiomodel
 MutualInterference
+Done
+```
+
+### radiomodel kbps \[\<phy-rate\>\]
+
+Get or set the current data rate of the simulated PHY, in kbit/s (kbps). Values permitted may depend on the
+selected radiomodel. The 'Ideal' and 'Ideal_Rssi' models have a fixed rate corresponding to sending 1 radio 
+frame in 1 us. The 'Ideal_Rssi_Dur' model models by default a 250 kbps data rate, which can be adapted.
+
+```bash
+> radiomodel
+Ideal
+Done
+> radiomodel kbps
+1064000
+Done
+> radiomodel Ideal_Rssi_Dur
+Ideal_Rssi_Dur
+Done
+> radiomodel kbps
+250
+Done
+> radiomodel kbps 50
+50
 Done
 ```
 

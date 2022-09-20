@@ -31,6 +31,7 @@ import (
 	"fmt"
 	"io"
 	"reflect"
+	"strconv"
 	"strings"
 	"time"
 
@@ -642,6 +643,16 @@ func (rt *CmdRunner) executeRadioModel(cc *CommandContext, cmd *RadioModelCmd) {
 			name = sim.Dispatcher().GetRadioModel().GetName()
 		})
 		cc.outputf("%v\n", name)
+	} else if cmd.Model == "kbps" {
+		kbps := cmd.Kbps // will be 0.0 if not provided.
+		rt.postAsyncWait(func(sim *simulation.Simulation) {
+			if kbps == 0.0 {
+				kbps = sim.Dispatcher().GetRadioModel().GetKbps()
+			} else {
+				kbps = sim.Dispatcher().GetRadioModel().SetKbps(kbps)
+			}
+		})
+		cc.outputf("%v\n", strconv.FormatFloat(kbps, 'f', -1, 64))
 	} else {
 		name = cmd.Model
 		ok := false

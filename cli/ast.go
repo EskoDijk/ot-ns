@@ -413,8 +413,9 @@ type PlrCmd struct {
 
 //noinspection GoStructTag
 type RadioModelCmd struct {
-	Cmd   struct{} `"radiomodel"` //nolint
-	Model string   `[ @Ident ]`   //nolint
+	Cmd   struct{} `"radiomodel"`      //nolint
+	Model string   `[ @Ident ]`        //nolint
+	Kbps  float64  `[ (@Int|@Float) ]` //nolint
 }
 
 //noinspection GoStructTag

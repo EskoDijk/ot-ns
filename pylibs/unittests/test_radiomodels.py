@@ -76,6 +76,67 @@ class BasicTests_MutualInterference(BasicTests):
         with self.assertRaises(errors.OTNSCliError):
             ns.radiomodel = 'NotExistingName'
 
+    def testKbpsSettingMutualInterference(self):
+        ns = self.ns
+        self.assertEqual(250, ns.radiomodelKbps)
+        ns.radiomodelKbps = 50
+        self.assertEqual(50, ns.radiomodelKbps)
+
+        ns.add("router", 0,0)
+        ns.add("router", 0, 100)
+        ns.add("router", 100, 100)
+        ns.go(20)
+        self.assertFormPartitions(1)
+
+        ns.radiomodelKbps = 100
+        ns.add("router", 0, 100)
+        ns.go(10)
+        self.assertFormPartitions(1)
+
+        ns.radiomodelKbps = 5000
+        ns.go(10)
+        self.assertFormPartitions(1)
+
+        ns.radiomodelKbps = 32000
+        self.assertEqual(32000, ns.radiomodelKbps)
+        ns.radiomodelKbps = 0
+        self.assertEqual(32000, ns.radiomodelKbps) #unchanged
+        ns.radiomodelKbps = 1
+        self.assertEqual(1, ns.radiomodelKbps)
+        ns.radiomodelKbps = 250
+        ns.radiomodelKbps = 64000
+        self.assertEqual(32000, ns.radiomodelKbps) #goes to highest supported
+
+        with self.assertRaises(errors.OTNSCliError):
+            ns.radiomodelKbps = -250
+
+    def testKbpsSettingIdeal(self):
+        ns = self.ns
+        ns.radiomodel = "Ideal"
+        r = ns.radiomodelKbps
+        ns.radiomodelKbps = 500
+        self.assertEqual(r, ns.radiomodelKbps) # won't change
+
+        ns.radiomodel = "Ideal_Rssi_Dur"
+        self.assertEqual(250, ns.radiomodelKbps) # resets back to default Phy value
+        ns.radiomodelKbps = 500
+        self.assertEqual(500, ns.radiomodelKbps)
+
+        ns.radiomodelKbps = 20
+        ns.add("router", 0,0)
+        ns.add("router", 0, 100)
+        ns.add("router", 100, 100)
+        ns.go(120)
+        self.assertFormPartitions(1)
+
+        ns.radiomodelKbps = 5000000
+        ns.add("router", 0, 100)
+        ns.go(10)
+        self.assertFormPartitions(1)
+
+        ns.radiomodelKbps = 0
+        self.assertEqual(5000000, ns.radiomodelKbps) #unchanged
+
 class BasicTests_IdealRssi(BasicTests):
     #override
     def setUp(self):
