@@ -32,8 +32,6 @@ import (
 	"math/rand"
 	"net"
 	"os"
-	"sort"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -48,6 +46,8 @@ import (
 	"github.com/openthread/ot-ns/visualize"
 	"github.com/pkg/errors"
 	"github.com/simonlingoogle/go-simplelogger"
+	"sort"
+	"strconv"
 )
 
 const (
@@ -315,7 +315,7 @@ func (d *Dispatcher) handleRecvEvent(evt *Event) {
 	node := d.nodes[nodeid]
 	node.peerAddr = evt.SrcAddr
 
-	if d.isWatching(evt.NodeId) && evt.Type != EventTypeUartWrite {
+	if d.IsWatching(evt.NodeId) && evt.Type != EventTypeUartWrite {
 		simplelogger.Infof("Node %d <<< %+v, cur time %d, node time %d, delay %d", evt.NodeId, *evt,
 			d.CurTime, int64(d.nodes[nodeid].CurTime)-int64(d.CurTime), evt.Delay)
 	}
@@ -463,7 +463,7 @@ func (d *Dispatcher) processNextEvent() bool {
 				simplelogger.AssertTrue(evt.Timestamp == nextSendTime)
 				d.advanceTime(nextSendTime)
 
-				if d.isWatching(evt.NodeId) {
+				if d.IsWatching(evt.NodeId) {
 					simplelogger.Infof("Dispat <<< %+v, new node time %d", *evt, node.CurTime)
 				}
 
@@ -557,7 +557,7 @@ func (d *Dispatcher) advanceNodeTime(id NodeId, timestamp uint64, force bool) {
 	}
 	node.sendEvent(msg) // actively move the node's virtual-time to new time using an alarm-event msg.
 
-	if d.isWatching(id) {
+	if d.IsWatching(id) {
 		simplelogger.Infof("Node %d >>> advance time %v -> %v", id, oldTime, timestamp)
 	}
 }
@@ -659,7 +659,8 @@ func (d *Dispatcher) sendRadioFrameEventToNodes(evt *Event) {
 	}
 }
 
-func (d *Dispatcher) checkRadioReachable(evt *Event, src *Node, dst *Node) bool {
+func (d *Dispatcher) checkRadioReachable(evt *Event,
+	src *Node, dst *Node) bool {
 	rModel := d.radioModel.CheckRadioReachable(evt, src.radioNode, dst.radioNode)
 	if src.isLegacy || dst.isLegacy {
 		radioRange := src.radioRange
@@ -684,7 +685,7 @@ func (d *Dispatcher) sendEchoTxDoneEvent(evt *Event) {
 	simplelogger.AssertTrue(dstnode.isLegacy)
 	dstnode.sendEvent(evt)
 
-	if d.isWatching(dstnodeid) {
+	if d.IsWatching(dstnodeid) {
 		simplelogger.Infof("Node %d >>> TX DONE (Echo), %+v", dstnodeid, *evt)
 	}
 }
@@ -701,14 +702,15 @@ func (d *Dispatcher) sendTxDoneEvent(evt *Event) {
 	simplelogger.AssertFalse(dstnode.isLegacy)
 	dstnode.sendEvent(evt)
 
-	if d.isWatching(dstnodeid) {
+	if d.IsWatching(dstnodeid) {
 		simplelogger.Infof("Node %d >>> TX DONE, %+v", dstnodeid, *evt)
 	}
 }
 
 // sendOneRadioEvent sends RadioFrame Event from Node srcnode to Node dstnode via radio model.
 // Returns true if a frame was dispatched, false if not dispatched due to Tx-failure cases.
-func (d *Dispatcher) sendOneRadioFrameEvent(evt *Event, srcNode *Node, dstNode *Node) bool {
+func (d *Dispatcher) sendOneRadioFrameEvent(evt *Event,
+	srcNode *Node, dstNode *Node) bool {
 	simplelogger.AssertTrue(EventTypeRadioRx == evt.Type)
 	simplelogger.AssertTrue(srcNode != dstNode)
 
@@ -744,7 +746,7 @@ func (d *Dispatcher) sendOneRadioFrameEvent(evt *Event, srcNode *Node, dstNode *
 	// send the event plus time keeping - moves dstnode's time to the current send-event's time.
 	dstNode.sendEvent(&evt2)
 
-	if d.isWatching(dstNode.Id) {
+	if d.IsWatching(dstNode.Id) {
 		simplelogger.Infof("Node %d <<< received radio-frame from node %d", dstNode.Id, srcNode.Id)
 	}
 	return true
@@ -1132,7 +1134,7 @@ func (d *Dispatcher) UnwatchNode(nodeid NodeId) {
 	delete(d.watchingNodes, nodeid)
 }
 
-func (d *Dispatcher) isWatching(nodeid NodeId) bool {
+func (d *Dispatcher) IsWatching(nodeid NodeId) bool {
 	_, ok := d.watchingNodes[nodeid]
 	return ok
 }
