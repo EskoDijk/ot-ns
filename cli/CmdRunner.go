@@ -411,7 +411,7 @@ func (rt *CmdRunner) getNode(sim *simulation.Simulation, sel NodeSelector) (*sim
 		return sim.Nodes()[sel.Id], sim.Dispatcher().Nodes()[sel.Id]
 	}
 
-	panic("node selector not implemented")
+	return nil, nil
 }
 
 func (rt *CmdRunner) getAddrs(node *simulation.Node, addrType *AddrTypeFlag) []string {
