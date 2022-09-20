@@ -32,6 +32,7 @@ import (
 	"math/rand"
 	"net"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -314,9 +315,9 @@ func (d *Dispatcher) handleRecvEvent(evt *Event) {
 	node := d.nodes[nodeid]
 	node.peerAddr = evt.SrcAddr
 
-	if d.isWatching(nodeid) && evt.Type != EventTypeUartWrite {
-		simplelogger.Infof("Node %d <<< %+v, cur time %d, node time %d", nodeid, *evt,
-			d.CurTime, node.CurTime)
+	if d.isWatching(evt.NodeId) && evt.Type != EventTypeUartWrite {
+		simplelogger.Infof("Node %d <<< %+v, cur time %d, node time %d, delay %d", evt.NodeId, *evt,
+			d.CurTime, int64(d.nodes[nodeid].CurTime)-int64(d.CurTime), evt.Delay)
 	}
 
 	// time keeping: infer abs time this event should happen, from the delta Delay given.
@@ -1134,6 +1135,17 @@ func (d *Dispatcher) UnwatchNode(nodeid NodeId) {
 func (d *Dispatcher) isWatching(nodeid NodeId) bool {
 	_, ok := d.watchingNodes[nodeid]
 	return ok
+}
+
+func (d *Dispatcher) GetWatchingNodes() []NodeId {
+	watchingNodeIds := make([]NodeId, len(d.watchingNodes), len(d.watchingNodes))
+	j := 0
+	for k := range d.watchingNodes {
+		watchingNodeIds[j] = k
+		j++
+	}
+	sort.Ints(watchingNodeIds)
+	return watchingNodeIds
 }
 
 func (d *Dispatcher) GetAliveCount() int {
