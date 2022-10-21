@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2023, The OTNS Authors.
+# Copyright (c) 2020-2024, The OTNS Authors.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -28,6 +28,9 @@ name: Docker
 
 on:
   workflow_dispatch:
+  push:
+    branches-ignore:
+      - 'dependabot/**'
   pull_request:
     branches:
       - 'docker'
