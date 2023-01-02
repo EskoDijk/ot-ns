@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (c) 2020, The OTNS Authors.
+# Copyright (c) 2020-2023, The OTNS Authors.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -49,7 +49,7 @@ GOPATH=$(go env GOPATH)
 export PATH=$PATH:"$GOPATH"/bin
 mkdir -p "$GOPATH"/bin
 
-export readonly GOLINT_ARGS=(-E goimports -E whitespace -E goconst -E exportloopref -E unconvert)
+export readonly GOLINT_ARGS=(-E goimports -E whitespace -E goconst -E exportloopref -E unconvert --skip-files web/site/bindata.go)
 export readonly OTNS_BUILD_JOBS
 OTNS_BUILD_JOBS=$(getconf _NPROCESSORS_ONLN)
 export readonly OTNS_EXCLUDE_DIRS=(web/site/node_modules/ ot-rfsim/)
