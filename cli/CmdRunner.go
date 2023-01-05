@@ -1,4 +1,4 @@
-// Copyright (c) 2020-2022, The OTNS Authors.
+// Copyright (c) 2020-2023, The OTNS Authors.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -97,6 +97,7 @@ type CmdRunner struct {
 	sim           *simulation.Simulation
 	ctx           *progctx.ProgCtx
 	contextNodeId NodeId
+	help          Help
 }
 
 func (rt *CmdRunner) RunCommand(cmdline string, output io.Writer) error {
@@ -233,6 +234,8 @@ func (rt *CmdRunner) execute(cmd *Command, output io.Writer) {
 		rt.executeUnwatch(cc, cmd.Unwatch)
 	} else if cmd.Time != nil {
 		rt.executeTime(cc, cmd.Time)
+	} else if cmd.Help != nil {
+		rt.executeHelp(cc, cmd.Help)
 	} else {
 		simplelogger.Panicf("unimplemented command: %#v", cmd)
 	}
@@ -943,11 +946,16 @@ func (rt *CmdRunner) executeEnergy(cc *CommandContext, energy *EnergyCmd) {
 	}
 }
 
+func (rt *CmdRunner) executeHelp(cc *CommandContext, cmd *HelpCmd) {
+	cc.outputf(rt.help.outputGeneralHelp())
+}
+
 func NewCmdRunner(ctx *progctx.ProgCtx, sim *simulation.Simulation) *CmdRunner {
 	cr := &CmdRunner{
 		ctx:           ctx,
 		sim:           sim,
 		contextNodeId: InvalidNodeId,
+		help:          newHelp(),
 	}
 	sim.SetCmdRunner(cr)
 	return cr
