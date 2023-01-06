@@ -31,6 +31,7 @@ go 1.17
 require (
 	github.com/alecthomas/participle v0.5.0
 	github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e
+	github.com/mitchellh/go-wordwrap v1.0.1
 	github.com/pkg/errors v0.9.1
 	github.com/simonlingoogle/go-simplelogger v0.0.0-20191122025812-962af3877d65
 	github.com/stretchr/testify v1.7.0

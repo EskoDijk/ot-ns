@@ -570,7 +570,7 @@ func (rt *CmdRunner) executeRadio(cc *CommandContext, radio *RadioCmd) {
 	})
 }
 
-func (rt *CmdRunner) executeMoveNode(cc *CommandContext, cmd *Move) {
+func (rt *CmdRunner) executeMoveNode(cc *CommandContext, cmd *MoveCmd) {
 	rt.postAsyncWait(func(sim *simulation.Simulation) {
 		sim.MoveNodeTo(cmd.Target.Id, cmd.X, cmd.Y)
 	})
@@ -947,7 +947,11 @@ func (rt *CmdRunner) executeEnergy(cc *CommandContext, energy *EnergyCmd) {
 }
 
 func (rt *CmdRunner) executeHelp(cc *CommandContext, cmd *HelpCmd) {
-	cc.outputf(rt.help.outputGeneralHelp())
+	if len(cmd.HelpTopic) > 0 {
+		cc.outputf(rt.help.outputCommandHelp(cmd.HelpTopic))
+	} else {
+		cc.outputf(rt.help.outputGeneralHelp())
+	}
 }
 
 func NewCmdRunner(ctx *progctx.ProgCtx, sim *simulation.Simulation) *CmdRunner {

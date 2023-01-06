@@ -49,7 +49,7 @@ type Command struct {
 	Help                *HelpCmd                `| @@` //nolint
 	Joins               *JoinsCmd               `| @@` //nolint
 	LogLevel            *LogLevelCmd            `| @@` //nolint
-	Move                *Move                   `| @@` //nolint
+	Move                *MoveCmd                `| @@` //nolint
 	NetInfo             *NetInfoCmd             `| @@` //nolint
 	Node                *NodeCmd                `| @@` //nolint
 	Nodes               *NodesCmd               `| @@` //nolint
@@ -393,7 +393,7 @@ type YesOrNoFlag struct {
 }
 
 // noinspection GoStructTag
-type Move struct {
+type MoveCmd struct {
 	Cmd    struct{}     `"move"` //nolint
 	Target NodeSelector `@@`     //nolint
 	X      int          `@Int`   //nolint
