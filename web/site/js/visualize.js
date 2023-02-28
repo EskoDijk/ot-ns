@@ -1,4 +1,4 @@
-// Copyright (c) 2020, The OTNS Authors.
+// Copyright (c) 2020-2023, The OTNS Authors.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -55,14 +55,16 @@ let app = new PIXI.Application({
     sharedTicker: true,
 });
 
-document.body.appendChild(app.view);
+document.getElementById('visualize').appendChild(app.view);
 
 let vis = null;
 let grpcServiceClient = null;
 let ticker = PIXI.Ticker.shared;
 
+
 function getDesiredFieldSize() {
-    return [window.innerWidth - 20, window.innerHeight - 20]
+    let elem = document.getElementById('visualize');
+    return [elem.clientWidth, elem.clientHeight]
 }
 
 window.addEventListener("resize", function () {
@@ -184,6 +186,8 @@ function loadOk() {
                 e = resp.getSetNetworkInfo();
                 vis.visSetNetworkInfo(e.getVersion(), e.getCommit(), e.getReal());
                 break;
+            case VisualizeEvent.TypeCase.CLI_WRITE:
+                break;
             default:
                 console.log('unknown event!!! ' + resp.getTypeCase());
                 break
@@ -215,4 +219,3 @@ app.loader
         SetResources(res);
         loadOk()
     });
-

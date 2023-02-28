@@ -105,8 +105,11 @@ export default class ActionBar extends VObject {
         this._logOnOffButton = this.addButton("Show Log", "any", "", (e) => {
             this.actionToggleLogWindow()
         });
-        this._energyChartOnOffButton = this.addButton("Open Charts", "any", "", (e) => {
+        this._energyChartsOpenButton = this.addButton("Energy", "any", "", (e) => {
             this.actionOpenEnergyWindow()
+        });
+        this._consoleOpenButton = this.addButton("Console", "any", "", (e) => {
+            this.actionOpenConsoleWindow()
         });
     }
 
@@ -239,6 +242,10 @@ export default class ActionBar extends VObject {
     
     actionOpenEnergyWindow() {
         window.open(document.location.href.replace("/visualize","/energyViewer"), '_blank');
+    }
+
+    actionOpenConsoleWindow() {
+        window.open(document.location.href.replace("/visualize","/console"), '_blank');
     }
 
     addButton(label, context, requiredAbility, callback, onRefresh) {

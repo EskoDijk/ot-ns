@@ -193,6 +193,15 @@ func (gv *grpcVisualizer) AdvanceTime(ts uint64, speed float64) {
 	}
 }
 
+func (gv *grpcVisualizer) CliWrite(msg string) {
+	gv.Lock()
+	defer gv.Unlock()
+
+	gv.AddVisualizationEvent(&pb.VisualizeEvent{Type: &pb.VisualizeEvent_CliWrite{CliWrite: &pb.CliWriteEvent{
+		Msg: msg,
+	}}}, true)
+}
+
 func (gv *grpcVisualizer) OnNodeFail(nodeid NodeId) {
 	gv.Lock()
 	defer gv.Unlock()

@@ -61,8 +61,9 @@ func OpenWeb(ctx *progctx.ProgCtx) error {
 		simplelogger.Errorf("Web visualization is unusable. Please make sure grpcwebproxy is installed.")
 		return err
 	}
-
-	return openWebBrowser(fmt.Sprintf("http://localhost:%d/visualize?addr=localhost:%d", grpcWebProxyParams.webSitePort, grpcWebProxyParams.serverHttpDebugPort))
+	//return nil
+	return openWebBrowser(fmt.Sprintf("http://%s:%d/visualize?addr=%s:%d", grpcWebProxyParams.serverBindAddress,
+		grpcWebProxyParams.webSitePort, grpcWebProxyParams.serverBindAddress, grpcWebProxyParams.serverHttpDebugPort))
 }
 
 // open opens the specified URL in the default browser of the user.
@@ -86,7 +87,7 @@ func openWebBrowser(url string) error {
 
 func startGrpcWebProxy(ctx *progctx.ProgCtx) error {
 	grpcWebProxyProc = exec.CommandContext(ctx, "grpcwebproxy", []string{
-		fmt.Sprintf("--backend_addr=localhost:%d", grpcWebProxyParams.grpcServicePort),
+		fmt.Sprintf("--backend_addr=%s:%d", grpcWebProxyParams.serverBindAddress, grpcWebProxyParams.grpcServicePort),
 		"--run_tls_server=false",
 		"--allow_all_origins",
 		"--server_http_max_read_timeout=1h",

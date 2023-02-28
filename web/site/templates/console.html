@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>OTNS - OpenThread Network Simulator</title>
+    <title>OTNS Console</title>
+    <link rel="stylesheet" href="/static/xterm.css" />
     <style>
         html, body {
             overflow: hidden;
@@ -10,20 +11,21 @@
             height: 100%;
             padding: 0px;
         }
-        .visualizeStyle {
+        .consoleStyle {
             overflow: hidden;
             width: 100%;
             height: 100%;
             padding: 0px;
         }
     </style>
+    <!-- <script src="/static/js/xterm.js"></script> -->
 </head>
 <body>
-    <div id="visualize" class="visualizeStyle">
+    <div id="console" class="consoleStyle">
     </div>
     <script language="javascript">
         let server = "http://{{index . "addr"}}";
     </script>
-    <script src="/static/js/visualize.js"></script>
+    <script src="/static/js/console.js"></script>
 </body>
 </html>

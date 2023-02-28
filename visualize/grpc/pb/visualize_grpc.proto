@@ -59,6 +59,7 @@ message VisualizeEvent {
         SetTitleEvent set_title = 21;
         SetNodeModeEvent set_node_mode = 22;
         SetNetworkInfoEvent set_network_info = 23;
+        CliWriteEvent cli_write = 24;
     }
 }
 
@@ -189,6 +190,10 @@ message SetTitleEvent {
     int32 x = 2;
     int32 y = 3;
     int32 font_size = 4;
+}
+
+message CliWriteEvent {
+    string msg = 1;
 }
 
 message SetNodeModeEvent {

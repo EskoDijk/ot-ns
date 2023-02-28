@@ -203,6 +203,12 @@ func (mv *multiVisualizer) SetEnergyAnalyser(ea *energy.EnergyAnalyser) {
 	}
 }
 
+func (mv *multiVisualizer) CliWrite(msg string) {
+	for _, v := range mv.vs {
+		v.CliWrite(msg)
+	}
+}
+
 func NewMultiVisualizer(vs ...visualize.Visualizer) visualize.Visualizer {
 	return &multiVisualizer{vs: vs}
 }

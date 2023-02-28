@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (c) 2020, The OTNS Authors.
+# Copyright (c) 2020-2023, The OTNS Authors.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -36,6 +36,10 @@ main()
     cd "$sitedir" || return 1
     npm install
     npx webpack ./js/visualize.js -o ./static/js/visualize.js
+    npx webpack ./js/console.js -o ./static/js/console.js
+
+    # Css files are not handled by npx webpack, by default. Copy manually.
+    cp ./node_modules/xterm/css/xterm.css ./static/xterm.css
 
     go-bindata -pkg web_site -o _bindata.go templates/... static/...
     head -26 bindata.go >_merge_bindata.go

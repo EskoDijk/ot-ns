@@ -73,7 +73,7 @@ func NewSimulation(ctx *progctx.ProgCtx, cfg *Config, dispatcherCfg *dispatcher.
 
 	dispatcherCfg.Speed = cfg.Speed
 	dispatcherCfg.Real = cfg.Real
-	dispatcherCfg.Host = cfg.DispatcherHost
+	dispatcherCfg.Host = "localhost" // FIXME cfg.DispatcherHost
 	dispatcherCfg.Port = cfg.DispatcherPort
 	dispatcherCfg.DumpPackets = cfg.DumpPackets
 

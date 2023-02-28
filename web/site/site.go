@@ -100,6 +100,17 @@ func Serve(listenAddr string) error {
 		}
 	})
 
+	http.HandleFunc("/console", func(writer http.ResponseWriter, request *http.Request) {
+		addr := html.EscapeString(request.URL.Query()["addr"][0])
+		simplelogger.Debugf("web console opened addr=%+v", addr)
+		err := templates.ExecuteTemplate(writer, "console.html", map[string]interface{}{
+			"addr": addr,
+		})
+		if err != nil {
+			writer.WriteHeader(501)
+		}
+	})
+
 	httpServerMutex.Lock()
 	if !canServe {
 		httpServer = nil

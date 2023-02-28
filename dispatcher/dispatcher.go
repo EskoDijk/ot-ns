@@ -1212,28 +1212,35 @@ func (d *Dispatcher) WatchMessage(id NodeId, logLevel WatchLogLevel, msg string)
 		return // ignore, not being watched.
 	}
 	if node.watchLogLevel >= logLevel {
-		watchLog(node, logLevel, fmt.Sprintf("%s %9d %s", node, d.CurTime, msg))
+		msgFmt := fmt.Sprintf("%s %9d %s", node, d.CurTime, msg)
+		d.watchLog(node, logLevel, msgFmt)
 	}
 }
 
 // helper function to log to right simplelogger level, overriding simplelogger's level.
-func watchLog(node *Node, logLevel WatchLogLevel, msg string) {
+func (d *Dispatcher) watchLog(node *Node, logLevel WatchLogLevel, msg string) {
 	switch logLevel {
 	case WatchCritLevel:
 		simplelogger.Errorf(msg)
+		d.vis.CliWrite("\u001b[31m" + msg + "\u001b[0m\r\n")
 	case WatchWarnLevel:
 		simplelogger.Warnf(msg)
+		d.vis.CliWrite("\u001b[33m" + msg + "\u001b[0m\r\n")
 	case WatchInfoLevel, WatchNoteLevel:
 		simplelogger.Infof(msg)
+		d.vis.CliWrite(msg + "\r\n")
 	case WatchDebugLevel, WatchTraceLevel:
 		// TODO may consider own logger object for dispatcher to avoid below workaround.
 		if simplelogger.GetLevel() == simplelogger.DebugLevel {
 			simplelogger.Debugf(msg)
+			d.vis.CliWrite(msg + "\r\n")
 		} else {
 			simplelogger.Infof(msg)
+			d.vis.CliWrite(msg + "\r\n")
 		}
 	default:
 		simplelogger.Errorf(msg)
+		d.vis.CliWrite("\u001b[31m" + msg + "\u001b[0m\r\n")
 	}
 }
 

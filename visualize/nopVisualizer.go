@@ -133,6 +133,10 @@ func (nv nopVisualizer) SetEnergyAnalyser(ea *energy.EnergyAnalyser) {
 
 }
 
+func (nv nopVisualizer) CliWrite(msg string) {
+
+}
+
 func NewNopVisualizer() Visualizer {
 	return nopVisualizer{}
 }

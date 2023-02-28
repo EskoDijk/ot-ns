@@ -48,6 +48,7 @@ type Visualizer interface {
 	SetNodePartitionId(nodeid NodeId, parid uint32)
 	SetSpeed(speed float64)
 	AdvanceTime(ts uint64, speed float64)
+	CliWrite(msg string)
 
 	OnNodeFail(nodeId NodeId)
 	OnNodeRecover(nodeId NodeId)
