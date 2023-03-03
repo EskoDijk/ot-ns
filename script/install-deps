@@ -56,7 +56,7 @@ install_grpcwebproxy()
 install_python_libs()
 {
     activate_python_venv
-    python3 -m pip install setuptools
+    python3 -m pip install setuptools wheel
 }
 
 main()
