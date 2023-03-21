@@ -33,6 +33,7 @@ import (
 
 	"io/fs"
 
+	"fmt"
 	"github.com/openthread/ot-ns/dispatcher"
 	"github.com/openthread/ot-ns/energy"
 	"github.com/openthread/ot-ns/progctx"
@@ -73,8 +74,6 @@ func NewSimulation(ctx *progctx.ProgCtx, cfg *Config, dispatcherCfg *dispatcher.
 
 	dispatcherCfg.Speed = cfg.Speed
 	dispatcherCfg.Real = cfg.Real
-	dispatcherCfg.Host = cfg.DispatcherHost
-	dispatcherCfg.Port = cfg.DispatcherPort
 	dispatcherCfg.DumpPackets = cfg.DumpPackets
 
 	s.d = dispatcher.NewDispatcher(s.ctx, dispatcherCfg, s)
@@ -83,8 +82,8 @@ func NewSimulation(ctx *progctx.ProgCtx, cfg *Config, dispatcherCfg *dispatcher.
 	if err := s.createTmpDir(); err != nil {
 		simplelogger.Panicf("creating ./tmp/ directory failed: %+v", err)
 	}
-	if err := s.cleanTmpDir(); err != nil {
-		simplelogger.Panicf("cleaning ./tmp/ directory failed: %+v", err)
+	if err := s.cleanTmpDir(cfg.Id); err != nil {
+		simplelogger.Panicf("cleaning ./tmp/ directory files '%d_*.*' failed: %+v", cfg.Id, err)
 	}
 
 	//TODO add a flag to turn on/off the energy analyzer
@@ -299,13 +298,13 @@ func (s *Simulation) GoAtSpeed(duration time.Duration, speed float64) <-chan str
 	return s.d.GoAtSpeed(duration, speed)
 }
 
-func (s *Simulation) cleanTmpDir() error {
+func (s *Simulation) cleanTmpDir(simulationId int) error {
 	// tmp directory is used by nodes for saving *.flash files. Need to be cleaned when simulation started
-	err := RemoveAllFiles("tmp/*_*.flash")
+	err := RemoveAllFiles(fmt.Sprintf("tmp/%d_*.flash", simulationId))
 	if err != nil {
 		return err
 	}
-	err = RemoveAllFiles("tmp/*_*.log")
+	err = RemoveAllFiles(fmt.Sprintf("tmp/%d_*.log", simulationId))
 	return err
 }
 

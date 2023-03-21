@@ -30,7 +30,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math"
-	"net"
 	"strings"
 	"unicode"
 
@@ -53,6 +52,7 @@ const (
 	EventTypeRadioState         EventType = 9
 	EventTypeRadioRxDone        EventType = 10
 	EventTypeExtAddr            EventType = 11
+	EventTypeNodeInfo           EventType = 12
 )
 
 const (
@@ -69,7 +69,6 @@ type Event struct {
 
 	// metadata kept locally for this Event.
 	NodeId       NodeId
-	SrcAddr      *net.UDPAddr
 	Timestamp    uint64
 	MustDispatch bool
 
@@ -77,6 +76,7 @@ type Event struct {
 	AlarmData      AlarmEventData
 	RadioCommData  RadioCommEventData
 	RadioStateData RadioStateEventData
+	NodeInfoData   NodeInfoEventData
 }
 
 // All ...EventData formats below only used by OT nodes supporting advanced
@@ -101,6 +101,11 @@ type RadioStateEventData struct {
 	EnergyState RadioStates
 	SubState    RadioSubStates
 	State       RadioStates
+}
+
+const NodeInfoEventDataHeaderLen = 4 //
+type NodeInfoEventData struct {
+	NodeId NodeId
 }
 
 /*
@@ -179,6 +184,9 @@ func (e *Event) Deserialize(data []byte) {
 	case EventTypeRadioState:
 		e.RadioStateData = deserializeRadioStateData(e.Data)
 		payloadOffset += RadioStateEventDataHeaderLen
+	case EventTypeNodeInfo:
+		e.NodeInfoData = deserializeNodeInfoData(e.Data)
+		payloadOffset += NodeInfoEventDataHeaderLen
 	default:
 		break
 	}
@@ -210,6 +218,14 @@ func deserializeRadioStateData(data []byte) RadioStateEventData {
 		EnergyState: RadioStates(data[2]),
 		SubState:    RadioSubStates(data[3]),
 		State:       RadioStates(data[4]),
+	}
+	return s
+}
+
+func deserializeNodeInfoData(data []byte) NodeInfoEventData {
+	simplelogger.AssertTrue(len(data) >= NodeInfoEventDataHeaderLen)
+	s := NodeInfoEventData{
+		NodeId: NodeId(uint32(data[0])),
 	}
 	return s
 }
