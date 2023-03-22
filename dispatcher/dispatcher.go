@@ -50,6 +50,7 @@ import (
 	. "github.com/openthread/ot-ns/types"
 	"github.com/openthread/ot-ns/visualize"
 	"github.com/simonlingoogle/go-simplelogger"
+	"io"
 )
 
 const (
@@ -561,6 +562,8 @@ func (d *Dispatcher) processNextEvent(simSpeed float64) bool {
 func (d *Dispatcher) eventsReader() {
 	d.waitGroup.Add(1)
 	defer d.waitGroup.Done()
+	defer os.RemoveAll(d.socketName) // delete socket file when done.
+	defer d.udpln.Close()
 
 	simplelogger.Debugf("dispatcher listening on socket %s ...", d.socketName)
 	for {
@@ -573,25 +576,23 @@ func (d *Dispatcher) eventsReader() {
 			simplelogger.Fatalf("Connection Accept() failed: %v", err)
 		}
 
-		// Handle the connection in a separate goroutine.
+		// Handle the new connection in a separate goroutine.
 		readTimeout := time.Millisecond * 500
 		go func(conn net.Conn) {
+			defer conn.Close()
 			buf := make([]byte, 4096)
 			myNodeId := 0
 			var myNode *Node = nil
 			for {
 				_ = conn.SetReadDeadline(time.Now().Add(readTimeout))
 				n, err := conn.Read(buf)
-				if d.stopped {
+				if d.stopped || err == io.EOF {
 					break
 				}
 				if errors.Is(err, os.ErrDeadlineExceeded) {
 					continue
 				}
 				if err != nil {
-					if d.GetNode(myNodeId) == nil && d.isDeleted(myNodeId) {
-						break // ignore EOF or other errors for already-deleted node.
-					}
 					simplelogger.Fatalf("Socket read error: %+v", err)
 				}
 				evt := &Event{}
@@ -599,6 +600,7 @@ func (d *Dispatcher) eventsReader() {
 				// First event received should be NodeInfo type. From this, we learn nodeId.
 				if myNodeId == 0 && evt.Type == EventTypeNodeInfo {
 					myNodeId = evt.NodeInfoData.NodeId
+					simplelogger.AssertTrue(myNodeId > 0)
 					myNode = d.GetNode(myNodeId)
 					simplelogger.AssertNotNil(myNode)
 					myNode.conn = conn // also identify the client connection, once.
@@ -606,11 +608,8 @@ func (d *Dispatcher) eventsReader() {
 				evt.NodeId = myNodeId
 				d.eventChan <- evt
 			}
-			_ = conn.Close()
 		}(conn)
 	}
-	_ = d.udpln.Close()
-	os.RemoveAll(d.socketName) // delete socket file when done.
 }
 
 func (d *Dispatcher) advanceNodeTime(node *Node, timestamp uint64, force bool) {
@@ -983,7 +982,7 @@ func (d *Dispatcher) handleStatusPush(srcnode *Node, data string) {
 
 func (d *Dispatcher) AddNode(nodeid NodeId, cfg *NodeConfig) *Node {
 	simplelogger.AssertNil(d.nodes[nodeid])
-	simplelogger.Infof("dispatcher add node %d", nodeid)
+	simplelogger.Debugf("dispatcher add node %d", nodeid)
 	node := newNode(d, nodeid, cfg)
 	d.nodes[nodeid] = node
 	d.alarmMgr.AddNode(nodeid)
@@ -996,28 +995,6 @@ func (d *Dispatcher) AddNode(nodeid NodeId, cfg *NodeConfig) *Node {
 		d.WatchNode(nodeid, d.cfg.DefaultWatchLevel)
 	}
 	return node
-}
-
-// InitNode performs dispatcher Node initialization. For a non-real node, it waits until node's extended address
-// is emitted. This helps OTNS to make sure that the child process is ready to receive UDP events.
-func (d *Dispatcher) InitNode(node *Node) bool {
-	if d.cfg.Real {
-		return true
-	}
-	t0 := time.Now()
-	deadline := t0.Add(time.Second * 300)
-	for node.ExtAddr == InvalidExtAddr && time.Now().Before(deadline) {
-		d.RecvEvents()
-	}
-
-	if node.ExtAddr == InvalidExtAddr {
-		simplelogger.Panicf("expect node %d's extaddr to be valid, but failed", node.Id)
-		return false
-	} else {
-		takeTime := time.Since(t0)
-		simplelogger.Debugf("node %d's extaddr becomes valid in %v", node.Id, takeTime)
-	}
-	return true
 }
 
 func (d *Dispatcher) setNodeRloc16(srcid NodeId, rloc16 uint16) {

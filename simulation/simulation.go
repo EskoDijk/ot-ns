@@ -108,18 +108,23 @@ func (s *Simulation) AddNode(cfg *NodeConfig) (*Node, error) {
 		return nil, errors.Errorf("node %d already exists", nodeid)
 	}
 
+	// creation of the sim/dispatcher nodes
 	simplelogger.Infof("simulation:AddNode: %+v, rawMode=%v", cfg, s.rawMode)
+	s.d.AddNode(nodeid, cfg) // ensure dispatcher-node is present before OT process starts.
 	node, err := newNode(s, nodeid, cfg)
 	if err != nil {
 		simplelogger.Errorf("simulation add node failed: %v", err)
+		s.d.DeleteNode(nodeid)
 		return nil, err
 	}
 	s.nodes[nodeid] = node
 
 	// init of the sim/dispatcher nodes
-	dispNode := s.d.AddNode(nodeid, cfg)
-	s.d.InitNode(dispNode)
-	node.detectVirtualTimeUART()
+	node.uartType = NodeUartTypeVirtualTime
+	s.d.RecvEvents() // allow new node to connect, and to receive its startup events.
+	for s.d.GetAliveCount() > 0 {
+		s.d.RecvEvents()
+	}
 	node.setupMode()
 	if !s.rawMode {
 		initScript := cfg.InitScript

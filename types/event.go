@@ -81,12 +81,12 @@ type Event struct {
 
 // All ...EventData formats below only used by OT nodes supporting advanced
 // RF simulation.
-const AlarmDataHeaderLen = 8 // from OT platform-simulation.h struct
+const AlarmDataHeaderLen = 8 // from OT-RFSIM platform, otSimSendSleepEvent()
 type AlarmEventData struct {
 	MsgId uint64
 }
 
-const RadioCommEventDataHeaderLen = 11 // from OT platform-simulation.h struct
+const RadioCommEventDataHeaderLen = 11 // from OT-RFSIM platform, event-sim.h struct
 type RadioCommEventData struct {
 	Channel  uint8
 	PowerDbm int8
@@ -94,7 +94,7 @@ type RadioCommEventData struct {
 	Duration uint64
 }
 
-const RadioStateEventDataHeaderLen = 5 // from OT platform-simulation.h struct
+const RadioStateEventDataHeaderLen = 5 // from OT-RFSIM platform, event-sim.h struct
 type RadioStateEventData struct {
 	Channel     uint8
 	PowerDbm    int8
@@ -103,18 +103,20 @@ type RadioStateEventData struct {
 	State       RadioStates
 }
 
-const NodeInfoEventDataHeaderLen = 4 //
+const NodeInfoEventDataHeaderLen = 4 // from OT-RFSIM platform, otSimSendNodeInfoEvent()
 type NodeInfoEventData struct {
 	NodeId NodeId
 }
 
 /*
-RadioMessagePsduOffset is the offset of Psdu data in a received OpenThread RadioMessage type.
+RadioMessagePsduOffset is the offset of mPsdu data in a received OpenThread RadioMessage,
+from OT-RFSIM platform, radio.h.
 
-	type RadioMessage struct {
-		Channel       uint8
-		Psdu          byte[]
-	}
+	struct RadioMessage
+	{
+		uint8_t mChannel;
+		uint8_t mPsdu[OT_RADIO_FRAME_MAX_SIZE];
+	} OT_TOOL_PACKED_END;
 */
 const RadioMessagePsduOffset = 1
 

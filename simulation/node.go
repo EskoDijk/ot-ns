@@ -790,16 +790,6 @@ func (node *Node) onUartWrite(data []byte) {
 	_, _ = node.virtualUartPipe.Write(data)
 }
 
-func (node *Node) detectVirtualTimeUART() {
-	// Input newline to both Virtual Time UART and stdin and check where node outputs newline
-	node.S.Dispatcher().SendToUART(node.Id, []byte("\n"))
-	_, _ = node.pipeIn.Write([]byte("\n"))
-
-	node.expectLine("", DefaultCommandTimeout)
-	// UART type should have been correctly set when the new line is received from node
-	simplelogger.AssertTrue(node.uartType != NodeUartTypeUndefined)
-}
-
 func (node *Node) writeToLogFile(line string) {
 	if node.logFile != nil {
 		_, err := node.logFile.WriteString(line + "\n")
