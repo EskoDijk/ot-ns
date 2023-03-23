@@ -30,6 +30,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"io"
 	"math"
 	"math/rand"
 	"net"
@@ -50,7 +51,6 @@ import (
 	. "github.com/openthread/ot-ns/types"
 	"github.com/openthread/ot-ns/visualize"
 	"github.com/simonlingoogle/go-simplelogger"
-	"io"
 )
 
 const (
@@ -203,8 +203,9 @@ func NewDispatcher(ctx *progctx.ProgCtx, cfg *Config, cbHandler CallbackHandler)
 }
 
 func NewUnixSocket(socketId int) (net.Listener, string) {
-	err := os.Mkdir("/tmp/otns", 0777)
-	unixSocketFile := fmt.Sprintf("/tmp/otns/socket_dispatcher_%d", socketId)
+	err := os.MkdirAll("/tmp/otns", 0777)
+	simplelogger.FatalIfError(err, err)
+	unixSocketFile := fmt.Sprintf("/tmp/otns/socket_dispatcher_%d", socketId) // remove old one
 	err = os.RemoveAll(unixSocketFile)
 	simplelogger.FatalIfError(err, err)
 	ln, err := net.Listen("unixpacket", unixSocketFile)
@@ -815,14 +816,12 @@ func (d *Dispatcher) setAlive(nodeid NodeId) {
 	d.aliveNodes[nodeid] = struct{}{}
 }
 
-/*
-func (d *Dispatcher) isAlive(nodeid NodeId) bool {
+func (d *Dispatcher) IsAlive(nodeid NodeId) bool {
 	if _, ok := d.aliveNodes[nodeid]; ok {
 		return true
 	}
 	return false
 }
-*/
 
 func (d *Dispatcher) isDeleted(nodeid NodeId) bool {
 	if _, ok := d.deletedNodes[nodeid]; ok {

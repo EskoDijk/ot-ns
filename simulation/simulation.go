@@ -27,13 +27,12 @@
 package simulation
 
 import (
+	"fmt"
+	"io/fs"
 	"os"
 	"sort"
 	"time"
 
-	"io/fs"
-
-	"fmt"
 	"github.com/openthread/ot-ns/dispatcher"
 	"github.com/openthread/ot-ns/energy"
 	"github.com/openthread/ot-ns/progctx"
@@ -122,8 +121,8 @@ func (s *Simulation) AddNode(cfg *NodeConfig) (*Node, error) {
 	// init of the sim/dispatcher nodes
 	node.uartType = NodeUartTypeVirtualTime
 	s.d.RecvEvents() // allow new node to connect, and to receive its startup events.
-	for s.d.GetAliveCount() > 0 {
-		s.d.RecvEvents()
+	if s.d.IsAlive(nodeid) {
+		simplelogger.Fatalf("simulation AddNode: new node %d did not respond", nodeid)
 	}
 	node.setupMode()
 	if !s.rawMode {
