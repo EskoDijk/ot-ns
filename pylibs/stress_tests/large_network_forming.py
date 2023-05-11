@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Copyright (c) 2020, The OTNS Authors.
+# Copyright (c) 2020-2023, The OTNS Authors.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -31,14 +31,14 @@ import time
 
 from BaseStressTest import BaseStressTest
 
-XGAP = 100
-YGAP = 100
-RADIO_RANGE = int(XGAP * 1.5)
+XGAP = 60
+YGAP = 60
+RADIO_RANGE = int(XGAP * 3)
 
-LARGE_N = 8
-PACKET_LOSS_RATIO = 0.9
+LARGE_N = 12
+PACKET_LOSS_RATIO = 0.1
 
-SIMULATE_TIME = 3600
+SIMULATE_TIME = 600
 REPEAT = max(int(os.getenv('STRESS_LEVEL', '1')) // 2, 1)
 
 
@@ -47,10 +47,11 @@ class StressTest(BaseStressTest):
 
     def __init__(self):
         super(StressTest, self).__init__("Large Network Formation Test",
-                                         ["Simulation Time", "Execution Time", "Average Partition Count in 60s"])
+                                         ["Simulation Time", "Execution Time", "Average Partition Count in %ds" % SIMULATE_TIME ])
 
     def run(self):
         self.ns.packet_loss_ratio = PACKET_LOSS_RATIO
+        self.ns.radiomodel = 'MutualInterference'
 
         durations = []
         partition_counts = []
