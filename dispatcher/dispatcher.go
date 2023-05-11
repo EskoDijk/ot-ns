@@ -863,7 +863,7 @@ func (d *Dispatcher) deleteDisconnectedNodes() {
 			continue
 		}
 		err := d.nodes[nodeid].err
-		simplelogger.Warnf("Deleting dispatcher node %d due to failed socket: %v+", nodeid, err)
+		simplelogger.Warnf("Deleting dispatcher Node %d due to failed socket: %v", nodeid, err)
 		d.DeleteNode(nodeid)
 	}
 }

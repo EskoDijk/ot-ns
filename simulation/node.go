@@ -44,6 +44,7 @@ import (
 	. "github.com/openthread/ot-ns/types"
 	"github.com/pkg/errors"
 	"github.com/simonlingoogle/go-simplelogger"
+	"runtime/debug"
 )
 
 const (
@@ -161,7 +162,7 @@ func (node *Node) SetupNetworkParameters(cfg []string) {
 }
 
 func (node *Node) Start() {
-	simplelogger.Infof("%v - started, panid=0x%04x, channel=%d, eui64=%#v, extaddr=%#v, state=%s, networkkey=%#v, mode=%v", node,
+	simplelogger.Infof("%v - started, panid=0x%04x, chan=%d, eui64=%#v, extaddr=%#v, state=%s, key=%#v, mode=%v", node,
 		node.GetPanid(), node.GetChannel(), node.GetEui64(), node.GetExtAddr(), node.GetState(),
 		node.GetNetworkKey(), node.GetMode())
 }
@@ -229,7 +230,7 @@ func (node *Node) Command(cmd string, timeout time.Duration) []string {
 	var result string
 	output, result = output[:len(output)-1], output[len(output)-1]
 	if result != "Done" {
-		panic(result)
+		simplelogger.Panicf("%v - Unexpected cmd result: %s", node, result)
 	}
 	return output
 }
@@ -625,13 +626,8 @@ func (node *Node) lineReader(reader io.Reader, uartType NodeUartType) {
 		case node.pendingLines <- line:
 			break
 		default:
-			// if we failed to append line, we just read one line to get more space
-			select {
-			case <-node.pendingLines:
-			default:
-			}
-
-			node.pendingLines <- line // won't block here
+			// if we failed to append line, panic - should not happen normally. If so, needs fix.
+			simplelogger.Panicf("%v - node.pendingLines exceeded length %v", node, len(node.pendingLines))
 			break
 		}
 	}
@@ -713,7 +709,8 @@ func (node *Node) TryExpectLine(line interface{}, timeout time.Duration) (bool, 
 func (node *Node) expectLine(line interface{}, timeout time.Duration) []string {
 	found, output := node.TryExpectLine(line, timeout)
 	if !found {
-		simplelogger.Panicf("expect line timeout: %#v", line)
+		debug.PrintStack()
+		simplelogger.Panicf("%v - expect line timeout: %#v", node, line)
 	}
 
 	return output
