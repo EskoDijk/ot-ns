@@ -167,6 +167,13 @@ class OTNS(object):
         """
         self._do_command(f'log {level}')
 
+    @property
+    def time(self) -> str:
+        """
+        :return: current simulation time in microseconds (us)
+        """
+        return self._expect_int(self._do_command(f'time'))
+
     def set_poll_period(self, nodeid: int, period: float) -> None:
         ms = int(period * 1000)
         self.node_cmd(nodeid, f'pollperiod {ms}')

@@ -31,14 +31,15 @@ import time
 
 from BaseStressTest import BaseStressTest
 
-XGAP = 60
-YGAP = 60
-RADIO_RANGE = int(XGAP * 3)
+XGAP = 80
+YGAP = 80
+RADIO_RANGE = int(XGAP * 2.5)
 
 LARGE_N = 11
 PACKET_LOSS_RATIO = 0.08
 
-SIMULATE_TIME = 600
+SIMULATE_TIME_TOTAL = 600
+SIMULATE_TIME_PERIOD = 30
 REPEAT = max(int(os.getenv('STRESS_LEVEL', '1')) // 2, 1)
 
 
@@ -47,7 +48,7 @@ class StressTest(BaseStressTest):
 
     def __init__(self):
         super(StressTest, self).__init__("Large Network Formation Test",
-                                         ["Simulation Time", "Execution Time", "Average Partition Count in %ds" % SIMULATE_TIME ])
+                                         ["Rep", "Simulation Time", "Execution Time", "Partition Count"])
 
     def run(self):
         self.ns.packet_loss_ratio = PACKET_LOSS_RATIO
@@ -55,15 +56,10 @@ class StressTest(BaseStressTest):
 
         durations = []
         partition_counts = []
-        for _ in range(REPEAT):
-            dt, par_cnt = self.test_n(LARGE_N)
-            durations.append(dt)
-            partition_counts.append(par_cnt)
+        for nrep in range(1, REPEAT+1):
+            durations, partition_counts = self.test_n(LARGE_N, durations, partition_counts, nrep)
 
-        self.result.append_row('%ds' % (SIMULATE_TIME * REPEAT), '%ds' % sum(durations),
-                               '%d' % (sum(partition_counts) / len(partition_counts)))
-
-    def test_n(self, n):
+    def test_n(self, n, durations, partition_counts, nrep):
         self.reset()
 
         for r in range(n):
@@ -71,10 +67,18 @@ class StressTest(BaseStressTest):
                 id = self.ns.add("router", 50 + XGAP * c, 50 + YGAP * r, radio_range=RADIO_RANGE)
                 self.ns.node_cmd(id, f'childtimeout {5}')
 
-        t0 = time.time()
-        self.ns.go(SIMULATE_TIME)
-        dt = time.time() - t0
-        return dt, len(self.ns.partitions())
+        for _ in range(SIMULATE_TIME_TOTAL // SIMULATE_TIME_PERIOD):
+            t0 = time.time()
+            self.ns.go(SIMULATE_TIME_PERIOD)
+            dt = time.time() - t0
+
+            durations.append(dt)
+            par_cnt = len(self.ns.partitions())
+            partition_counts.append(par_cnt)
+            sim_time = self.ns.time // 1e6
+            self.result.append_row('%d' % nrep, '%ds' % sim_time, '%ds' % sum(durations), '%d' % par_cnt)
+
+        return durations, partition_counts
 
 
 if __name__ == '__main__':
