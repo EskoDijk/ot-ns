@@ -44,7 +44,6 @@ import (
 	. "github.com/openthread/ot-ns/types"
 	"github.com/pkg/errors"
 	"github.com/simonlingoogle/go-simplelogger"
-	"runtime/debug"
 )
 
 const (
@@ -709,8 +708,8 @@ func (node *Node) TryExpectLine(line interface{}, timeout time.Duration) (bool, 
 func (node *Node) expectLine(line interface{}, timeout time.Duration) []string {
 	found, output := node.TryExpectLine(line, timeout)
 	if !found {
-		debug.PrintStack()
-		simplelogger.Panicf("%v - expect line timeout: %#v", node, line)
+		node.err = errors.Errorf("%v - expect line timeout: %#v", node, line)
+		return []string{}
 	}
 
 	return output
