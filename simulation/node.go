@@ -713,7 +713,8 @@ func (node *Node) TryExpectLine(line interface{}, timeout time.Duration) (bool, 
 func (node *Node) expectLine(line interface{}, timeout time.Duration) []string {
 	found, output := node.TryExpectLine(line, timeout)
 	if !found {
-		simplelogger.Panicf("expect line timeout: %#v", line)
+		node.err = errors.Errorf("expect line timeout: %#v", line)
+		return []string{}
 	}
 
 	return output
