@@ -165,6 +165,10 @@ func (node *Node) IsFailed() bool {
 	return node.isFailed
 }
 
+func (node *Node) IsConnected() bool {
+	return node.conn != nil
+}
+
 func (node *Node) Fail() {
 	if !node.isFailed {
 		node.isFailed = true
