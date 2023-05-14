@@ -53,6 +53,7 @@ class StressTest(BaseStressTest):
     def run(self):
         self.ns.packet_loss_ratio = PACKET_LOSS_RATIO
         self.ns.radiomodel = 'MutualInterference'
+        self.ns.loglevel = 'info'
 
         durations = []
         partition_counts = []
