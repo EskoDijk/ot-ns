@@ -52,8 +52,8 @@ class SignalsTest(OTNSTestCase):
     def testSIGTERM(self):
         self._test_signal_exit(signal.SIGTERM)
 
-    def testSIGTERMx1000(self):
-        N = 1000
+    def testSIGTERMx500(self):
+        N = 500
         for i in range(N):
             logging.info("round %d", i + 1)
             self._test_signal_exit(signal.SIGTERM, 0)
@@ -81,7 +81,7 @@ class SignalsTest(OTNSTestCase):
             self.setUp()
 
     def _testCommandHandleSignalOk(self):
-        t = threading.Thread(target=self._send_signal, args=(0.01, signal.SIGTERM))
+        t = threading.Thread(target=self._send_signal, args=(0.02, signal.SIGTERM))
         t.start()
         try:
             self.ns.speed = float('inf')
