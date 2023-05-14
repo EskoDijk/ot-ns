@@ -148,13 +148,17 @@ class BasicTests(OTNSTestCase):
         id = ns.add("router")
         self.assertTrue(len(ns.nodes()) == 1 and 1 in ns.nodes() and id == 1)
 
-        id = ns.add("router")
-        id = ns.add("router")
+        ns.add("router")
+        ns.add("router")
         id = ns.add("router")
         self.assertTrue(len(ns.nodes()) == 4 and id == 4)
 
-        ns.delete(1,2,3,4)
+        ns.delete(1, 2, 3, 4)
         self.assertTrue(len(ns.nodes()) == 0)
+
+        ns.add("router")
+        id = ns.add("router")
+        self.assertTrue(len(ns.nodes()) == 2 and id == 2)
 
     def testMDREffective(self):
         ns = self.ns
@@ -302,7 +306,7 @@ class BasicTests(OTNSTestCase):
         self.assertNodeState(reed, 'child')
 
         ns.set_router_upgrade_threshold(reed, 2)
-        ns.go(100)
+        ns.go(121)
         self.assertNodeState(reed, 'router')
 
     def testSetRouterDowngradeThreshold(self):
