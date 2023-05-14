@@ -375,7 +375,6 @@ func (d *Dispatcher) goSimulateForDuration(duration goDuration) {
 // It may only process events immediately that are to be executed at time d.CurTime. Future events
 // will need to be queued (scheduled).
 func (d *Dispatcher) handleRecvEvent(evt *Event) {
-
 	nodeid := evt.NodeId
 	node := d.nodes[nodeid]
 
