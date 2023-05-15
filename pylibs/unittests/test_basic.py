@@ -190,7 +190,7 @@ class BasicTests(OTNSTestCase):
         ns = self.ns
         ns.add("router")
         fid = ns.add("router")
-        self.go(10)
+        self.go(20)
         self.assertFormPartitions(1)
 
         ns.radio_off(fid)
@@ -302,7 +302,7 @@ class BasicTests(OTNSTestCase):
 
         reed = ns.add("router")
         ns.set_router_upgrade_threshold(reed, 1)
-        ns.go(100)
+        ns.go(130)
         self.assertNodeState(reed, 'child')
 
         ns.set_router_upgrade_threshold(reed, 2)
