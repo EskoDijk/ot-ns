@@ -159,7 +159,7 @@ func (s *Simulation) Run() {
 	defer s.d.Stop() // backup dispatcher stopper.
 	defer s.Stop()   // backup simulation stopper.
 
-	// run dispatcher in main thread, until exit.
+	// run dispatcher in current thread, until exit.
 	s.ctx.WaitAdd("dispatcher", 1)
 	s.d.Run()
 	s.Stop()   // first exit simulation nodes, then
