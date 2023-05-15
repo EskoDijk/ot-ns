@@ -184,7 +184,7 @@ func NewDispatcher(ctx *progctx.ProgCtx, cfg *Config, cbHandler CallbackHandler)
 		speedStartRealTime: time.Now(),
 		lastVizTime:        time.Unix(0, 0),
 		vis:                vis,
-		taskChan:           make(chan func(), 100),
+		taskChan:           make(chan func(), 100000),
 		watchingNodes:      map[NodeId]struct{}{},
 		goDurationChan:     make(chan goDuration, 1),
 		visOptions:         defaultVisualizationOptions(),
@@ -529,6 +529,7 @@ func (d *Dispatcher) processNextEvent(simSpeed float64) bool {
 	// process (if any) all queued events, that happen at exactly procUntilTime
 	procUntilTime := nextEventTime
 	for nextEventTime <= procUntilTime {
+		d.handleTasks()
 		d.advanceTime(nextEventTime)
 
 		if nextAlarmTime <= nextSendTime {
