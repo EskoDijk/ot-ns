@@ -66,7 +66,7 @@ class StressTest(BaseStressTest):
         for r in range(n):
             for c in range(n):
                 id = self.ns.add("router", 50 + XGAP * c, 50 + YGAP * r, radio_range=RADIO_RANGE)
-                self.ns.node_cmd(id, f'childtimeout {5}')
+                # self.ns.node_cmd(id, f'childtimeout {5}')  # prefer not to modify default childtimeout
 
         for _ in range(SIMULATE_TIME_TOTAL // SIMULATE_TIME_PERIOD):
             t0 = time.time()
