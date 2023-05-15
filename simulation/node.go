@@ -119,7 +119,7 @@ func newNode(s *Simulation, id NodeId, cfg *NodeConfig) (*Node, error) {
 		Id:           id,
 		cfg:          cfg,
 		cmd:          cmd,
-		pendingLines: make(chan string, 100),
+		pendingLines: make(chan string, 10000),
 		uartType:     NodeUartTypeUndefined,
 		logFile:      logFile,
 		err:          nil,
