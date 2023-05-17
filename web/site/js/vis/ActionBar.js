@@ -84,9 +84,6 @@ export default class ActionBar extends VObject {
         this.addButton("SED", "any", "add", (e) => {
             this.actionNewSED(e)
         });
-        this.addButton("Clear", "any", "del", (e) => {
-            this.actionClear(e)
-        });
         // add node context buttons
         this.addButton("Delete", "node", "del", (e) => {
             this.actionDelete(e)
@@ -105,6 +102,9 @@ export default class ActionBar extends VObject {
         });
         this._energyChartOnOffButton = this.addButton("Open Charts", "any", "", (e) => {
             this.actionOpenEnergyWindow()
+        });
+        this.addButton("Delete All", "any", "del", (e) => {
+            this.actionClear(e)
         });
     }
 
