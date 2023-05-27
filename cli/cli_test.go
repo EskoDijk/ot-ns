@@ -1,4 +1,4 @@
-// Copyright (c) 2020-2022, The OTNS Authors.
+// Copyright (c) 2020-2023, The OTNS Authors.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -66,6 +66,12 @@ func TestParseBytes(t *testing.T) {
 	assert.True(t, ParseBytes([]byte("del"), &cmd) != nil)
 
 	assert.True(t, ParseBytes([]byte("demo_legend \"title\" 100 200"), &cmd) == nil && cmd.DemoLegend != nil)
+
+	assert.True(t, ParseBytes([]byte("exe mtd \"MyExecutable_thingy\""), &cmd) == nil && cmd.Exe != nil)
+	assert.True(t, ParseBytes([]byte("exe ftd \"./path/to/my/ot-cli-ftd\""), &cmd) == nil && cmd.Exe != nil)
+	assert.True(t, ParseBytes([]byte("exe br \"./path/to/my/br-script.sh\""), &cmd) == nil && cmd.Exe != nil)
+	assert.True(t, ParseBytes([]byte("exe"), &cmd) == nil && cmd.Exe != nil)
+	assert.True(t, ParseBytes([]byte("exe default"), &cmd) == nil && cmd.Exe != nil)
 
 	assert.True(t, ParseBytes([]byte("exit"), &cmd) == nil && cmd.Exit != nil)
 

@@ -236,6 +236,8 @@ func (rt *CmdRunner) execute(cmd *Command, output io.Writer) {
 		rt.executeTime(cc, cmd.Time)
 	} else if cmd.Help != nil {
 		rt.executeHelp(cc, cmd.Help)
+	} else if cmd.Exe != nil {
+		rt.executeExe(cc, cmd.Exe)
 	} else {
 		simplelogger.Panicf("unimplemented command: %#v", cmd)
 	}
@@ -309,7 +311,7 @@ func (rt *CmdRunner) postAsyncWait(f func(sim *simulation.Simulation)) {
 
 func (rt *CmdRunner) executeAddNode(cc *CommandContext, cmd *AddCmd) {
 	simplelogger.Debugf("Add: %#v", *cmd)
-	cfg := DefaultNodeConfig()
+	cfg := cc.rt.sim.GetConfig().NewNodeConfig // copy current new-node config for simulation, and modify it.
 	if cmd.X != nil {
 		cfg.X = *cmd.X
 	}
@@ -357,7 +359,7 @@ func (rt *CmdRunner) executeAddNode(cc *CommandContext, cmd *AddCmd) {
 	cfg.Restore = cmd.Restore != nil
 
 	rt.postAsyncWait(func(sim *simulation.Simulation) {
-		node, err := sim.AddNode(cfg)
+		node, err := sim.AddNode(&cfg)
 		if err != nil {
 			cc.error(err)
 			return
@@ -949,6 +951,33 @@ func (rt *CmdRunner) executeEnergy(cc *CommandContext, energy *EnergyCmd) {
 		cc.outputf("energy <command>\n")
 		cc.outputf("\tsave [output name]\n")
 	}
+}
+
+func (rt *CmdRunner) executeExe(cc *CommandContext, cmd *ExeCmd) {
+	rt.postAsyncWait(func(sim *simulation.Simulation) {
+		cfg := sim.GetConfig()
+		if len(cmd.Path) > 0 {
+			// set new
+			switch cmd.NodeType {
+			case "ftd":
+				cfg.ExeConfig.Ftd = cmd.Path
+			case "mtd":
+				cfg.ExeConfig.Mtd = cmd.Path
+			case "br":
+				cfg.ExeConfig.Br = cmd.Path
+			}
+		} else {
+			if cmd.NodeType == "default" {
+				// set defaults
+				cfg.ExeConfig.Ftd = simulation.DefaultExecutableConfig.Ftd
+				cfg.ExeConfig.Mtd = simulation.DefaultExecutableConfig.Mtd
+				cfg.ExeConfig.Br = simulation.DefaultExecutableConfig.Br
+			}
+			cc.outputf("ftd: %s\n", cfg.ExeConfig.Ftd)
+			cc.outputf("mtd: %s\n", cfg.ExeConfig.Mtd)
+			cc.outputf("br : %s\n", cfg.ExeConfig.Br)
+		}
+	})
 }
 
 func (rt *CmdRunner) executeHelp(cc *CommandContext, cmd *HelpCmd) {

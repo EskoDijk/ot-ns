@@ -44,6 +44,8 @@ type Command struct {
 	Debug               *DebugCmd               `| @@` //nolint
 	Del                 *DelCmd                 `| @@` //nolint
 	DemoLegend          *DemoLegendCmd          `| @@` //nolint
+	Energy              *EnergyCmd              `| @@` //nolint
+	Exe                 *ExeCmd                 `| @@` //nolint
 	Exit                *ExitCmd                `| @@` //nolint
 	Go                  *GoCmd                  `| @@` //nolint
 	Help                *HelpCmd                `| @@` //nolint
@@ -66,7 +68,6 @@ type Command struct {
 	Unwatch             *UnwatchCmd             `| @@` //nolint
 	Watch               *WatchCmd               `| @@` //nolint
 	Web                 *WebCmd                 `| @@` //nolint
-	Energy              *EnergyCmd              `| @@` //nolint
 }
 
 // noinspection GoStructTag
@@ -349,6 +350,13 @@ type EnergyCmd struct {
 // noinspection GoStructTag
 type SaveFlag struct {
 	Dummy struct{} `"save"` //nolint
+}
+
+// noinspection GoStructTag
+type ExeCmd struct {
+	Cmd      struct{} `"exe"`                             //nolint
+	NodeType string   `[ @("ftd"|"mtd"|"br"|"default") ]` //nolint
+	Path     string   `[ @String ]`                       //nolint
 }
 
 // noinspection GoStructTag

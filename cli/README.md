@@ -13,6 +13,7 @@ Python libraries use the CLI to manage simulations.
 * [cv](#cv-option-onoff-)
 * [del](#del-node-id-node-id-)
 * [energy](#energy-save--filename-)
+* [exe](#exe)
 * [exit](#exit)
 * [go](#go-duration-speed-particular-speed)
 * [help](#help)
@@ -34,8 +35,6 @@ Python libraries use the CLI to manage simulations.
 * [title](#title-string)
 * [unwatch](#unwatch-node-id-node-id-)
 * [watch](#watch-node-id-node-id-)
-   * [watch \<nodeid\> \<LogLevel\>](#watch-node-id-node-id--loglevel)
-   * [watch default \<LogLevel\>](#watch-default-loglevel)
 * [web](#web)
 
 ## OTNS command reference
@@ -164,6 +163,59 @@ Done
 > exit
 Done
 <EOF>
+```
+
+### exe
+
+Use 'exe' without arguments to list the OpenThread (OT) executables, or shell scripts, that are preconfigured for each 
+of the node types
+FTD (Full Thread Device), MTD (Minimal Thread Device) and BR (Thread Border Router). When a new node is created the
+executable currently in this list is used to start a node instance of the respective node type.
+
+```bash
+> exe
+ftd: ./ot-cli-ftd
+mtd: ./ot-cli-ftd
+br : ./otbr-sim.sh
+Done
+>  
+```
+
+### exe default
+
+Set all OpenThread (OT) executables, or shell scripts, for all node types back to the default values that OT-NS uses.
+
+```bash
+> exe default
+ftd: ./ot-cli-ftd
+mtd: ./ot-cli-ftd
+br : ./otbr-sim.sh
+Done
+>
+```
+
+### exe \( ftd | mtd | br \) "\<path-to-executable\>"
+
+Change the OpenThread (OT) executable, or shell script, for a particular node types as provided in the first 
+argument (ftd, mtd, or br). The path-to-executable is provided in the second argument and will replace the current 
+default executable for that node type.
+
+Note that the default executable is used when normally adding a node using the GUI or a command such as 
+```add router x 200 y 200``` where the executable is not explictly specified. The "exe" argument of the "add" command 
+will however override the default executable always, for example as in the command 
+```add router x 200 y 200 exe "./my-ot-cli-ftd"``` .
+
+```bash
+> exe ftd "./my-ot-cli-ftd"
+Done
+> exe br "./br-script.sh"
+Done
+> exe
+ftd: ./my-ot-cli-ftd
+mtd: ./ot-cli-ftd
+br : ./br-script.sh
+Done
+>
 ```
 
 ### go \<duration\> \[speed \<particular-speed\>\]

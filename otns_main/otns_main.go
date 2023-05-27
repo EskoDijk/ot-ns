@@ -37,28 +37,18 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/openthread/ot-ns/cli/runcli"
-
-	"github.com/openthread/ot-ns/threadconst"
-
-	"github.com/openthread/ot-ns/dispatcher"
-
-	webSite "github.com/openthread/ot-ns/web/site"
-
-	"github.com/openthread/ot-ns/web"
-
-	"github.com/pkg/errors"
-
-	"github.com/openthread/ot-ns/progctx"
-	"github.com/openthread/ot-ns/visualize"
-
-	visualizeGrpc "github.com/openthread/ot-ns/visualize/grpc"
-
-	visualizeMulti "github.com/openthread/ot-ns/visualize/multi"
-
 	"github.com/openthread/ot-ns/cli"
-
+	"github.com/openthread/ot-ns/cli/runcli"
+	"github.com/openthread/ot-ns/dispatcher"
+	"github.com/openthread/ot-ns/progctx"
 	"github.com/openthread/ot-ns/simulation"
+	"github.com/openthread/ot-ns/threadconst"
+	"github.com/openthread/ot-ns/visualize"
+	visualizeGrpc "github.com/openthread/ot-ns/visualize/grpc"
+	visualizeMulti "github.com/openthread/ot-ns/visualize/multi"
+	"github.com/openthread/ot-ns/web"
+	webSite "github.com/openthread/ot-ns/web/site"
+	"github.com/pkg/errors"
 	"github.com/simonlingoogle/go-simplelogger"
 )
 
@@ -90,10 +80,10 @@ func parseArgs() {
 	defaultOtCli := os.Getenv("OTNS_OT_CLI")
 	defaultOtCliMtd := os.Getenv("OTNS_OT_CLI_MTD")
 	if defaultOtCli == "" {
-		defaultOtCli = "./ot-cli-ftd"
+		defaultOtCli = simulation.DefaultExecutableConfig.Ftd
 	}
 	if defaultOtCliMtd == "" {
-		defaultOtCliMtd = defaultOtCli // use same binary for FTD/MTD by default.
+		defaultOtCliMtd = simulation.DefaultExecutableConfig.Mtd
 	}
 
 	flag.StringVar(&args.Speed, "speed", "1", "set simulating speed")
@@ -247,8 +237,9 @@ func createSimulation(ctx *progctx.ProgCtx) *simulation.Simulation {
 	var err error
 
 	simcfg := simulation.DefaultConfig()
-	simcfg.OtCliFtdPath = args.OtCliPath
-	simcfg.OtCliMtdPath = args.OtCliMtdPath
+	simcfg.ExeConfig.Ftd = args.OtCliPath
+	simcfg.ExeConfig.Mtd = args.OtCliMtdPath
+	simcfg.NewNodeConfig.InitScript = simulation.DefaultNodeInitScript
 
 	args.Speed = strings.ToLower(args.Speed)
 	if args.Speed == "max" {

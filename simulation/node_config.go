@@ -27,61 +27,31 @@
 package simulation
 
 import (
-	"fmt"
-
-	"github.com/openthread/ot-ns/threadconst"
 	. "github.com/openthread/ot-ns/types"
 )
 
-const (
-	DefaultNetworkName = "OTSIM"
-	DefaultNetworkKey  = "00112233445566778899aabbccddeeff"
-	DefaultPanid       = 0xface
-	DefaultChannel     = 11
-)
-
-// DefaultNodeInitScript is an array of commands, sent to a new node by default (unless changed).
-var DefaultNodeInitScript = []string{
-	"networkname " + DefaultNetworkName,
-	"networkkey " + DefaultNetworkKey,
-	fmt.Sprintf("panid 0x%x", DefaultPanid),
-	fmt.Sprintf("channel %d", DefaultChannel),
-	//"routerselectionjitter 1", // jitter can be set to '1' to speed up network formation for realtime tests.
-	"ifconfig up",
-	"thread start",
+type ExecutableConfig struct {
+	Ftd string
+	Mtd string
+	Br  string
 }
 
-type Config struct {
-	InitScript     []string
-	ExeConfig      ExecutableConfig
-	NewNodeConfig  NodeConfig
-	Speed          float64
-	ReadOnly       bool
-	RawMode        bool
-	Real           bool
-	AutoGo         bool
-	DispatcherHost string
-	DispatcherPort int
-	DumpPackets    bool
-	RadioModel     string
-	Id             int
-	Channel        ChannelId
+var DefaultExecutableConfig ExecutableConfig = ExecutableConfig{
+	Ftd: "./ot-cli-ftd",
+	Mtd: "./ot-cli-ftd",
+	Br:  "./otbr-sim.sh",
 }
 
-func DefaultConfig() *Config {
-	return &Config{
-		InitScript:     DefaultNodeInitScript,
-		ExeConfig:      DefaultExecutableConfig,
-		NewNodeConfig:  DefaultNodeConfig(),
-		Speed:          1,
-		ReadOnly:       false,
-		RawMode:        false,
-		Real:           false,
-		AutoGo:         true,
-		DispatcherHost: "localhost",
-		DispatcherPort: threadconst.InitialDispatcherPort,
-		RadioModel:     "Ideal_Rssi",
-		Id:             0,
-		Channel:        DefaultChannel,
+func DetermineExecutableBasedOnConfig(nodeCfg *NodeConfig, executableCfg *ExecutableConfig) string {
+	if nodeCfg.IsRouter {
+		return executableCfg.Ftd
 	}
+	if nodeCfg.IsMtd {
+		return executableCfg.Mtd
+	}
+	if nodeCfg.IsBorderRouter {
+		return executableCfg.Br
+	}
+	// FED or other type.
+	return executableCfg.Ftd
 }

@@ -1,4 +1,4 @@
-// Copyright (c) 2020-2022, The OTNS Authors.
+// Copyright (c) 2020-2023, The OTNS Authors.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,6 +26,12 @@
 
 package types
 
+const (
+	DefaultRadioRange = 160
+)
+
+// NodeConfig is a generic config for a new simulated node (used in dispatcher, simulation, radiomodel,
+// ... packages).
 type NodeConfig struct {
 	ID             int
 	X, Y           int
@@ -39,8 +45,8 @@ type NodeConfig struct {
 	InitScript     []string
 }
 
-func DefaultNodeConfig() *NodeConfig {
-	return &NodeConfig{
+func DefaultNodeConfig() NodeConfig {
+	return NodeConfig{
 		ID:             -1, // -1 for the next available nodeid
 		X:              0,
 		Y:              0,
@@ -48,9 +54,9 @@ func DefaultNodeConfig() *NodeConfig {
 		IsMtd:          false,
 		IsBorderRouter: false,
 		RxOffWhenIdle:  false,
-		RadioRange:     160,
-		ExecutablePath: "", // empty string means 'use simulation default'
+		RadioRange:     DefaultRadioRange,
+		ExecutablePath: "",
 		Restore:        false,
-		InitScript:     []string{}, // empty means 'use simulation default'
+		InitScript:     nil,
 	}
 }
