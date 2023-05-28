@@ -350,7 +350,7 @@ func NewOtnsTest(t *testing.T) *OtnsTest {
 		pendingVisualizeEvents: make(chan *visualize_grpc_pb.VisualizeEvent, 1000),
 	}
 
-	os.Args = append(os.Args, "-log", "info", "-web=false", "-autogo=false", "-watch", "info")
+	os.Args = append(os.Args, "-log", "debug", "-web=false", "-autogo=false", "-watch", "info")
 
 	_ = os.Remove(stdinPipeFile)
 	_ = os.Remove(stdoutPipeFile)

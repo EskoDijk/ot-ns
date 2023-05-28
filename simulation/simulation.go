@@ -127,9 +127,8 @@ func (s *Simulation) AddNode(cfg *NodeConfig) (*Node, error) {
 
 	if s.ctx.Err() == nil { // only proceed with node if we're not exiting the simulation.
 		if !dnode.IsConnected() {
-			simplelogger.Errorf("simulation AddNode: new node %d did not respond (evtCnt=%d)", nodeid, evtCnt)
-			s.d.DeleteNode(nodeid)
-			return nil, err
+			_ = s.DeleteNode(nodeid)
+			return nil, errors.Errorf("simulation AddNode: new node %d did not respond (evtCnt=%d)", nodeid, evtCnt)
 		}
 		node.setupMode()
 		if !s.rawMode {

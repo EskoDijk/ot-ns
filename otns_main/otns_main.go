@@ -79,11 +79,13 @@ var (
 func parseArgs() {
 	defaultOtCli := os.Getenv("OTNS_OT_CLI")
 	defaultOtCliMtd := os.Getenv("OTNS_OT_CLI_MTD")
-	if defaultOtCli == "" {
+	if defaultOtCli == "" && defaultOtCliMtd == "" {
 		defaultOtCli = simulation.DefaultExecutableConfig.Ftd
-	}
-	if defaultOtCliMtd == "" {
 		defaultOtCliMtd = simulation.DefaultExecutableConfig.Mtd
+	} else if defaultOtCliMtd == "" {
+		defaultOtCliMtd = defaultOtCli // use same CLI for MTD, by default. FTD can simulate being MTD.
+	} else if defaultOtCli == "" {
+		defaultOtCli = simulation.DefaultExecutableConfig.Ftd // only use custom MTD, not FTD.
 	}
 
 	flag.StringVar(&args.Speed, "speed", "1", "set simulating speed")
