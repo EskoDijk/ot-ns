@@ -172,8 +172,10 @@ func Main(ctx *progctx.ProgCtx, visualizerCreator func(ctx *progctx.ProgCtx, arg
 	go func() {
 		siteAddr := fmt.Sprintf("%s:%d", args.DispatcherHost, args.DispatcherPort-3)
 		err := webSite.Serve(siteAddr) // blocks until webSite.StopServe() called
-		if err != nil {
-			simplelogger.Errorf("site quited: %+v, OTNS-Web won't be available!", err)
+		if err != nil && ctx.Err() == nil {
+			simplelogger.Errorf("website stopped unexpectedly: %+v, OTNS-Web won't be available!", err)
+		} else if err != nil {
+			simplelogger.Debugf("website stopped while exiting: %+v", err)
 		}
 	}()
 	defer webSite.StopServe()
