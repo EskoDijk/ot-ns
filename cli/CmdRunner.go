@@ -972,6 +972,11 @@ func (rt *CmdRunner) executeExe(cc *CommandContext, cmd *ExeCmd) {
 				cfg.ExeConfig.Ftd = simulation.DefaultExecutableConfig.Ftd
 				cfg.ExeConfig.Mtd = simulation.DefaultExecutableConfig.Mtd
 				cfg.ExeConfig.Br = simulation.DefaultExecutableConfig.Br
+			} else if len(cmd.NodeType) > 0 {
+				// set executables to that of a named version
+				cfg.ExeConfig.Ftd = simulation.GetExecutableForThreadVersion(cmd.NodeType)
+				cfg.ExeConfig.Mtd = cfg.ExeConfig.Ftd
+				cfg.ExeConfig.Br = simulation.DefaultExecutableConfig.Br
 			}
 			cc.outputf("ftd: %s\n", cfg.ExeConfig.Ftd)
 			cc.outputf("mtd: %s\n", cfg.ExeConfig.Mtd)

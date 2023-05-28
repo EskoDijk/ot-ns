@@ -42,6 +42,10 @@ var DefaultExecutableConfig ExecutableConfig = ExecutableConfig{
 	Br:  "./otbr-sim.sh",
 }
 
+func GetExecutableForThreadVersion(version string) string {
+	return "./ot-versions/ot-cli-ftd_" + version
+}
+
 func DetermineExecutableBasedOnConfig(nodeCfg *NodeConfig, executableCfg *ExecutableConfig) string {
 	if nodeCfg.IsRouter {
 		return executableCfg.Ftd

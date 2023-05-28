@@ -72,6 +72,7 @@ func TestParseBytes(t *testing.T) {
 	assert.True(t, ParseBytes([]byte("exe br \"./path/to/my/br-script.sh\""), &cmd) == nil && cmd.Exe != nil)
 	assert.True(t, ParseBytes([]byte("exe"), &cmd) == nil && cmd.Exe != nil)
 	assert.True(t, ParseBytes([]byte("exe default"), &cmd) == nil && cmd.Exe != nil)
+	assert.True(t, ParseBytes([]byte("exe v120"), &cmd) == nil && cmd.Exe != nil)
 
 	assert.True(t, ParseBytes([]byte("exit"), &cmd) == nil && cmd.Exit != nil)
 

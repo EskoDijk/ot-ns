@@ -354,9 +354,9 @@ type SaveFlag struct {
 
 // noinspection GoStructTag
 type ExeCmd struct {
-	Cmd      struct{} `"exe"`                             //nolint
-	NodeType string   `[ @("ftd"|"mtd"|"br"|"default") ]` //nolint
-	Path     string   `[ @String ]`                       //nolint
+	Cmd      struct{} `"exe"`                                                                         //nolint
+	NodeType string   `[ @("ftd"|"mtd"|"br"|"default"| "v110" | "v111" | "v120" | "v121" | "v130") ]` //nolint
+	Path     string   `[ @String ]`                                                                   //nolint
 }
 
 // noinspection GoStructTag

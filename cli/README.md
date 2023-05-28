@@ -181,9 +181,12 @@ Done
 >  
 ```
 
-### exe default
+### exe (default | v110 | v111 | v120 | v121 | v130 )
 
-Set all OpenThread (OT) executables, or shell scripts, for all node types back to the default values that OT-NS uses.
+Set all OpenThread (OT) executables, or shell scripts, for all node types to particular defaults. Value `default` will 
+use the OT-NS default executables which is OpenThread as built by the user and placed in the `.` directory from 
+where the simulator is run. Values starting with `v` will use the pre-built binary of the specific indicated Thread 
+version, e.g. `v120` denotes Thread v1.2.0. 
 
 ```bash
 > exe default
