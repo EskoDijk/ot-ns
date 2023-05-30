@@ -296,7 +296,7 @@ type RestoreFlag struct {
 
 // noinspection GoStructTag
 type ThreadVersion struct {
-	Val string `@("v110"|"v111"|"v120"|"v121"|"v130"|"v11"|"v12"|"v13")` //nolint
+	Val string `@("v11"|"v12")` //nolint
 }
 
 // noinspection GoStructTag

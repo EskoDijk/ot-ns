@@ -47,16 +47,7 @@ var DefaultExecutableConfig ExecutableConfig = ExecutableConfig{
 
 // GetExecutableForThreadVersion gets the prebuilt executable for given Thread version string as in cli.ThreadVersion
 func GetExecutableForThreadVersion(version string) string {
-	simplelogger.AssertTrue(strings.HasPrefix(version, "v1"))
-	simplelogger.AssertTrue(len(version) == 3 || len(version) == 4)
-	switch version {
-	case "v11":
-		version = "v111"
-	case "v12":
-		version = "v121"
-	case "v13":
-		version = "v130"
-	}
+	simplelogger.AssertTrue(strings.HasPrefix(version, "v1") && len(version) == 3)
 	return "./ot-versions/ot-cli-ftd_" + version
 }
 
