@@ -319,28 +319,29 @@ func (rt *CmdRunner) executeAddNode(cc *CommandContext, cmd *AddCmd) {
 		cfg.Y = *cmd.Y
 	}
 
-	if cmd.Type.Val == "router" {
+	switch cmd.Type.Val {
+	case "router", "reed", "ftd":
 		cfg.IsRouter = true
 		cfg.IsMtd = false
 		cfg.RxOffWhenIdle = false
-	} else if cmd.Type.Val == "fed" {
+	case "fed":
 		cfg.IsRouter = false
 		cfg.IsMtd = false
 		cfg.RxOffWhenIdle = false
-	} else if cmd.Type.Val == "med" {
+	case "med", "mtd":
 		cfg.IsRouter = false
 		cfg.IsMtd = true
 		cfg.RxOffWhenIdle = false
-	} else if cmd.Type.Val == "sed" {
+	case "sed", "ssed":
 		cfg.IsRouter = false
 		cfg.IsMtd = true
 		cfg.RxOffWhenIdle = true
-	} else if cmd.Type.Val == "br" {
+	case "br":
 		cfg.IsRouter = true
 		cfg.IsMtd = false
 		cfg.IsBorderRouter = true
 		cfg.RxOffWhenIdle = false
-	} else {
+	default:
 		simplelogger.Panicf("wrong node type: %s", cmd.Type.Val)
 	}
 
@@ -354,6 +355,8 @@ func (rt *CmdRunner) executeAddNode(cc *CommandContext, cmd *AddCmd) {
 
 	if cmd.Executable != nil {
 		cfg.ExecutablePath = cmd.Executable.Path
+	} else if cmd.Version != nil {
+		cfg.ExecutablePath = simulation.GetExecutableForThreadVersion(cmd.Version.Val)
 	}
 
 	cfg.Restore = cmd.Restore != nil
@@ -753,7 +756,7 @@ func (rt *CmdRunner) executeWatch(cc *CommandContext, cmd *WatchCmd) {
 			// variant: 'watch <level>'
 			// Do nothing here. <level> was processed above as 'watchLogLevel'.
 		} else {
-			cc.errorf("unsupported combination of command options")
+			cc.errorf("watch: unsupported combination of command options")
 			return
 		}
 
@@ -956,32 +959,51 @@ func (rt *CmdRunner) executeEnergy(cc *CommandContext, energy *EnergyCmd) {
 func (rt *CmdRunner) executeExe(cc *CommandContext, cmd *ExeCmd) {
 	rt.postAsyncWait(func(sim *simulation.Simulation) {
 		cfg := sim.GetConfig()
-		if len(cmd.Path) > 0 {
-			// set new
-			switch cmd.NodeType {
-			case "ftd":
-				cfg.ExeConfig.Ftd = cmd.Path
-			case "mtd":
-				cfg.ExeConfig.Mtd = cmd.Path
+		isSetDefault := cmd.Default != nil
+		isSetNodeType := len(cmd.NodeType.Val) > 0
+		isSetVersion := len(cmd.Version.Val) > 0
+		isSetPath := len(cmd.Path) > 0
+
+		if isSetNodeType {
+			// get or set the exe per individual node type.
+			switch cmd.NodeType.Val {
+			case "ftd", "router", "reed", "fed":
+				if isSetPath {
+					cfg.ExeConfig.Ftd = cmd.Path
+				}
+				cc.outputf("ftd: %s\n", cfg.ExeConfig.Ftd)
+			case "mtd", "med", "sed", "ssed":
+				if isSetPath {
+					cfg.ExeConfig.Mtd = cmd.Path
+				}
+				cc.outputf("mtd: %s\n", cfg.ExeConfig.Mtd)
 			case "br":
-				cfg.ExeConfig.Br = cmd.Path
+				if isSetPath {
+					cfg.ExeConfig.Br = cmd.Path
+				}
+				cc.outputf("br : %s\n", cfg.ExeConfig.Br)
 			}
+			return
+		} else if isSetDefault && !isSetPath && !isSetNodeType && !isSetVersion {
+			// set defaults for all node types.
+			cfg.ExeConfig.Ftd = simulation.DefaultExecutableConfig.Ftd
+			cfg.ExeConfig.Mtd = simulation.DefaultExecutableConfig.Mtd
+			cfg.ExeConfig.Br = simulation.DefaultExecutableConfig.Br
+		} else if isSetVersion && !isSetPath {
+			// set executables to that of a named version for all node types except br.
+			cfg.ExeConfig.Ftd = simulation.GetExecutableForThreadVersion(cmd.Version.Val)
+			cfg.ExeConfig.Mtd = cfg.ExeConfig.Ftd
+			cfg.ExeConfig.Br = simulation.DefaultExecutableConfig.Br
+		} else if !isSetDefault && !isSetNodeType && !isSetVersion && !isSetPath {
+			// display the exe output list.
 		} else {
-			if cmd.NodeType == "default" {
-				// set defaults
-				cfg.ExeConfig.Ftd = simulation.DefaultExecutableConfig.Ftd
-				cfg.ExeConfig.Mtd = simulation.DefaultExecutableConfig.Mtd
-				cfg.ExeConfig.Br = simulation.DefaultExecutableConfig.Br
-			} else if len(cmd.NodeType) > 0 {
-				// set executables to that of a named version
-				cfg.ExeConfig.Ftd = simulation.GetExecutableForThreadVersion(cmd.NodeType)
-				cfg.ExeConfig.Mtd = cfg.ExeConfig.Ftd
-				cfg.ExeConfig.Br = simulation.DefaultExecutableConfig.Br
-			}
-			cc.outputf("ftd: %s\n", cfg.ExeConfig.Ftd)
-			cc.outputf("mtd: %s\n", cfg.ExeConfig.Mtd)
-			cc.outputf("br : %s\n", cfg.ExeConfig.Br)
+			cc.errorf("exe: unsupported combination of command options")
+			return
 		}
+
+		cc.outputf("ftd: %s\n", cfg.ExeConfig.Ftd)
+		cc.outputf("mtd: %s\n", cfg.ExeConfig.Mtd)
+		cc.outputf("br : %s\n", cfg.ExeConfig.Br)
 	})
 }
 

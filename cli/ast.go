@@ -264,13 +264,24 @@ type TitleCmd struct {
 // noinspection GoStructTag
 type AddCmd struct {
 	Cmd        struct{}        `"add"`                //nolint
-	Type       NodeType        `@@`                   //nolint
+	Type       NodeTypeOrRole  `@@`                   //nolint
 	X          *int            `( "x" (@Int|@Float) ` //nolint
 	Y          *int            `| "y" (@Int|@Float) ` //nolint
 	Id         *AddNodeId      `| @@`                 //nolint
 	RadioRange *RadioRangeFlag `| @@`                 //nolint
 	Restore    *RestoreFlag    `| @@`                 //nolint
+	Version    *ThreadVersion  `| @@`                 //nolint
 	Executable *ExecutableFlag `| @@ )*`              //nolint
+}
+
+// noinspection GoStructTag
+type NodeTypeOrRole struct {
+	Val string `@("router"|"reed"|"fed"|"med"|"sed"|"ssed"|"br"|"mtd"|"ftd")` //nolint
+}
+
+// noinspection GoStructTag
+type AddNodeId struct {
+	Val int `"id" @Int` //nolint
 }
 
 // noinspection GoStructTag
@@ -284,6 +295,11 @@ type RestoreFlag struct {
 }
 
 // noinspection GoStructTag
+type ThreadVersion struct {
+	Val string `@("v110"|"v111"|"v120"|"v121"|"v130"|"v11"|"v12"|"v13")` //nolint
+}
+
+// noinspection GoStructTag
 type ExecutableFlag struct {
 	Dummy struct{} `"exe"`   //nolint
 	Path  string   `@String` //nolint
@@ -292,16 +308,6 @@ type ExecutableFlag struct {
 // noinspection MaxSpeedFlag
 type MaxSpeedFlag struct {
 	Dummy struct{} `( "max" | "inf")` //nolint
-}
-
-// noinspection GoStructTag
-type NodeType struct {
-	Val string `@("router"|"fed"|"med"|"sed"|"br")` //nolint
-}
-
-// noinspection GoStructTag
-type AddNodeId struct {
-	Val int `"id" @Int` //nolint
 }
 
 // noinspection GoStructTag
@@ -354,9 +360,16 @@ type SaveFlag struct {
 
 // noinspection GoStructTag
 type ExeCmd struct {
-	Cmd      struct{} `"exe"`                                                                         //nolint
-	NodeType string   `[ @("ftd"|"mtd"|"br"|"default"| "v110" | "v111" | "v120" | "v121" | "v130") ]` //nolint
-	Path     string   `[ @String ]`                                                                   //nolint
+	Cmd      struct{}       `"exe"`       //nolint
+	NodeType NodeTypeOrRole `( @@`        //nolint
+	Default  *DefaultFlag   `| @@`        //nolint
+	Version  ThreadVersion  `| @@ )?`     //nolint
+	Path     string         `[ @String ]` //nolint
+}
+
+// noinspection GoStructTag
+type DefaultFlag struct {
+	Dummy struct{} `"default"` //nolint
 }
 
 // noinspection GoStructTag

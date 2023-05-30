@@ -181,11 +181,11 @@ Done
 >  
 ```
 
-### exe (default | v110 | v111 | v120 | v121 | v130 )
+### exe (default | v11 | v12 | v13 | v110 | v111 | v120 | v121 | v130 )
 
 Set all OpenThread (OT) executables, or shell scripts, for all node types to particular defaults. Value `default` will 
 use the OT-NS default executables which is OpenThread as built by the user and placed in the `.` directory from 
-where the simulator is run. Values starting with `v` will use the pre-built binary of the specific indicated Thread 
+where the simulator is run. Values starting with `v1` will use the pre-built binary of the specific indicated Thread 
 version, e.g. `v120` denotes Thread v1.2.0. 
 
 ```bash
@@ -197,16 +197,17 @@ Done
 >
 ```
 
-### exe \( ftd | mtd | br \) "\<path-to-executable\>"
+### exe \( ftd | mtd | br \) \["\<path-to-executable\>"\]
 
 Change the OpenThread (OT) executable, or shell script, for a particular node types as provided in the first 
 argument (ftd, mtd, or br). The path-to-executable is provided in the second argument and will replace the current 
-default executable for that node type.
+default executable for that node type. If only the first argument is given, the current executable for this node 
+type will be listed.
 
 Note that the default executable is used when normally adding a node using the GUI or a command such as 
 ```add router x 200 y 200``` where the executable is not explictly specified. The "exe" argument of the "add" command 
 will however override the default executable always, for example as in the command 
-```add router x 200 y 200 exe "./my-ot-cli-ftd"``` .
+```add router x 200 y 200 exe "./my-override-ot-cli-ftd"``` .
 
 ```bash
 > exe ftd "./my-ot-cli-ftd"
@@ -218,7 +219,9 @@ ftd: ./my-ot-cli-ftd
 mtd: ./ot-cli-ftd
 br : ./br-script.sh
 Done
->
+> exe mtd
+mtd: ./ot-cli-ftd
+Done
 ```
 
 ### go \<duration\> \[speed \<particular-speed\>\]
