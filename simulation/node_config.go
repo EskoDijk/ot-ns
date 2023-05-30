@@ -48,7 +48,7 @@ var DefaultExecutableConfig ExecutableConfig = ExecutableConfig{
 // GetExecutableForThreadVersion gets the prebuilt executable for given Thread version string as in cli.ThreadVersion
 func GetExecutableForThreadVersion(version string) string {
 	simplelogger.AssertTrue(strings.HasPrefix(version, "v1") && len(version) == 3)
-	return "./ot-versions/ot-cli-ftd_" + version
+	return "./ot-rfsim/ot-versions/ot-cli-ftd_" + version
 }
 
 func DetermineExecutableBasedOnConfig(nodeCfg *NodeConfig, executableCfg *ExecutableConfig) string {
