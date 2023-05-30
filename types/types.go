@@ -80,6 +80,7 @@ const (
 	AddrTypeAny       AddrType = "any"
 	AddrTypeMleid     AddrType = "mleid"
 	AddrTypeRloc      AddrType = "rloc"
+	AddrTypeAloc      AddrType = "aloc"
 	AddrTypeLinkLocal AddrType = "linklocal"
 )
 
