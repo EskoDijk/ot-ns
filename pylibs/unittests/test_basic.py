@@ -413,7 +413,8 @@ class BasicTests(OTNSTestCase):
         ns.go(10)
         self.assertTrue(len(ns.nodes()) == 3)
 
-        ns._do_command("exe v120")
+        ns._do_command("exe v11")
+        ns._do_command("exe v12")
 
 if __name__ == '__main__':
     unittest.main()
