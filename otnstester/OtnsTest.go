@@ -161,10 +161,16 @@ func (ot *OtnsTest) SetSpeed(speed int) {
 	ot.expectDone()
 }
 
+func (ot *OtnsTest) Start(testFunc string) {
+	ot.Reset()
+	simplelogger.Infof("Go test Start(): %v", testFunc)
+}
+
 func (ot *OtnsTest) Reset() {
 	ot.SetSpeed(dispatcher.MaxSimulateSpeed)
 	ot.SetPacketLossRatio(0)
 	ot.RemoveAllNodes()
+	ot.Go(time.Second)
 }
 
 func (ot *OtnsTest) SetPacketLossRatio(ratio float32) {
