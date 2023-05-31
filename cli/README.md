@@ -40,11 +40,17 @@ Python libraries use the CLI to manage simulations.
 ## OTNS command reference
 
 
-### add \<type\> \[x \<x\>\] \[y \<y\>\] \[rr \<radio-range\>\] \[id \<node-id\>\] \[restore\]
+### add \<type\> \[x \<x\>\] \[y \<y\>\] \[rr \<radio-range\>\] \[id \<node-id\>\] \[restore\] \[exe \<path\>\] \[v11 | v12\]
 
-Add a node to the simulation and get the node ID. Node ID can be specified, otherwise OTNS assigns the next available one.
+Add a node to the simulation and get the node ID. Node ID can be specified, otherwise OTNS assigns the next available 
+one.
 
 If `restore` option is specified, the node restores its network configuration from persistent storage.
+
+The (advanced) `exe` option can be used to specify a node executable for the new node; however the `exe` command is 
+better used for this.
+The options `v11` and `v12` are a quick way to add a legacy Thread v1.1 or v1.2 node. This only works if the binaries 
+for these nodes have been built using the build scripts in the `ot-rfsim` submodule.
 
 ```bash
 > add router
