@@ -320,23 +320,23 @@ func (rt *CmdRunner) executeAddNode(cc *CommandContext, cmd *AddCmd) {
 	}
 
 	switch cmd.Type.Val {
-	case "router", "reed", "ftd":
+	case ROUTER, REED, FTD:
 		cfg.IsRouter = true
 		cfg.IsMtd = false
 		cfg.RxOffWhenIdle = false
-	case "fed":
+	case FED:
 		cfg.IsRouter = false
 		cfg.IsMtd = false
 		cfg.RxOffWhenIdle = false
-	case "med", "mtd":
+	case MED, MTD:
 		cfg.IsRouter = false
 		cfg.IsMtd = true
 		cfg.RxOffWhenIdle = false
-	case "sed", "ssed":
+	case SED, SSED:
 		cfg.IsRouter = false
 		cfg.IsMtd = true
 		cfg.RxOffWhenIdle = true
-	case "br":
+	case BR:
 		cfg.IsRouter = true
 		cfg.IsMtd = false
 		cfg.IsBorderRouter = true
@@ -967,17 +967,17 @@ func (rt *CmdRunner) executeExe(cc *CommandContext, cmd *ExeCmd) {
 		if isSetNodeType {
 			// get or set the exe per individual node type.
 			switch cmd.NodeType.Val {
-			case "ftd", "router", "reed", "fed":
+			case FTD, ROUTER, REED, FED:
 				if isSetPath {
 					cfg.ExeConfig.Ftd = cmd.Path
 				}
 				cc.outputf("ftd: %s\n", cfg.ExeConfig.Ftd)
-			case "mtd", "med", "sed", "ssed":
+			case MTD, MED, SED, SSED:
 				if isSetPath {
 					cfg.ExeConfig.Mtd = cmd.Path
 				}
 				cc.outputf("mtd: %s\n", cfg.ExeConfig.Mtd)
-			case "br":
+			case BR:
 				if isSetPath {
 					cfg.ExeConfig.Br = cmd.Path
 				}

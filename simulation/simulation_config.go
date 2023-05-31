@@ -29,7 +29,6 @@ package simulation
 import (
 	"fmt"
 
-	"github.com/openthread/ot-ns/threadconst"
 	. "github.com/openthread/ot-ns/types"
 )
 
@@ -79,7 +78,7 @@ func DefaultConfig() *Config {
 		Real:           false,
 		AutoGo:         true,
 		DispatcherHost: "localhost",
-		DispatcherPort: threadconst.InitialDispatcherPort,
+		DispatcherPort: InitialDispatcherPort,
 		RadioModel:     "Ideal_Rssi",
 		Id:             0,
 		Channel:        DefaultChannel,

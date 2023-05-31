@@ -30,6 +30,7 @@ import (
 	"testing"
 	"time"
 
+	. "github.com/openthread/ot-ns/types"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -39,13 +40,13 @@ func TestParseBytes(t *testing.T) {
 	assert.NotNil(t, err)
 
 	assert.Nil(t, ParseBytes([]byte("add router"), &cmd))
-	assert.True(t, cmd.Add != nil && cmd.Add.Type.Val == "router")
+	assert.True(t, cmd.Add != nil && cmd.Add.Type.Val == ROUTER)
 	assert.Nil(t, ParseBytes([]byte("add med"), &cmd))
-	assert.True(t, cmd.Add != nil && cmd.Add.Type.Val == "med")
+	assert.True(t, cmd.Add != nil && cmd.Add.Type.Val == MED)
 	assert.Nil(t, ParseBytes([]byte("add sed"), &cmd))
-	assert.True(t, cmd.Add != nil && cmd.Add.Type.Val == "sed")
+	assert.True(t, cmd.Add != nil && cmd.Add.Type.Val == SED)
 	assert.Nil(t, ParseBytes([]byte("add fed"), &cmd))
-	assert.True(t, cmd.Add != nil && cmd.Add.Type.Val == "fed")
+	assert.True(t, cmd.Add != nil && cmd.Add.Type.Val == FED)
 	assert.Nil(t, ParseBytes([]byte("add router x 100 y 200"), &cmd))
 	assert.True(t, *cmd.Add.X == 100 && *cmd.Add.Y == 200)
 	assert.Nil(t, ParseBytes([]byte("add router id 100"), &cmd))
