@@ -180,6 +180,7 @@ func (s *Simulation) Nodes() map[NodeId]*Node {
 	return s.nodes
 }
 
+// GetNodes returns a sorted array of NodeIds.
 func (s *Simulation) GetNodes() []NodeId {
 	keys := make([]NodeId, len(s.nodes))
 	i := 0
@@ -187,6 +188,7 @@ func (s *Simulation) GetNodes() []NodeId {
 		keys[i] = key
 		i++
 	}
+	sort.Ints(keys)
 	return keys
 }
 
