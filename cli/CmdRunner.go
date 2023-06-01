@@ -750,7 +750,7 @@ func (rt *CmdRunner) executeWatch(cc *CommandContext, cmd *WatchCmd) {
 			return
 		} else if len(cmd.Nodes) == 0 && len(cmd.All) > 0 && len(cmd.Default) == 0 {
 			// variant: 'watch all [<level>]'
-			for nodeid, _ := range sim.Nodes() {
+			for nodeid := range sim.Nodes() {
 				nodesToWatch = append(nodesToWatch, NodeSelector{Id: nodeid})
 			}
 		} else if len(cmd.Nodes) > 0 && len(cmd.All) == 0 && len(cmd.Default) == 0 {
