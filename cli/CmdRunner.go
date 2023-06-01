@@ -311,12 +311,16 @@ func (rt *CmdRunner) postAsyncWait(f func(sim *simulation.Simulation)) {
 
 func (rt *CmdRunner) executeAddNode(cc *CommandContext, cmd *AddCmd) {
 	simplelogger.Debugf("Add: %#v", *cmd)
-	cfg := cc.rt.sim.GetConfig().NewNodeConfig // copy current new-node config for simulation, and modify it.
+	simCfg := cc.rt.sim.GetConfig()
+	cfg := simCfg.NewNodeConfig // copy current new-node config for simulation, and modify it.
+
 	if cmd.X != nil {
 		cfg.X = *cmd.X
+		cfg.IsAutoPlaced = false
 	}
 	if cmd.Y != nil {
 		cfg.Y = *cmd.Y
+		cfg.IsAutoPlaced = false
 	}
 
 	switch cmd.Type.Val {
