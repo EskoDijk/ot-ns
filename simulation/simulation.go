@@ -147,7 +147,7 @@ func (s *Simulation) AddNode(cfg *NodeConfig) (*Node, error) {
 			} else {
 				node.err = err
 				simplelogger.Errorf("simulation init script failed, deleting node: %v", err)
-				s.DeleteNode(node.Id)
+				_ = s.DeleteNode(node.Id)
 				return nil, err
 			}
 		}
@@ -291,8 +291,8 @@ func (s *Simulation) MoveNodeTo(nodeid NodeId, x, y int) {
 func (s *Simulation) DeleteNode(nodeid NodeId) error {
 	node := s.nodes[nodeid]
 	if node == nil {
-		simplelogger.Errorf("delete node not found: %d", nodeid)
-		return errors.Errorf("node not found")
+		err := fmt.Errorf("delete node not found: %d", nodeid)
+		return err
 	}
 
 	delete(s.nodes, nodeid)

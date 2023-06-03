@@ -199,7 +199,7 @@ func (node *Node) AssurePrompt() {
 	}
 
 	node.inputCommand("")
-	node.expectLine("", DefaultCommandTimeout)
+	_, _ = node.expectLine("", DefaultCommandTimeout)
 }
 
 func (node *Node) inputCommand(cmd string) {
@@ -215,12 +215,17 @@ func (node *Node) inputCommand(cmd string) {
 
 func (node *Node) CommandExpectNone(cmd string, timeout time.Duration) {
 	node.inputCommand(cmd)
-	node.expectLine(cmd, timeout)
+	_, _ = node.expectLine(cmd, timeout)
 }
 
 func (node *Node) Command(cmd string, timeout time.Duration) []string {
 	node.inputCommand(cmd)
-	node.expectLine(cmd, timeout)
+	_, err1 := node.expectLine(cmd, timeout)
+	if err1 != nil {
+		node.err = err1
+		simplelogger.Error(err1)
+		return []string{}
+	}
 	output, err := node.expectLine(DoneOrErrorRegexp, timeout)
 	if err != nil {
 		node.err = err
@@ -720,6 +725,7 @@ func (node *Node) expectLine(line interface{}, timeout time.Duration) ([]string,
 	found, output := node.TryExpectLine(line, timeout)
 	if !found {
 		node.err = errors.Errorf("%v - expect line timeout: %#v", node, line)
+		simplelogger.Error(node.err)
 		return []string{}, node.err
 	}
 
@@ -741,7 +747,7 @@ func (node *Node) CommandExpectEnabledOrDisabled(cmd string, timeout time.Durati
 func (node *Node) Ping(addr string, payloadSize int, count int, interval int, hopLimit int) {
 	cmd := fmt.Sprintf("ping async %s %d %d %d %d", addr, payloadSize, count, interval, hopLimit)
 	node.inputCommand(cmd)
-	node.expectLine(cmd, DefaultCommandTimeout)
+	_, _ = node.expectLine(cmd, DefaultCommandTimeout)
 	node.AssurePrompt()
 }
 
