@@ -145,11 +145,15 @@ func (node *Node) String() string {
 	return fmt.Sprintf("Node<%d>", node.Id)
 }
 
-func (node *Node) RunInitScript(cfg []string) {
+func (node *Node) RunInitScript(cfg []string) error {
 	simplelogger.AssertNotNil(cfg)
 	for _, cmd := range cfg {
+		if node.err != nil {
+			return node.err
+		}
 		node.Command(cmd, DefaultCommandTimeout)
 	}
+	return node.err
 }
 
 func (node *Node) Start() {
@@ -217,12 +221,24 @@ func (node *Node) CommandExpectNone(cmd string, timeout time.Duration) {
 func (node *Node) Command(cmd string, timeout time.Duration) []string {
 	node.inputCommand(cmd)
 	node.expectLine(cmd, timeout)
-	output := node.expectLine(DoneOrErrorRegexp, timeout)
-
+	output, err := node.expectLine(DoneOrErrorRegexp, timeout)
+	if err != nil {
+		node.err = err
+		simplelogger.Error(err)
+		return []string{}
+	}
+	if len(output) == 0 {
+		err = fmt.Errorf("%v - Command() response timeout after %v", node, timeout)
+		node.err = err
+		simplelogger.Error(err)
+		return []string{}
+	}
 	var result string
 	output, result = output[:len(output)-1], output[len(output)-1]
 	if result != "Done" {
-		simplelogger.Panicf("%v - Unexpected cmd result: %s", node, result)
+		err = fmt.Errorf("%v - Unexpected cmd result: %s", node, result)
+		node.err = err
+		simplelogger.Error(err)
 	}
 	return output
 }
@@ -230,7 +246,9 @@ func (node *Node) Command(cmd string, timeout time.Duration) []string {
 func (node *Node) CommandExpectString(cmd string, timeout time.Duration) string {
 	output := node.Command(cmd, timeout)
 	if len(output) != 1 {
-		simplelogger.Panicf("expected 1 line, but received %d: %#v", len(output), output)
+		node.err = fmt.Errorf("%v - expected 1 line, but received %d: %#v", node, len(output), output)
+		simplelogger.Error(node.err)
+		return ""
 	}
 
 	return output[0]
@@ -248,7 +266,7 @@ func (node *Node) CommandExpectInt(cmd string, timeout time.Duration) int {
 	}
 
 	if err != nil {
-		simplelogger.Panicf("unexpected number: %#v", s)
+		simplelogger.Panicf("%v - parsing unexpected Int number: %#v", node, s)
 	}
 	return int(iv)
 }
@@ -698,14 +716,14 @@ func (node *Node) TryExpectLine(line interface{}, timeout time.Duration) (bool, 
 	}
 }
 
-func (node *Node) expectLine(line interface{}, timeout time.Duration) []string {
+func (node *Node) expectLine(line interface{}, timeout time.Duration) ([]string, error) {
 	found, output := node.TryExpectLine(line, timeout)
 	if !found {
-		node.err = errors.Errorf("expect line timeout: %#v", line)
-		return []string{}
+		node.err = errors.Errorf("%v - expect line timeout: %#v", node, line)
+		return []string{}, node.err
 	}
 
-	return output
+	return output, nil
 }
 
 func (node *Node) CommandExpectEnabledOrDisabled(cmd string, timeout time.Duration) bool {

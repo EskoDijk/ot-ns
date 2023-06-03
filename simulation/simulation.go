@@ -141,8 +141,15 @@ func (s *Simulation) AddNode(cfg *NodeConfig) (*Node, error) {
 		}
 		node.setupMode()
 		if !s.rawMode {
-			node.RunInitScript(cfg.InitScript)
-			node.Start()
+			err := node.RunInitScript(cfg.InitScript)
+			if err == nil {
+				node.Start()
+			} else {
+				node.err = err
+				simplelogger.Errorf("simulation init script failed, deleting node: %v", err)
+				s.DeleteNode(node.Id)
+				return nil, err
+			}
 		}
 	}
 
