@@ -63,13 +63,13 @@ const (
 )
 
 type Node struct {
-	S   *Simulation
-	Id  int
-	cfg *NodeConfig
-
+	S       *Simulation
+	Id      int
+	cfg     *NodeConfig
 	cmd     *exec.Cmd
 	logFile *os.File
 	err     error
+	errProc error
 
 	pendingLines      chan string
 	pipeIn            io.WriteCloser
@@ -233,7 +233,7 @@ func (node *Node) Command(cmd string, timeout time.Duration) []string {
 		return []string{}
 	}
 	if len(output) == 0 {
-		err = fmt.Errorf("%v - Command() response timeout after %v", node, timeout)
+		err = fmt.Errorf("%v - Command() response timeout for cmd '%s' after %v", node, cmd, timeout)
 		node.err = err
 		simplelogger.Error(err)
 		return []string{}
@@ -241,7 +241,7 @@ func (node *Node) Command(cmd string, timeout time.Duration) []string {
 	var result string
 	output, result = output[:len(output)-1], output[len(output)-1]
 	if result != "Done" {
-		err = fmt.Errorf("%v - Unexpected cmd result: %s", node, result)
+		err = fmt.Errorf("%v - Unexpected cmd result for cmd '%s': %s", node, cmd, result)
 		node.err = err
 		simplelogger.Error(err)
 	}
@@ -655,9 +655,9 @@ func (node *Node) lineReaderStdErr(reader io.Reader) {
 	for scanner.Scan() {
 		line := scanner.Text()
 
-		// mark the first error in the node
-		if node.err == nil {
-			node.err = errors.New(line)
+		// mark the first error output line of the node
+		if node.errProc == nil {
+			node.errProc = errors.New(line)
 		}
 
 		// append it to node-specific log file.
@@ -670,7 +670,7 @@ func (node *Node) lineReaderStdErr(reader io.Reader) {
 	}
 
 	// when the stderr of the node closes and any error was raised, inform simulation of node's failure.
-	if node.err != nil {
+	if node.errProc != nil {
 		node.S.OnNodeProcessFailure(node)
 	}
 }

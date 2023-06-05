@@ -145,7 +145,6 @@ func (s *Simulation) AddNode(cfg *NodeConfig) (*Node, error) {
 			if err == nil {
 				node.Start()
 			} else {
-				node.err = err
 				simplelogger.Errorf("simulation init script failed, deleting node: %v", err)
 				_ = s.DeleteNode(node.Id)
 				return nil, err
@@ -241,8 +240,8 @@ func (s *Simulation) OnNodeProcessFailure(node *Node) {
 		// ignore any node errors when simulation is closing up.
 		return
 	}
-	s.err = node.err
-	simplelogger.Errorf("Node %v process failed: %s", node.Id, node.err)
+	s.err = node.errProc
+	simplelogger.Errorf("Node %v process failed: %s", node.Id, node.errProc)
 	s.PostAsync(false, func() {
 		simplelogger.Infof("Deleting node %v due to process failure.", node.Id)
 		_ = s.DeleteNode(node.Id)
