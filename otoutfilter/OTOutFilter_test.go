@@ -46,6 +46,10 @@ func TestOTOutFilter(t *testing.T) {
 		"D  33:00:17.817 [N] log4\n" +
 		"E text 44:33:22.123 [I]log5\n" +
 		"F text [x] no log\n" +
+		"00:00:00.000 [INFO]-CORE----: Notifier: StateChanged (0x01001009) [Ip6+ LLAddr Ip6Mult+ NetifState]\n" +
+		"00:00:00.000 [NOTE]-CLI-----: Output: > Done\n" +
+		"00:00:00.000 [DEBG]-PLAT----: Clear ExtAddr entries\n" +
+		"30:30:23.456 [WARN]-PLAT----: some text\n" +
 		"G[C]log2\n" +
 		"H[W] log3\n" +
 		"I[N] log4\n" +
