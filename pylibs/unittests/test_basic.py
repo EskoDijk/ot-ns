@@ -417,6 +417,21 @@ class BasicTests(OTNSTestCase):
 
         ns._do_command("exe v11")
         ns._do_command("exe v12")
+        ns._do_command("exe v13")
+
+    def testAddVersionNodes(self):
+        ns: OTNS = self.ns
+        ns.add('router', x=250, y=250)
+        ns.go(10)
+        ns.add('router', version='v13')
+        ns.go(10)
+        ns.add('router', version='v12')
+        ns.go(10)
+        ns.add('router', version='v11')
+        ns.go(10)
+        self.assertEqual(4, len(ns.nodes()))
+        self.assertEqual(1, len(ns.partitions()))
+
 
 if __name__ == '__main__':
     unittest.main()
