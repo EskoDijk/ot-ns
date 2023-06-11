@@ -604,8 +604,13 @@ func (node *Node) ThreadStop() {
 	node.Command("thread stop", DefaultCommandTimeout)
 }
 
+// GetVersion gets the version string of the OpenThread node.
 func (node *Node) GetVersion() string {
 	return node.CommandExpectString("version", DefaultCommandTimeout)
+}
+
+func (node *Node) GetExecutablePath() string {
+	return node.cfg.ExecutablePath
 }
 
 func (node *Node) GetSingleton() bool {

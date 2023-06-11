@@ -27,16 +27,19 @@
 package simulation
 
 import (
+	"path/filepath"
 	"strings"
 
 	. "github.com/openthread/ot-ns/types"
 	"github.com/simonlingoogle/go-simplelogger"
+	"os"
 )
 
 type ExecutableConfig struct {
-	Ftd string
-	Mtd string
-	Br  string
+	Ftd         string
+	Mtd         string
+	Br          string
+	SearchPaths []string
 }
 
 type NodeAutoPlacer struct {
@@ -50,29 +53,43 @@ type NodeAutoPlacer struct {
 }
 
 var DefaultExecutableConfig ExecutableConfig = ExecutableConfig{
-	Ftd: "./ot-cli-ftd",
-	Mtd: "./ot-cli-ftd",
-	Br:  "./otbr-sim.sh",
+	Ftd:         "ot-cli-ftd",
+	Mtd:         "ot-cli-ftd",
+	Br:          "ot-br.sh",
+	SearchPaths: []string{".", "./ot-rfsim/ot-versions"},
+}
+
+func (cfg *ExecutableConfig) SearchPathsString() string {
+	s := "["
+	simplelogger.AssertTrue(len(cfg.SearchPaths) >= 1)
+	for _, sp := range cfg.SearchPaths {
+		s += "\"" + sp + "\", "
+	}
+	return s[0:len(s)-2] + "]"
 }
 
 // GetExecutableForThreadVersion gets the prebuilt executable for given Thread version string as in cli.ThreadVersion
 func GetExecutableForThreadVersion(version string) string {
 	simplelogger.AssertTrue(strings.HasPrefix(version, "v1") && len(version) == 3)
-	return "./ot-rfsim/ot-versions/ot-cli-ftd_" + version
+	return "ot-rfsim/ot-versions/ot-cli-ftd_" + version
 }
 
-func DetermineExecutableBasedOnConfig(nodeCfg *NodeConfig, executableCfg *ExecutableConfig) string {
-	if nodeCfg.IsRouter {
-		return executableCfg.Ftd
-	}
+func (cfg *ExecutableConfig) DetermineExecutableBasedOnConfig(nodeCfg *NodeConfig) string {
+	exeName := cfg.Ftd
 	if nodeCfg.IsMtd {
-		return executableCfg.Mtd
+		exeName = cfg.Mtd
 	}
 	if nodeCfg.IsBorderRouter {
-		return executableCfg.Br
+		exeName = cfg.Br
 	}
-	// FED or other type.
-	return executableCfg.Ftd
+
+	for _, sp := range cfg.SearchPaths {
+		exePath := filepath.Join(sp, exeName)
+		if _, err := os.Stat(exePath); err == nil {
+			return exePath
+		}
+	}
+	return "EXECUTABLE-NOT-FOUND"
 }
 
 func NewNodeAutoPlacer() *NodeAutoPlacer {
@@ -109,6 +126,7 @@ func (nap *NodeAutoPlacer) UpdateReference(x, y int) {
 	nap.Y = y
 }
 
+// NextNodePosition lets the autoplacer pick the next position for a new node to be placed.
 func (nap *NodeAutoPlacer) NextNodePosition(isBelowParent bool) (int, int) {
 	var x, y int
 	if isBelowParent {
@@ -129,4 +147,10 @@ func (nap *NodeAutoPlacer) NextNodePosition(isBelowParent bool) (int, int) {
 		y = nap.Y
 	}
 	return x, y
+}
+
+// ReuseNextNodePosition instructs the autoplacer to re-use the NextNodePosition() that was given out in the
+// last call to this method.
+func (nap *NodeAutoPlacer) ReuseNextNodePosition() {
+	nap.isReset = true
 }
