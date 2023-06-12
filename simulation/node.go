@@ -816,7 +816,12 @@ func (node *Node) onUartWrite(data []byte) {
 
 func (node *Node) writeToLogFile(line string) {
 	if node.logFile != nil {
-		_, err := node.logFile.WriteString(line + "\n")
+		var timestamp uint64 = 0
+		dn := node.S.Dispatcher().GetNode(node.Id)
+		if dn != nil {
+			timestamp = dn.CurTime
+		}
+		_, err := node.logFile.WriteString(fmt.Sprintf("%-10d ", timestamp) + line + "\n")
 		if err != nil {
 			simplelogger.Error("Couldn't write to log file of %v, closing it (%s)", node, node.logFile)
 			_ = node.logFile.Close()
