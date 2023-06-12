@@ -173,7 +173,6 @@ py_unittests()
     python3 "$OTNSDIR"/pylibs/unittests/test_radiomodels.py
     python3 "$OTNSDIR"/pylibs/unittests/test_csl.py
     python3 "$OTNSDIR"/pylibs/unittests/test_exe_versions.py
-    cd -
 }
 
 check_py_example()
