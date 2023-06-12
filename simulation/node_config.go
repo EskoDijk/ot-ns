@@ -74,6 +74,13 @@ func GetExecutableForThreadVersion(version string) string {
 	return "ot-rfsim/ot-versions/ot-cli-ftd_" + version
 }
 
+func isExecutable(exePath string) bool {
+	if exeInfo, err := os.Stat(exePath); err == nil {
+		return exeInfo.Mode()&0111 != 0
+	}
+	return false
+}
+
 func (cfg *ExecutableConfig) DetermineExecutableBasedOnConfig(nodeCfg *NodeConfig) string {
 	exeName := cfg.Ftd
 	if nodeCfg.IsMtd {
@@ -83,13 +90,18 @@ func (cfg *ExecutableConfig) DetermineExecutableBasedOnConfig(nodeCfg *NodeConfi
 		exeName = cfg.Br
 	}
 
+	if isExecutable(exeName) {
+		return exeName
+	}
+
+	// if not found directly, it means it's just a name that needs to be located in our search paths.
 	for _, sp := range cfg.SearchPaths {
 		exePath := filepath.Join(sp, exeName)
-		if _, err := os.Stat(exePath); err == nil {
+		if isExecutable(exePath) {
 			return exePath
 		}
 	}
-	return "EXECUTABLE-NOT-FOUND"
+	return "./EXECUTABLE-NOT-FOUND"
 }
 
 func NewNodeAutoPlacer() *NodeAutoPlacer {

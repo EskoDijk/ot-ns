@@ -36,7 +36,7 @@ show_help()
     set +x
     echo -e "\nUsage: test <test-group-name-1> [<test-group-name-N>]* "
     echo -e "\nThe following test-group-names can be provided as arguments:"
-    echo -e "  go-tests\n  py-unittests\n  py-examples\n  signals\n  stress-tests"
+    echo -e "  go-tests\n  py-unittests\n  py-examples\n  stress-tests"
     echo -e "  build-openthread\n  build-openthread-versions\n"
 }
 
@@ -49,13 +49,13 @@ go_tests()
 {
     install_deps
     install_otns
-
     build_openthread
 
     echo "" >coverage.txt
 
     PKG=$(go list ./...)
 
+    pwd
     for d in $PKG; do
         OTNS_OT_CLI=$OTBIN_DIR/ot-cli-ftd go test -race -coverprofile=profile.out -covermode=atomic -coverpkg=./... "$d"
         if [ -f profile.out ]; then
@@ -85,10 +85,19 @@ get_openthread()
     OTBIN_DIR=$OT_DIR/build/bin
 }
 
+get_openthread_versions()
+{
+    if [[ -z $OT_DIR ]]; then
+        OT_DIR=$PWD/ot-rfsim
+        git submodule update --init --recursive
+    fi
+
+    OTBIN_DIR=$OT_DIR/build/bin
+}
+
 build_openthread()
 {
     get_openthread
-
     install_openthread_buildtools
 
     (
@@ -110,12 +119,12 @@ build_openthread()
 
     OT_CLI_FTD_PATH="$OTBIN_DIR/ot-cli-ftd"
     echo "To use build result, launch OTNS with command: otns -ot-cli $OT_CLI_FTD_PATH"
-    echo "Or cd into $OT_CLI_FTD_PATH and start OTNS with: otns"
+    echo "Or cd into $OTBIN_DIR and start OTNS with: otns"
 }
 
 build_openthread_versions()
 {
-    get_openthread
+    get_openthread_versions
     install_openthread_buildtools
 
     (
@@ -151,6 +160,7 @@ py_unittests()
     python3 "$OTNSDIR"/pylibs/unittests/test_basic.py
     python3 "$OTNSDIR"/pylibs/unittests/test_ping.py
     python3 "$OTNSDIR"/pylibs/unittests/test_commissioning.py
+    python3 "$OTNSDIR"/pylibs/unittests/test_signals.py
     python3 "$OTNSDIR"/pylibs/unittests/test_radiomodels.py
     python3 "$OTNSDIR"/pylibs/unittests/test_csl.py
     python3 "$OTNSDIR"/pylibs/unittests/test_exe_versions.py
@@ -176,16 +186,6 @@ py_examples()
     check_py_example "$OTNSDIR"/pylibs/examples/simple.py
     check_py_example "$OTNSDIR"/pylibs/examples/ping.py
     check_py_example "$OTNSDIR"/pylibs/examples/farm.py
-    cd -
-}
-
-test_signals()
-{
-    install_deps
-    install_otns
-    build_openthread
-    cd "$OTBIN_DIR"
-    python3 "$OTNSDIR"/pylibs/unittests/test_signals.py
     cd -
 }
 
@@ -218,10 +218,6 @@ main()
                 ;;
             py-examples)
                 py_examples
-                shift 1
-                ;;
-            signals)
-                test_signals
                 shift 1
                 ;;
             stress-tests)

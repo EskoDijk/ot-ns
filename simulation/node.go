@@ -33,17 +33,19 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
 	"syscall"
 	"time"
 
+	"github.com/pkg/errors"
+	"github.com/simonlingoogle/go-simplelogger"
+
 	"github.com/openthread/ot-ns/dispatcher"
 	"github.com/openthread/ot-ns/otoutfilter"
 	. "github.com/openthread/ot-ns/types"
-	"github.com/pkg/errors"
-	"github.com/simonlingoogle/go-simplelogger"
 )
 
 const (
@@ -611,6 +613,10 @@ func (node *Node) GetVersion() string {
 
 func (node *Node) GetExecutablePath() string {
 	return node.cfg.ExecutablePath
+}
+
+func (node *Node) GetExecutableName() string {
+	return filepath.Base(node.cfg.ExecutablePath)
 }
 
 func (node *Node) GetSingleton() bool {
