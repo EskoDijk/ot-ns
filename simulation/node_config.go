@@ -27,12 +27,12 @@
 package simulation
 
 import (
+	"os"
 	"path/filepath"
 	"strings"
 
 	. "github.com/openthread/ot-ns/types"
 	"github.com/simonlingoogle/go-simplelogger"
-	"os"
 )
 
 type ExecutableConfig struct {
