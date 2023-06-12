@@ -35,7 +35,6 @@ import (
 )
 
 func TestDetermineExecutableBasedOnConfig(t *testing.T) {
-
 	cfg := ExecutableConfig{
 		Ftd:         "my-ftd-fail",
 		Mtd:         "ot-cli-mtd",
