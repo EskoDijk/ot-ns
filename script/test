@@ -40,6 +40,15 @@ show_help()
     echo -e "  build-openthread\n  build-openthread-versions\n"
 }
 
+show_help_stress_tests()
+{
+    set +x
+    echo -e "\nUsage: test stress-tests <stress-test-name>"
+    echo -e "\nThe following stress-test-names can be provided as second argument:"
+    echo -e "  network-forming\n  commissioning\n  connectivity\n  network-latency\n  multicast-performance"
+    echo -e "  otns-performance\n  network-limits\n"
+}
+
 installed()
 {
     command -v "$1" >/dev/null 2>&1
@@ -221,6 +230,10 @@ main()
                 shift 1
                 ;;
             stress-tests)
+                if [ "$#" -le 1 ]; then
+                    show_help_stress_tests
+                    return 1
+                fi
                 stress_tests "$2"
                 shift 2
                 ;;
