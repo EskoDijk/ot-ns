@@ -739,6 +739,7 @@ func (node *Node) lineReaderStdErr(reader io.Reader) {
 	}
 }
 
+/*
 func (node *Node) ptyReader(reader io.Reader) {
 	buf := make([]byte, 1024) // FIXME
 	for {
@@ -755,6 +756,7 @@ func (node *Node) ptyReader(reader io.Reader) {
 		node.S.Dispatcher().SendToUART(node.Id, buf[0:n])
 	}
 }
+*/
 
 // ptyPiper pipes data from node's virtual UART to node's associated PTY (for handling by an OT NCP)
 func (node *Node) ptyPiper(reader io.Reader, ptyPath string) {
@@ -780,7 +782,7 @@ func (node *Node) ptyPiper(reader io.Reader, ptyPath string) {
 			}
 		}
 
-		n, err = node.ptyFile.Write(buf[0:n])
+		_, err = node.ptyFile.Write(buf[0:n])
 		if err != nil {
 			if errors.Is(err, io.EOF) {
 				simplelogger.Debugf("%v - ptyPiper output was closed.", node)

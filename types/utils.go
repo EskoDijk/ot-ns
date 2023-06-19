@@ -2,10 +2,11 @@ package types
 
 import (
 	"errors"
-	"github.com/simonlingoogle/go-simplelogger"
 	"io/fs"
 	"os"
 	"path/filepath"
+
+	"github.com/simonlingoogle/go-simplelogger"
 )
 
 // GetTmpDir gets the current 'tmp' directory path

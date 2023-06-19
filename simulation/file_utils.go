@@ -28,9 +28,10 @@ package simulation
 
 import (
 	"fmt"
+	"path/filepath"
+
 	"github.com/openthread/ot-ns/types"
 	"github.com/simonlingoogle/go-simplelogger"
-	"path/filepath"
 )
 
 // cleanTmpDir cleans the tmp dir by removing only .flash/.log files
