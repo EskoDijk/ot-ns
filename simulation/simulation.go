@@ -96,7 +96,7 @@ func NewSimulation(ctx *progctx.ProgCtx, cfg *Config, dispatcherCfg *dispatcher.
 	return s, nil
 }
 
-func (s *Simulation) AddNode(cfg *NodeConfig) (*Node, error) {
+func (s *Simulation) AddNode(cfg NodeConfig) (*Node, error) {
 	nodeid := cfg.ID
 	if nodeid <= 0 {
 		nodeid = s.genNodeId()
@@ -115,7 +115,7 @@ func (s *Simulation) AddNode(cfg *NodeConfig) (*Node, error) {
 
 	// auto-selection of Executable by simulation's policy, in case not defined yet.
 	if len(cfg.ExecutablePath) == 0 {
-		cfg.ExecutablePath = s.cfg.ExeConfig.DetermineExecutableBasedOnConfig(cfg)
+		cfg.ExecutablePath = s.cfg.ExeConfig.DetermineExecutableBasedOnConfig(&cfg)
 	}
 
 	// creation of the sim/dispatcher nodes
@@ -159,10 +159,10 @@ func (s *Simulation) AddNode(cfg *NodeConfig) (*Node, error) {
 	}
 
 	if node.cfg.IsBorderRouter {
-		cfgNcp := cfg
-		cfgNcp.IsNcp = true // copy of node config with 'NCP' marked
-		cfgNcp.ExecutablePath = s.cfg.ExeConfig.DetermineExecutableBasedOnConfig(cfgNcp)
-		node.ncpNode, err = newNode(s, nodeid, cfgNcp)
+		// Start a 2nd node, an NCP, with slightly modified config. as part of the BR.
+		cfg.IsNcp = true // copy of node config with 'NCP' marked
+		cfg.ExecutablePath = s.cfg.ExeConfig.DetermineExecutableBasedOnConfig(&cfg)
+		node.ncpNode, err = newNode(s, nodeid, cfg)
 		if err != nil {
 			simplelogger.Errorf("Border Router NCP init failed, deleting node: %v", err)
 			_ = s.DeleteNode(node.Id)
@@ -341,12 +341,12 @@ func (s *Simulation) CountDown(duration time.Duration, text string) {
 	s.vis.CountDown(duration, text)
 }
 
-// Run simulation for duration at Dispatcher's set speed.
+// Go runs simulation for given duration, at Dispatcher's set speed.
 func (s *Simulation) Go(duration time.Duration) <-chan struct{} {
 	return s.d.Go(duration)
 }
 
-// Stop any ongoing (previous) 'go' period and then run simulation for duration at given speed.
+// GoAtSpeed stops any ongoing (previous) 'go' period and then runs simulation for duration at given speed.
 func (s *Simulation) GoAtSpeed(duration time.Duration, speed float64) <-chan struct{} {
 	simplelogger.AssertTrue(speed > 0)
 	_ = s.d.GoCancel()

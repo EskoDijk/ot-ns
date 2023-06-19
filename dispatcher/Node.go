@@ -87,7 +87,7 @@ type Node struct {
 	watchLogLevel WatchLogLevel
 }
 
-func newNode(d *Dispatcher, nodeid NodeId, cfg *NodeConfig) *Node {
+func newNode(d *Dispatcher, nodeid NodeId, cfg NodeConfig) *Node {
 	simplelogger.AssertTrue(cfg.RadioRange >= 0)
 
 	radioCfg := &radiomodel.RadioNodeConfig{

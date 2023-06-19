@@ -80,11 +80,12 @@ type Node struct {
 	pipeStdErr        io.ReadCloser      // pipe to read StdErr data/errors/warns from node
 	virtualUartReader *io.PipeReader     // to read UART data from node (events transport UART data) with pipe interface
 	virtualUartPipe   *io.PipeWriter     // to fill UART data from node into the virtual pipe
+	ptyChan           chan []byte        // buffers data to be written to PTY (for RCP only)
 	ptyFile           io.ReadWriteCloser // for RCP only, to communicate with NCP via PTY device
 	uartType          NodeUartType
 }
 
-func newNode(s *Simulation, nodeid NodeId, cfg *NodeConfig) (*Node, error) {
+func newNode(s *Simulation, nodeid NodeId, cfg NodeConfig) (*Node, error) {
 	var err error
 	logNameSuffix := ""
 
@@ -120,7 +121,7 @@ func newNode(s *Simulation, nodeid NodeId, cfg *NodeConfig) (*Node, error) {
 	node := &Node{
 		S:            s,
 		Id:           nodeid,
-		cfg:          cfg,
+		cfg:          &cfg,
 		cmd:          cmd,
 		pendingLines: make(chan string, 10000),
 		uartType:     NodeUartTypeUndefined,
@@ -128,6 +129,10 @@ func newNode(s *Simulation, nodeid NodeId, cfg *NodeConfig) (*Node, error) {
 
 	if !cfg.IsNcp {
 		node.virtualUartReader, node.virtualUartPipe = io.Pipe()
+	}
+
+	if cfg.IsRcp {
+		node.ptyChan = make(chan []byte, 1024)
 	}
 
 	if node.pipeStdIn, err = cmd.StdinPipe(); err != nil {
@@ -159,7 +164,7 @@ func newNode(s *Simulation, nodeid NodeId, cfg *NodeConfig) (*Node, error) {
 	if !cfg.IsNcp {
 		go node.lineReaderStdErr(node.pipeStdErr)
 		if cfg.IsRcp {
-			go node.ptyPiper(node.virtualUartReader, ptyPath)
+			go node.ptyPiper(ptyPath)
 		} else {
 			go node.lineReader(node.virtualUartReader, NodeUartTypeVirtualTime)
 		}
@@ -714,6 +719,7 @@ func (node *Node) lineReader(reader io.Reader, uartType NodeUartType) {
 	}
 }
 
+// lineReaderStdErr reads lines (if any) and marks first line as a 'node process error'
 func (node *Node) lineReaderStdErr(reader io.Reader) {
 	scanner := bufio.NewScanner(bufio.NewReader(reader)) // no filter applied.
 	scanner.Split(bufio.ScanLines)
@@ -739,7 +745,6 @@ func (node *Node) lineReaderStdErr(reader io.Reader) {
 	}
 }
 
-/*
 func (node *Node) ptyReader(reader io.Reader) {
 	buf := make([]byte, 1024) // FIXME
 	for {
@@ -756,40 +761,48 @@ func (node *Node) ptyReader(reader io.Reader) {
 		node.S.Dispatcher().SendToUART(node.Id, buf[0:n])
 	}
 }
-*/
 
-// ptyPiper pipes data from node's virtual UART to node's associated PTY (for handling by an OT NCP)
-func (node *Node) ptyPiper(reader io.Reader, ptyPath string) {
-	buf := make([]byte, 1024) // FIXME
-
+// ptyPiper pipes data from node's ptyChan (where virtual UART dat comes in) to node's associated
+// PTY (for handling by an OT NCP)
+func (node *Node) ptyPiper(ptyPath string) {
+loop:
 	for {
-		n, err := reader.Read(buf)
-		if err != nil {
-			if errors.Is(err, io.EOF) {
-				simplelogger.Debugf("%v - ptyPiper reader was closed.", node)
-				return
-			}
-			simplelogger.Errorf("%v - ptyPiper error: %v", node, err)
-			return
-		}
-
-		// lazy-open of PTY file
-		if node.ptyFile == nil {
-			node.ptyFile, err = os.Open(ptyPath)
+		// check when the PTY device becomes available.
+		_, err := os.Stat(ptyPath)
+		if node.ptyFile == nil && err == nil {
+			node.ptyFile, err = os.OpenFile(ptyPath, os.O_RDWR, 0)
 			if err != nil {
 				simplelogger.Errorf("%v - ptyPiper couldn't open ptyFile: %v", node, err)
 				return
 			}
+			break loop
 		}
 
-		_, err = node.ptyFile.Write(buf[0:n])
-		if err != nil {
-			if errors.Is(err, io.EOF) {
-				simplelogger.Debugf("%v - ptyPiper output was closed.", node)
+		select {
+		case <-node.S.ctx.Done():
+			break loop
+		default:
+			time.Sleep(20 * time.Millisecond)
+		}
+	}
+
+	go node.ptyReader(node.ptyFile)
+
+loop2:
+	for {
+		select {
+		case b := <-node.ptyChan:
+			_, err := node.ptyFile.Write(b)
+			if err != nil {
+				if errors.Is(err, io.EOF) {
+					simplelogger.Debugf("%v - ptyPiper output was closed.", node)
+					return
+				}
+				simplelogger.Errorf("%v - ptyPiper error: %v", node, err)
 				return
 			}
-			simplelogger.Errorf("%v - ptyPiper error: %v", node, err)
-			return
+		case <-node.S.ctx.Done():
+			break loop2
 		}
 	}
 }
@@ -917,7 +930,11 @@ func (node *Node) setupMode() {
 }
 
 func (node *Node) onUartWrite(data []byte) {
-	_, _ = node.virtualUartPipe.Write(data)
+	if node.ptyChan != nil {
+		node.ptyChan <- data
+	} else {
+		_, _ = node.virtualUartPipe.Write(data)
+	}
 }
 
 func (node *Node) writeToLogFile(line string) {

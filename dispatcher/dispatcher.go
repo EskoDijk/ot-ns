@@ -1019,7 +1019,7 @@ func (d *Dispatcher) handleStatusPush(srcnode *Node, data string) {
 	}
 }
 
-func (d *Dispatcher) AddNode(nodeid NodeId, cfg *NodeConfig) *Node {
+func (d *Dispatcher) AddNode(nodeid NodeId, cfg NodeConfig) *Node {
 	simplelogger.AssertNil(d.nodes[nodeid])
 	simplelogger.Debugf("dispatcher AddNode id=%d", nodeid)
 	delete(d.deletedNodes, nodeid)
@@ -1259,7 +1259,7 @@ func (d *Dispatcher) WatchMessage(id NodeId, logLevel WatchLogLevel, msg string)
 	}
 }
 
-// helper function to log to right simplelogger level, overriding simplelogger's level.
+// watchLog is a helper to log item at the right simplelogger level, overriding simplelogger's level.
 func watchLog(node *Node, logLevel WatchLogLevel, msg string) {
 	switch logLevel {
 	case WatchCritLevel:
