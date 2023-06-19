@@ -38,7 +38,8 @@ import (
 type ExecutableConfig struct {
 	Ftd         string
 	Mtd         string
-	Br          string
+	BrRcp       string
+	BrNcp       string
 	SearchPaths []string
 }
 
@@ -55,7 +56,8 @@ type NodeAutoPlacer struct {
 var DefaultExecutableConfig ExecutableConfig = ExecutableConfig{
 	Ftd:         "ot-cli-ftd",
 	Mtd:         "ot-cli-ftd",
-	Br:          "ot-br.sh",
+	BrRcp:       "ot-rcp",
+	BrNcp:       "ot-br-ncp.sh",
 	SearchPaths: []string{".", "./ot-rfsim/ot-versions"},
 }
 
@@ -87,7 +89,10 @@ func (cfg *ExecutableConfig) DetermineExecutableBasedOnConfig(nodeCfg *NodeConfi
 		exeName = cfg.Mtd
 	}
 	if nodeCfg.IsBorderRouter {
-		exeName = cfg.Br
+		exeName = cfg.BrRcp
+		if nodeCfg.IsNcp {
+			exeName = cfg.BrNcp
+		}
 	}
 
 	if filepath.IsAbs(exeName) {
@@ -104,7 +109,7 @@ func (cfg *ExecutableConfig) DetermineExecutableBasedOnConfig(nodeCfg *NodeConfi
 			return "./" + exePath
 		}
 	}
-	return "./EXECUTABLE-NOT-FOUND"
+	return "./" + exeName + "__EXECUTABLE-NOT-FOUND"
 }
 
 func NewNodeAutoPlacer() *NodeAutoPlacer {

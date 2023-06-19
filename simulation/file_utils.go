@@ -27,41 +27,28 @@
 package simulation
 
 import (
-	"testing"
-
-	"github.com/stretchr/testify/assert"
-
+	"fmt"
 	"github.com/openthread/ot-ns/types"
+	"github.com/simonlingoogle/go-simplelogger"
+	"path/filepath"
 )
 
-func TestDetermineExecutableBasedOnConfig(t *testing.T) {
-	cfg := ExecutableConfig{
-		Ftd:         "my-ftd-fail",
-		Mtd:         "ot-cli-mtd",
-		BrRcp:       "br-script",
-		SearchPaths: []string{".", "./otrfsim/path/not/found", "../ot-rfsim/build/bin"},
+// cleanTmpDir cleans the tmp dir by removing only .flash/.log files
+func cleanTmpDir(simulationId int) error {
+	// tmp directory is used by nodes for saving *.flash files. Need to be cleaned when simulation started
+	err := types.RemoveAllFiles(fmt.Sprintf("%s/%d_*.flash", types.GetTmpDir(), simulationId))
+	if err != nil {
+		return err
 	}
+	err = types.RemoveAllFiles(fmt.Sprintf("%s/%d_*.log", types.GetTmpDir(), simulationId))
+	return err
+}
 
-	// if file could not be located, special name is returned.
-	nodeCfg := types.DefaultNodeConfig()
-	exe := cfg.DetermineExecutableBasedOnConfig(&nodeCfg)
-	assert.Equal(t, "./my-ftd-fail__EXECUTABLE-NOT-FOUND", exe)
-
-	// test assumes that ot-rfsim has been built.
-	nodeCfg.IsMtd = true
-	nodeCfg.IsRouter = false
-	exe = cfg.DetermineExecutableBasedOnConfig(&nodeCfg)
-	assert.Equal(t, "../ot-rfsim/build/bin/ot-cli-mtd", exe)
-
-	// test assumes that ot-rfsim has been built.
-	cfg.Mtd = "./ot-cli-mtd"
-	exe = cfg.DetermineExecutableBasedOnConfig(&nodeCfg)
-	assert.Equal(t, "../ot-rfsim/build/bin/ot-cli-mtd", exe)
-
-	// Also non-executable files could be supplied. The error comes only later when adding the node type.
-	cfg.Ftd = "../simulation/node_config.go"
-	nodeCfg.IsMtd = false
-	nodeCfg.IsRouter = true
-	exe = cfg.DetermineExecutableBasedOnConfig(&nodeCfg)
-	assert.Equal(t, "../simulation/node_config.go", exe)
+// getPtyFilePath gets the absolute file path of the PTY file associated to node nodeId.
+func getPtyFilePath(nodeId int) string {
+	p, err := filepath.Abs(filepath.Join(types.GetTmpDir(), fmt.Sprintf("devpty_node_%d", nodeId)))
+	if err != nil {
+		simplelogger.Panicf("getPtyFilePath: %v", err)
+	}
+	return p
 }

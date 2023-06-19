@@ -69,36 +69,53 @@ type Node struct {
 	Id      int
 	cfg     *NodeConfig
 	cmd     *exec.Cmd
-	logFile *os.File
-	err     error
-	errProc error
+	logFile *os.File // any node output over UART, stdout, stderr is written to the log
+	err     error    // any error that occurred while communicating with node (locally in Go)
+	errProc error    // any error that occurred in the node's process (C/C++ etc)
+	ncpNode *Node    // optional NCP node that connects to this radio-node (only for RCP nodetype).
 
-	pendingLines      chan string
-	pipeIn            io.WriteCloser
-	pipeOut           io.Reader
-	pipeErr           io.ReadCloser
-	virtualUartReader *io.PipeReader
-	virtualUartPipe   *io.PipeWriter
+	pendingLines      chan string        // lines with command output (non-log) from node, pending processing
+	pipeStdIn         io.WriteCloser     // pipe to write data to StdIn of Node
+	pipeStdOut        io.Reader          // pipe to read StdOut data from node
+	pipeStdErr        io.ReadCloser      // pipe to read StdErr data/errors/warns from node
+	virtualUartReader *io.PipeReader     // to read UART data from node (events transport UART data) with pipe interface
+	virtualUartPipe   *io.PipeWriter     // to fill UART data from node into the virtual pipe
+	ptyFile           io.ReadWriteCloser // for RCP only, to communicate with NCP via PTY device
 	uartType          NodeUartType
 }
 
 func newNode(s *Simulation, nodeid NodeId, cfg *NodeConfig) (*Node, error) {
 	var err error
-	logFileName := fmt.Sprintf("tmp/%d_%d.log", s.cfg.Id, nodeid)
+	logNameSuffix := ""
+
+	if cfg.Restore && cfg.IsNcp {
+		return nil, errors.New("cfg.Restore == true not implemented for NCP node (cfg.IsNcp)")
+	}
+	if cfg.IsNcp {
+		logNameSuffix = "_ncp"
+	}
+
+	logFileName := fmt.Sprintf("tmp/%d_%d%s.log", s.cfg.Id, nodeid, logNameSuffix)
 	if !cfg.Restore {
-		flashFile := fmt.Sprintf("tmp/%d_%d.flash", s.cfg.Id, nodeid)
-		if err = os.RemoveAll(flashFile); err != nil {
-			simplelogger.Errorf("Remove flash file %s failed: %+v", flashFile, err)
-			return nil, err
+		if !cfg.IsNcp {
+			flashFile := fmt.Sprintf("tmp/%d_%d.flash", s.cfg.Id, nodeid)
+			if err = os.RemoveAll(flashFile); err != nil {
+				return nil, fmt.Errorf("remove flash file failed: %w", err)
+			}
 		}
 		if err = os.RemoveAll(logFileName); err != nil {
-			simplelogger.Errorf("Remove node log file %s failed: %+v", logFileName, err)
-			return nil, err
+			return nil, fmt.Errorf("remove node log file failed: %w", err)
 		}
 	}
 
-	simplelogger.Debugf("node exe path: %s", cfg.ExecutablePath)
-	cmd := exec.CommandContext(context.Background(), cfg.ExecutablePath, strconv.Itoa(nodeid), s.d.GetUnixSocketName())
+	simplelogger.Debugf("newNode() exe path: %s", cfg.ExecutablePath)
+	var cmd *exec.Cmd
+	ptyPath := getPtyFilePath(nodeid)
+	if cfg.IsNcp {
+		cmd = exec.CommandContext(context.Background(), cfg.ExecutablePath, strconv.Itoa(nodeid), s.d.GetUnixSocketName(), ptyPath)
+	} else {
+		cmd = exec.CommandContext(context.Background(), cfg.ExecutablePath, strconv.Itoa(nodeid), s.d.GetUnixSocketName())
+	}
 
 	node := &Node{
 		S:            s,
@@ -107,46 +124,63 @@ func newNode(s *Simulation, nodeid NodeId, cfg *NodeConfig) (*Node, error) {
 		cmd:          cmd,
 		pendingLines: make(chan string, 10000),
 		uartType:     NodeUartTypeUndefined,
-		logFile:      nil,
-		err:          nil,
 	}
 
-	node.virtualUartReader, node.virtualUartPipe = io.Pipe()
+	if !cfg.IsNcp {
+		node.virtualUartReader, node.virtualUartPipe = io.Pipe()
+	}
 
-	if node.pipeIn, err = cmd.StdinPipe(); err != nil {
+	if node.pipeStdIn, err = cmd.StdinPipe(); err != nil {
 		return nil, err
 	}
 
-	if node.pipeOut, err = cmd.StdoutPipe(); err != nil {
+	if node.pipeStdOut, err = cmd.StdoutPipe(); err != nil {
 		return nil, err
 	}
 
-	if node.pipeErr, err = cmd.StderrPipe(); err != nil {
+	if node.pipeStdErr, err = cmd.StderrPipe(); err != nil {
 		return nil, err
 	}
 
 	// open log file for node's OT output
-	logFile, err := os.OpenFile(logFileName, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0664)
+	node.logFile, err = os.OpenFile(logFileName, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0664)
 	if err != nil {
-		simplelogger.Errorf("Opening node log file %s failed: %+v", logFileName, err)
-		return nil, err
+		return nil, fmt.Errorf("create node log file failed: %w", err)
 	}
-	node.logFile = logFile
-	simplelogger.Debugf("Node log file '%s' opened.", logFileName)
+	simplelogger.Debugf("Node log file '%s' created.", logFileName)
 
 	if err = cmd.Start(); err != nil {
-		if logFile != nil {
-			_ = logFile.Close()
-		}
+		_ = node.logFile.Close()
 		return nil, err
 	}
 
-	go node.lineReader(node.pipeOut, NodeUartTypeRealTime)
-	go node.lineReader(node.virtualUartReader, NodeUartTypeVirtualTime)
-	go node.lineReaderStdErr(node.pipeErr)
+	go node.lineReader(node.pipeStdOut, NodeUartTypeRealTime)
 
-	return node, nil
+	if !cfg.IsNcp {
+		go node.lineReaderStdErr(node.pipeStdErr)
+		if cfg.IsRcp {
+			go node.ptyPiper(node.virtualUartReader, ptyPath)
+		} else {
+			go node.lineReader(node.virtualUartReader, NodeUartTypeVirtualTime)
+		}
+	} else {
+		go node.lineReader(node.pipeStdErr, NodeUartTypeRealTime) // on NCP, StdErr output is okay.
+	}
+
+	return node, err
 }
+
+/*
+	create pty file before rcp node?
+	time.Sleep(20 * time.Millisecond) // FIXME small pause to allow socat to create PTY
+	ttyFileName := "/tmp/otns/devpty1"
+	ttyFile, err := os.Open(ttyFileName)
+	if err != nil {
+		return nil, fmt.Errorf("couldn't open NCP PTY file: %v", err)
+	}
+	node.ncpPtyFile = ttyFile
+	simplelogger.Debugf("PTY file '%s' opened.", ttyFileName)
+*/
 
 func (node *Node) String() string {
 	return fmt.Sprintf("Node<%d>", node.Id)
@@ -163,10 +197,17 @@ func (node *Node) RunInitScript(cfg []string) error {
 	return node.err
 }
 
-func (node *Node) Start() {
-	simplelogger.Infof("%v - started, panid=0x%04x, chan=%d, eui64=%#v, extaddr=%#v, state=%s, key=%#v, mode=%v", node,
+// GetInfo returns an info string with node properties and its configured network parameters
+func (node *Node) GetInfo() string {
+	return fmt.Sprintf("%v - panid=0x%04x, chan=%d, eui64=%#v, extaddr=%#v, state=%s, key=%#v, mode=%v", node,
 		node.GetPanid(), node.GetChannel(), node.GetEui64(), node.GetExtAddr(), node.GetState(),
 		node.GetNetworkKey(), node.GetMode())
+}
+
+func (node *Node) Start() {
+	node.IfconfigUp()
+	node.ThreadStart()
+	simplelogger.Debugf(node.GetInfo())
 }
 
 func (node *Node) IsFED() bool {
@@ -180,17 +221,23 @@ func (node *Node) Stop() {
 }
 
 func (node *Node) Exit() error {
+	var errNcp error = nil
+	if node.ncpNode != nil {
+		errNcp = node.ncpNode.Exit() // try to stop first the associated NCP node, if any.
+	}
 	_ = node.cmd.Process.Signal(syscall.SIGTERM)
 
 	err := node.cmd.Wait()
 	node.S.Dispatcher().RecvEvents() // ensure to receive any remaining events of exited node.
 
-	// no more events or lineReader lines should come, so we can close the log file and virtual-UART.
-	_ = node.virtualUartReader.Close()
-	if node.logFile != nil {
-		_ = node.logFile.Close()
+	// no more events or lineReader lines should come, so we can close virtual-UART.
+	if node.virtualUartReader != nil {
+		_ = node.virtualUartReader.Close()
 	}
 
+	if errNcp != nil {
+		simplelogger.Errorf("Problem exiting node.ncpNode: %+v", errNcp)
+	}
 	return err
 }
 
@@ -213,7 +260,7 @@ func (node *Node) inputCommand(cmd string) {
 	simplelogger.AssertTrue(node.uartType != NodeUartTypeUndefined)
 
 	if node.uartType == NodeUartTypeRealTime {
-		_, _ = node.pipeIn.Write([]byte(cmd + "\n"))
+		_, _ = node.pipeStdIn.Write([]byte(cmd + "\n"))
 		node.S.Dispatcher().NotifyCommand(node.Id)
 	} else {
 		node.S.Dispatcher().SendToUART(node.Id, []byte(cmd+"\n"))
@@ -692,6 +739,59 @@ func (node *Node) lineReaderStdErr(reader io.Reader) {
 	}
 }
 
+func (node *Node) ptyReader(reader io.Reader) {
+	buf := make([]byte, 1024) // FIXME
+	for {
+		n, err := reader.Read(buf)
+		simplelogger.Debugf("read %d bytes from PTY", n)
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				simplelogger.Debugf("%v - ptyReader was closed.", node)
+				return
+			}
+			simplelogger.Errorf("%v - ptyReader error: %v", node, err)
+			return
+		}
+		node.S.Dispatcher().SendToUART(node.Id, buf[0:n])
+	}
+}
+
+// ptyPiper pipes data from node's virtual UART to node's associated PTY (for handling by an OT NCP)
+func (node *Node) ptyPiper(reader io.Reader, ptyPath string) {
+	buf := make([]byte, 1024) // FIXME
+
+	for {
+		n, err := reader.Read(buf)
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				simplelogger.Debugf("%v - ptyPiper reader was closed.", node)
+				return
+			}
+			simplelogger.Errorf("%v - ptyPiper error: %v", node, err)
+			return
+		}
+
+		// lazy-open of PTY file
+		if node.ptyFile == nil {
+			node.ptyFile, err = os.Open(ptyPath)
+			if err != nil {
+				simplelogger.Errorf("%v - ptyPiper couldn't open ptyFile: %v", node, err)
+				return
+			}
+		}
+
+		n, err = node.ptyFile.Write(buf[0:n])
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				simplelogger.Debugf("%v - ptyPiper output was closed.", node)
+				return
+			}
+			simplelogger.Errorf("%v - ptyPiper error: %v", node, err)
+			return
+		}
+	}
+}
+
 // handles an incoming log message from the OT-Node and its detected loglevel (otLevel). It is written
 // to the node's log file. Display of the log message is done by the Dispatcher.
 func (node *Node) handlerLogMsg(otLevel string, msg string) {
@@ -830,10 +930,9 @@ func (node *Node) writeToLogFile(line string) {
 		timestamp = dnode.CurTime
 	}
 
-	_, err := node.logFile.WriteString(fmt.Sprintf("%-10d ", timestamp) + line + "\n")
+	logStr := fmt.Sprintf("%-10d ", timestamp) + line + "\n"
+	_, err := node.logFile.WriteString(logStr)
 	if err != nil {
-		simplelogger.Error("Couldn't write to log file of %v, closing it (%s)", node, node.logFile)
-		_ = node.logFile.Close()
-		node.logFile = nil
+		simplelogger.Warnf("[%s] %s", node.logFile.Name(), logStr)
 	}
 }

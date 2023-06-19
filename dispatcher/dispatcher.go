@@ -35,6 +35,7 @@ import (
 	"math/rand"
 	"net"
 	"os"
+	"runtime/debug"
 	"sort"
 	"strconv"
 	"strings"
@@ -93,7 +94,7 @@ type CallbackHandler interface {
 	OnNodeFail(nodeid NodeId)
 	OnNodeRecover(nodeid NodeId)
 
-	// Notifies that the node's UART was written with data.
+	// OnUartWrite notifies that the node's UART was written with data.
 	OnUartWrite(nodeid NodeId, data []byte)
 }
 
@@ -208,10 +209,9 @@ func NewDispatcher(ctx *progctx.ProgCtx, cfg *Config, cbHandler CallbackHandler)
 }
 
 func NewUnixSocket(socketId int) (net.Listener, string) {
-	err := os.MkdirAll("/tmp/otns", 0777)
-	simplelogger.FatalIfError(err, err)
-	unixSocketFile := fmt.Sprintf("/tmp/otns/socket_dispatcher_%d", socketId) // remove old one
-	err = os.RemoveAll(unixSocketFile)
+	tmpDir := GetTmpDir()
+	unixSocketFile := fmt.Sprintf("%s/socket_dispatcher_%d", tmpDir, socketId) // remove old one
+	err := os.RemoveAll(unixSocketFile)
 	simplelogger.FatalIfError(err, err)
 	ln, err := net.Listen("unix", unixSocketFile)
 	simplelogger.FatalIfError(err, err)
@@ -1203,6 +1203,7 @@ func (d *Dispatcher) handleTasks() {
 		err := recover()
 		if err != nil {
 			simplelogger.Errorf("dispatcher handle task failed: %+v", err)
+			debug.PrintStack()
 		}
 	}()
 

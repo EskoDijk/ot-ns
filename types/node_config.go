@@ -35,6 +35,8 @@ type NodeConfig struct {
 	IsMtd          bool
 	IsRouter       bool
 	IsBorderRouter bool
+	IsNcp          bool
+	IsRcp          bool
 	RxOffWhenIdle  bool
 	RadioRange     int
 	ExecutablePath string
@@ -42,19 +44,14 @@ type NodeConfig struct {
 	InitScript     []string
 }
 
+// DefaultNodeConfig returns a default auto-ID'ed auto-placed node, of no particular type.
 func DefaultNodeConfig() NodeConfig {
 	return NodeConfig{
 		ID:             -1, // -1 for the next available nodeid
 		X:              0,
 		Y:              0,
 		IsAutoPlaced:   true,
-		IsRouter:       true,
-		IsMtd:          false,
-		IsBorderRouter: false,
-		RxOffWhenIdle:  false,
 		RadioRange:     160,
 		ExecutablePath: "",
-		Restore:        false,
-		InitScript:     nil,
 	}
 }

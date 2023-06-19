@@ -54,7 +54,8 @@ const (
 	SSED   = "ssed"
 	ROUTER = "router"
 	REED   = "reed"
-	BR     = "br"
+	BR     = "br"    // Border Router RCP (radio) side
+	BRNCP  = "brncp" // Border Router NCP side
 	MTD    = "mtd"
 	FTD    = "ftd"
 )

@@ -28,8 +28,6 @@ package simulation
 
 import (
 	"fmt"
-	"io/fs"
-	"os"
 	"sort"
 	"time"
 
@@ -49,6 +47,7 @@ type Simulation struct {
 	err            error
 	cfg            *Config
 	nodes          map[NodeId]*Node
+	deletedNodes   chan *Node
 	d              *dispatcher.Dispatcher
 	vis            visualize.Visualizer
 	cmdRunner      CmdRunner
@@ -59,21 +58,28 @@ type Simulation struct {
 }
 
 func NewSimulation(ctx *progctx.ProgCtx, cfg *Config, dispatcherCfg *dispatcher.Config) (*Simulation, error) {
+	if err := CreateTmpDir(); err != nil {
+		return nil, fmt.Errorf("creating tmp directory failed: %w", err)
+	}
+	if err := cleanTmpDir(cfg.Id); err != nil {
+		return nil, fmt.Errorf("cleaning tmp directory files '%d_*.*' failed: %w", cfg.Id, err)
+	}
+
 	s := &Simulation{
-		ctx:         ctx,
-		cfg:         cfg,
-		nodes:       map[NodeId]*Node{},
-		rawMode:     cfg.RawMode,
-		networkInfo: visualize.DefaultNetworkInfo(),
-		nodePlacer:  NewNodeAutoPlacer(),
+		ctx:          ctx,
+		cfg:          cfg,
+		nodes:        map[NodeId]*Node{},
+		deletedNodes: make(chan *Node, 10000), // FIXME
+		rawMode:      cfg.RawMode,
+		networkInfo:  visualize.DefaultNetworkInfo(),
+		nodePlacer:   NewNodeAutoPlacer(),
 	}
 	s.networkInfo.Real = cfg.Real
 
-	// start the event_dispatcher for virtual time
+	// create a dispatcher for event and packet handling
 	if dispatcherCfg == nil {
 		dispatcherCfg = dispatcher.DefaultConfig()
 	}
-
 	dispatcherCfg.Speed = cfg.Speed
 	dispatcherCfg.Real = cfg.Real
 	dispatcherCfg.DumpPackets = cfg.DumpPackets
@@ -81,12 +87,6 @@ func NewSimulation(ctx *progctx.ProgCtx, cfg *Config, dispatcherCfg *dispatcher.
 	s.d = dispatcher.NewDispatcher(s.ctx, dispatcherCfg, s)
 	s.d.SetRadioModel(radiomodel.Create(cfg.RadioModel))
 	s.vis = s.d.GetVisualizer()
-	if err := s.createTmpDir(); err != nil {
-		simplelogger.Panicf("creating ./tmp/ directory failed: %+v", err)
-	}
-	if err := s.cleanTmpDir(cfg.Id); err != nil {
-		simplelogger.Panicf("cleaning ./tmp/ directory files '%d_*.*' failed: %+v", cfg.Id, err)
-	}
 
 	//TODO add a flag to turn on/off the energy analyzer
 	s.energyAnalyser = energy.NewEnergyAnalyser()
@@ -135,23 +135,39 @@ func (s *Simulation) AddNode(cfg *NodeConfig) (*Node, error) {
 	simplelogger.AssertTrue(s.d.IsAlive(nodeid))
 	evtCnt := s.d.RecvEvents() // allow new node to connect, and to receive its startup events.
 
-	if s.ctx.Err() == nil { // only proceed with node if we're not exiting the simulation.
-		if !dnode.IsConnected() {
-			_ = s.DeleteNode(nodeid)
-			s.nodePlacer.ReuseNextNodePosition()
-			return nil, errors.Errorf("simulation AddNode: new node %d did not respond (evtCnt=%d)", nodeid, evtCnt)
-		}
+	if s.ctx.Err() != nil {
+		return node, nil // skip further node setup if we're exiting the simulation.
+	}
+
+	if !dnode.IsConnected() {
+		_ = s.DeleteNode(nodeid)
+		s.nodePlacer.ReuseNextNodePosition()
+		return nil, errors.Errorf("simulation AddNode: new node %d did not respond (evtCnt=%d)", nodeid, evtCnt)
+	}
+
+	if !s.rawMode && !node.cfg.IsBorderRouter {
 		node.setupMode()
-		if !s.rawMode {
-			err := node.RunInitScript(cfg.InitScript)
-			if err == nil {
-				node.Start()
-			} else {
-				simplelogger.Errorf("simulation init script failed, deleting node: %v", err)
-				_ = s.DeleteNode(node.Id)
-				s.nodePlacer.ReuseNextNodePosition()
-				return nil, err
-			}
+		err := node.RunInitScript(cfg.InitScript)
+		if err == nil {
+			simplelogger.Infof(node.GetInfo())
+		} else {
+			simplelogger.Errorf("simulation init script failed, deleting node: %v", err)
+			_ = s.DeleteNode(node.Id)
+			s.nodePlacer.ReuseNextNodePosition()
+			return nil, err
+		}
+	}
+
+	if node.cfg.IsBorderRouter {
+		cfgNcp := cfg
+		cfgNcp.IsNcp = true // copy of node config with 'NCP' marked
+		cfgNcp.ExecutablePath = s.cfg.ExeConfig.DetermineExecutableBasedOnConfig(cfgNcp)
+		node.ncpNode, err = newNode(s, nodeid, cfgNcp)
+		if err != nil {
+			simplelogger.Errorf("Border Router NCP init failed, deleting node: %v", err)
+			_ = s.DeleteNode(node.Id)
+			s.nodePlacer.ReuseNextNodePosition()
+			return nil, err
 		}
 	}
 
@@ -215,6 +231,7 @@ func (s *Simulation) Stop() {
 
 	for _, node := range s.nodes {
 		_ = node.Exit()
+		s.deletedNodes <- node
 	}
 	simplelogger.Debugf("all simulation nodes exited.")
 }
@@ -300,6 +317,7 @@ func (s *Simulation) DeleteNode(nodeid NodeId) error {
 	delete(s.nodes, nodeid)
 	_ = node.Exit()
 	s.d.DeleteNode(nodeid)
+	s.deletedNodes <- node
 	return nil
 }
 
@@ -333,25 +351,6 @@ func (s *Simulation) GoAtSpeed(duration time.Duration, speed float64) <-chan str
 	simplelogger.AssertTrue(speed > 0)
 	_ = s.d.GoCancel()
 	return s.d.GoAtSpeed(duration, speed)
-}
-
-func (s *Simulation) cleanTmpDir(simulationId int) error {
-	// tmp directory is used by nodes for saving *.flash files. Need to be cleaned when simulation started
-	err := RemoveAllFiles(fmt.Sprintf("tmp/%d_*.flash", simulationId))
-	if err != nil {
-		return err
-	}
-	err = RemoveAllFiles(fmt.Sprintf("tmp/%d_*.log", simulationId))
-	return err
-}
-
-func (s *Simulation) createTmpDir() error {
-	// tmp directory is used by nodes for saving *.flash files. Need to be present when simulation started
-	err := os.Mkdir("tmp", 0775)
-	if errors.Is(err, fs.ErrExist) {
-		return nil // ok, already present
-	}
-	return err
 }
 
 func (s *Simulation) SetTitleInfo(titleInfo visualize.TitleInfo) {

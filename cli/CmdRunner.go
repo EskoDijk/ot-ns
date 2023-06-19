@@ -326,25 +326,19 @@ func (rt *CmdRunner) executeAddNode(cc *CommandContext, cmd *AddCmd) {
 	switch cmd.Type.Val {
 	case ROUTER, REED, FTD:
 		cfg.IsRouter = true
-		cfg.IsMtd = false
-		cfg.RxOffWhenIdle = false
 	case FED:
 		cfg.IsRouter = false
-		cfg.IsMtd = false
-		cfg.RxOffWhenIdle = false
 	case MED, MTD:
 		cfg.IsRouter = false
 		cfg.IsMtd = true
-		cfg.RxOffWhenIdle = false
 	case SED, SSED:
 		cfg.IsRouter = false
 		cfg.IsMtd = true
 		cfg.RxOffWhenIdle = true
 	case BR:
 		cfg.IsRouter = true
-		cfg.IsMtd = false
 		cfg.IsBorderRouter = true
-		cfg.RxOffWhenIdle = false
+		cfg.IsRcp = true
 	default:
 		simplelogger.Panicf("wrong node type: %s", cmd.Type.Val)
 	}
@@ -371,7 +365,6 @@ func (rt *CmdRunner) executeAddNode(cc *CommandContext, cmd *AddCmd) {
 			cc.error(err)
 			return
 		}
-
 		cc.outputf("%d\n", node.Id)
 	})
 }
@@ -977,17 +970,22 @@ func (rt *CmdRunner) executeExe(cc *CommandContext, cmd *ExeCmd) {
 				if isSetPath {
 					cfg.ExeConfig.Ftd = cmd.Path
 				}
-				cc.outputf("ftd: %s\n", cfg.ExeConfig.Ftd)
+				cc.outputf("ftd   : %s\n", cfg.ExeConfig.Ftd)
 			case MTD, MED, SED, SSED:
 				if isSetPath {
 					cfg.ExeConfig.Mtd = cmd.Path
 				}
-				cc.outputf("mtd: %s\n", cfg.ExeConfig.Mtd)
+				cc.outputf("mtd   : %s\n", cfg.ExeConfig.Mtd)
 			case BR:
 				if isSetPath {
-					cfg.ExeConfig.Br = cmd.Path
+					cfg.ExeConfig.BrRcp = cmd.Path
 				}
-				cc.outputf("br : %s\n", cfg.ExeConfig.Br)
+				cc.outputf("br    : %s\n", cfg.ExeConfig.BrRcp)
+			case BRNCP:
+				if isSetPath {
+					cfg.ExeConfig.BrRcp = cmd.Path
+				}
+				cc.outputf("brncp : %s\n", cfg.ExeConfig.BrNcp)
 			}
 			return
 		} else if isSetDefault && !isSetPath && !isSetNodeType && !isSetVersion {
@@ -997,7 +995,8 @@ func (rt *CmdRunner) executeExe(cc *CommandContext, cmd *ExeCmd) {
 			// set executables to that of a named version for all node types except br.
 			cfg.ExeConfig.Ftd = simulation.GetExecutableForThreadVersion(cmd.Version.Val)
 			cfg.ExeConfig.Mtd = cfg.ExeConfig.Ftd
-			cfg.ExeConfig.Br = cfg.ExeConfigDefault.Br
+			cfg.ExeConfig.BrRcp = cfg.ExeConfigDefault.BrRcp
+			cfg.ExeConfig.BrNcp = cfg.ExeConfigDefault.BrNcp
 		} else if !isSetDefault && !isSetNodeType && !isSetVersion && !isSetPath {
 			// display the exe output list.
 		} else {
@@ -1005,9 +1004,10 @@ func (rt *CmdRunner) executeExe(cc *CommandContext, cmd *ExeCmd) {
 			return
 		}
 
-		cc.outputf("ftd: %s\n", cfg.ExeConfig.Ftd)
-		cc.outputf("mtd: %s\n", cfg.ExeConfig.Mtd)
-		cc.outputf("br : %s\n", cfg.ExeConfig.Br)
+		cc.outputf("ftd   : %s\n", cfg.ExeConfig.Ftd)
+		cc.outputf("mtd   : %s\n", cfg.ExeConfig.Mtd)
+		cc.outputf("br    : %s\n", cfg.ExeConfig.BrRcp)
+		cc.outputf("brncp : %s\n", cfg.ExeConfig.BrNcp)
 		cc.outputf("Executables search path: %s\n", cfg.ExeConfig.SearchPathsString())
 		cc.outputf("Detected FTD path      : %s\n", cfg.ExeConfig.DetermineExecutableBasedOnConfig(&cfg.NewNodeConfig))
 	})

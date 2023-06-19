@@ -276,7 +276,7 @@ type AddCmd struct {
 
 // noinspection GoStructTag
 type NodeTypeOrRole struct {
-	Val string `@("router"|"reed"|"fed"|"med"|"sed"|"ssed"|"br"|"mtd"|"ftd")` //nolint
+	Val string `@("router"|"reed"|"fed"|"med"|"sed"|"ssed"|"br"|"mtd"|"ftd"|"brncp")` //nolint
 }
 
 // noinspection GoStructTag
