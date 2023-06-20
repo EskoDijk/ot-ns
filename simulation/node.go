@@ -111,9 +111,10 @@ func newNode(s *Simulation, nodeid NodeId, cfg NodeConfig) (*Node, error) {
 
 	simplelogger.Debugf("newNode() exe path: %s", cfg.ExecutablePath)
 	var cmd *exec.Cmd
-	ptyPath := getPtyFilePath(nodeid)
+	ptyPath := getPtyFilePath(s.cfg.Id, nodeid)
 	if cfg.IsNcp {
-		cmd = exec.CommandContext(context.Background(), cfg.ExecutablePath, strconv.Itoa(nodeid), s.d.GetUnixSocketName(), ptyPath)
+		cmd = exec.CommandContext(context.Background(), cfg.ExecutablePath,
+			strconv.Itoa(nodeid), s.d.GetUnixSocketName(), strconv.Itoa(s.cfg.Id), ptyPath)
 	} else {
 		cmd = exec.CommandContext(context.Background(), cfg.ExecutablePath, strconv.Itoa(nodeid), s.d.GetUnixSocketName())
 	}
@@ -263,6 +264,14 @@ func (node *Node) AssurePrompt() {
 
 func (node *Node) inputCommand(cmd string) {
 	simplelogger.AssertTrue(node.uartType != NodeUartTypeUndefined)
+
+	// If this node has associated NCP, that gets the CLI command.
+	if node.ncpNode != nil {
+		simplelogger.AssertTrue(node.ncpNode.uartType == NodeUartTypeRealTime)
+		_, _ = node.pipeStdIn.Write([]byte(cmd + "\n"))
+		// node is not marked as 'alive' - BR commands progress in realtime. TODO
+		return
+	}
 
 	if node.uartType == NodeUartTypeRealTime {
 		_, _ = node.pipeStdIn.Write([]byte(cmd + "\n"))
@@ -747,7 +756,7 @@ func (node *Node) lineReaderStdErr(reader io.Reader) {
 
 func (node *Node) ptyReader(reader io.Reader) {
 	buf := make([]byte, 1024) // FIXME
-	for {
+	for reader != nil {
 		n, err := reader.Read(buf)
 		simplelogger.Debugf("read %d bytes from PTY", n)
 		if err != nil {
