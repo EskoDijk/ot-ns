@@ -65,14 +65,15 @@ const (
 )
 
 type Node struct {
-	S       *Simulation
-	Id      int
-	cfg     *NodeConfig
-	cmd     *exec.Cmd
-	logFile *os.File // any node output over UART, stdout, stderr is written to the log
-	err     error    // any error that occurred while communicating with node (locally in Go)
-	errProc error    // any error that occurred in the node's process (C/C++ etc)
-	ncpNode *Node    // optional NCP node that connects to this radio-node (only for RCP nodetype).
+	S         *Simulation
+	Id        int
+	cfg       *NodeConfig
+	cmd       *exec.Cmd
+	logFile   *os.File // any node output over UART, stdout, stderr is written to the log
+	timestamp uint64   // timestamp for logging
+	err       error    // any error that occurred while communicating with node (locally in Go)
+	errProc   error    // any error that occurred in the node's process (C/C++ etc)
+	ncpNode   *Node    // optional NCP node that connects to this radio-node (only for RCP nodetype).
 
 	pendingLines      chan string        // lines with command output (non-log) from node, pending processing
 	pipeStdIn         io.WriteCloser     // pipe to write data to StdIn of Node
@@ -176,18 +177,6 @@ func newNode(s *Simulation, nodeid NodeId, cfg NodeConfig) (*Node, error) {
 	return node, err
 }
 
-/*
-	create pty file before rcp node?
-	time.Sleep(20 * time.Millisecond) // FIXME small pause to allow socat to create PTY
-	ttyFileName := "/tmp/otns/devpty1"
-	ttyFile, err := os.Open(ttyFileName)
-	if err != nil {
-		return nil, fmt.Errorf("couldn't open NCP PTY file: %v", err)
-	}
-	node.ncpPtyFile = ttyFile
-	simplelogger.Debugf("PTY file '%s' opened.", ttyFileName)
-*/
-
 func (node *Node) String() string {
 	return fmt.Sprintf("Node<%d>", node.Id)
 }
@@ -266,18 +255,18 @@ func (node *Node) inputCommand(cmd string) {
 	simplelogger.AssertTrue(node.uartType != NodeUartTypeUndefined)
 
 	// If this node has associated NCP, that gets the CLI command.
+	targetNode := node
 	if node.ncpNode != nil {
-		simplelogger.AssertTrue(node.ncpNode.uartType == NodeUartTypeRealTime)
-		_, _ = node.pipeStdIn.Write([]byte(cmd + "\n"))
-		// node is not marked as 'alive' - BR commands progress in realtime. TODO
-		return
+		targetNode = node.ncpNode
 	}
 
-	if node.uartType == NodeUartTypeRealTime {
-		_, _ = node.pipeStdIn.Write([]byte(cmd + "\n"))
-		node.S.Dispatcher().NotifyCommand(node.Id)
+	if targetNode.uartType == NodeUartTypeRealTime {
+		_, err := targetNode.pipeStdIn.Write([]byte(cmd + "\n"))
+		if err != nil {
+			simplelogger.Errorf("%v - ncpNode.pipeStdIn write error for cmd '%s': %v", targetNode, cmd, err)
+		}
 	} else {
-		node.S.Dispatcher().SendToUART(node.Id, []byte(cmd+"\n"))
+		targetNode.S.Dispatcher().SendToUART(targetNode.Id, []byte(cmd+"\n"))
 	}
 }
 
@@ -707,10 +696,7 @@ func (node *Node) lineReader(reader io.Reader, uartType NodeUartType) {
 	// Below loop handles the remainder of OT node output that are not OT node log messages.
 	for scanner.Scan() {
 		line := scanner.Text()
-
-		node.S.PostAsync(false, func() {
-			node.writeToLogFile(line)
-		})
+		node.writeToLogFile(line)
 
 		if node.uartType == NodeUartTypeUndefined {
 			simplelogger.Debugf("%v's UART type is %v", node, uartType)
@@ -735,15 +721,15 @@ func (node *Node) lineReaderStdErr(reader io.Reader) {
 
 	for scanner.Scan() {
 		line := scanner.Text()
+		node.writeToLogFile(line)
 
 		// mark the first error output line of the node
 		if node.errProc == nil {
 			node.errProc = errors.New(line)
 		}
 
-		// send it to log file and watch output.
+		// send it to watch output.
 		node.S.PostAsync(false, func() {
-			node.writeToLogFile(line)
 			node.S.Dispatcher().WatchMessage(node.Id, dispatcher.WatchCritLevel, fmt.Sprintf("%v StdErr: %v", node, line))
 		})
 	}
@@ -819,10 +805,11 @@ loop2:
 // handles an incoming log message from the OT-Node and its detected loglevel (otLevel). It is written
 // to the node's log file. Display of the log message is done by the Dispatcher.
 func (node *Node) handlerLogMsg(otLevel string, msg string) {
+	node.writeToLogFile(msg)
+
 	// create a node-specific log message that may be used by the Dispatcher's Watch function.
 	lev := dispatcher.ParseWatchLogLevel(otLevel)
 	node.S.PostAsync(false, func() {
-		node.writeToLogFile(msg)
 		node.S.Dispatcher().WatchMessage(node.Id, lev, msg)
 	})
 }
@@ -831,20 +818,24 @@ func (node *Node) TryExpectLine(line interface{}, timeout time.Duration) (bool, 
 	var outputLines []string
 
 	deadline := time.After(timeout)
+	cliNode := node
+	if node.ncpNode != nil {
+		cliNode = node.ncpNode
+	}
 
 	for {
 		select {
 		case <-deadline:
 			return false, outputLines
-		case readLine, ok := <-node.pendingLines:
-			simplelogger.AssertTrue(ok, "%s EOF: node.pendingLines channel was closed", node)
+		case readLine, ok := <-cliNode.pendingLines:
+			simplelogger.AssertTrue(ok, "%s EOF: cliNode.pendingLines channel was closed", node)
 
 			if !strings.HasPrefix(readLine, "|") && !strings.HasPrefix(readLine, "+") {
 				simplelogger.Debugf("%v %s", node, readLine)
 			}
 
 			outputLines = append(outputLines, readLine)
-			if node.isLineMatch(readLine, line) {
+			if isLineMatch(readLine, line) {
 				// found the exact line
 				return true, outputLines
 			} else {
@@ -890,7 +881,7 @@ func (node *Node) Ping(addr string, payloadSize int, count int, interval int, ho
 	node.AssurePrompt()
 }
 
-func (node *Node) isLineMatch(line string, _expectedLine interface{}) bool {
+func isLineMatch(line string, _expectedLine interface{}) bool {
 	switch expectedLine := _expectedLine.(type) {
 	case string:
 		return line == expectedLine
@@ -951,14 +942,7 @@ func (node *Node) writeToLogFile(line string) {
 		return
 	}
 
-	// determine node us timestamp
-	dnode := node.S.Dispatcher().GetNode(node.Id)
-	var timestamp uint64 = 0
-	if dnode != nil {
-		timestamp = dnode.CurTime
-	}
-
-	logStr := fmt.Sprintf("%-10d ", timestamp) + line + "\n"
+	logStr := fmt.Sprintf("%-10d ", node.timestamp) + line + "\n"
 	_, err := node.logFile.WriteString(logStr)
 	if err != nil {
 		simplelogger.Warnf("[%s] %s", node.logFile.Name(), logStr)

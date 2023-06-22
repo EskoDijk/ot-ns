@@ -27,6 +27,8 @@ echo "ot-br-ncp.sh started - simid=$3  node=$1  socketfile=$2"
 echo "                       ptyFile=$PTY_FILE  ptyFileDocker=$PTY_FILE2"
 echo "                       webPort=${WEB_PORT}"
 
+#set -ux
+
 _term()
 {
     echo " - Received SIGTERM! Killing SOCAT_PID ($SOCAT_PID) and docker kill ${CONTAINER_NAME}."
@@ -64,7 +66,8 @@ docker run --name ${CONTAINER_NAME} \
 #done
 
 # Run OT CLI in foreground until 'exit' typed or SIGTERM sent to this script.
-sleep 5
+sleep 7
+echo "Starting ot-ctl CLI"
 docker exec -i ${CONTAINER_NAME} ot-ctl
 
 echo " - CLI exited, stopping docker and killing 'socat' process"

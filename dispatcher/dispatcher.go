@@ -90,12 +90,16 @@ func DefaultConfig() *Config {
 	}
 }
 
+// CallbackHandler contains the callbacks that Dispatcher can make.
 type CallbackHandler interface {
 	OnNodeFail(nodeid NodeId)
 	OnNodeRecover(nodeid NodeId)
 
 	// OnUartWrite notifies that the node's UART was written with data.
 	OnUartWrite(nodeid NodeId, data []byte)
+
+	// OnTimeAdvance notifies that the node's simulation time was advanced until timestamp (us).
+	OnTimeAdvance(nodeid NodeId, timestamp uint64)
 }
 
 // represents a particular duration of simulation at a given speed, or DefaultDispatcherSpeed. It can be
@@ -651,7 +655,10 @@ func (d *Dispatcher) advanceNodeTime(node *Node, timestamp uint64, force bool) {
 	simplelogger.AssertNotNil(node)
 
 	if d.cfg.Real {
-		node.CurTime = timestamp
+		if node.CurTime != timestamp {
+			node.CurTime = timestamp
+			d.cbHandler.OnTimeAdvance(node.Id, timestamp)
+		}
 		return
 	}
 
@@ -666,6 +673,7 @@ func (d *Dispatcher) advanceNodeTime(node *Node, timestamp uint64, force bool) {
 		Timestamp: timestamp,
 	}
 	node.sendEvent(msg) // actively move the node's virtual-time to new time using an alarm-event msg.
+	d.cbHandler.OnTimeAdvance(node.Id, timestamp)
 }
 
 // SendToUART sends data to virtual time UART of the target node.
@@ -1417,10 +1425,6 @@ func (d *Dispatcher) GetVisualizationOptions() VisualizationOptions {
 func (d *Dispatcher) SetVisualizationOptions(opts VisualizationOptions) {
 	simplelogger.Debugf("dispatcher set visualization options: %+v", opts)
 	d.visOptions = opts
-}
-
-func (d *Dispatcher) NotifyCommand(nodeid NodeId) {
-	d.setAlive(nodeid)
 }
 
 func (d *Dispatcher) dumpPacket(item *Event) {

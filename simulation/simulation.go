@@ -161,6 +161,7 @@ func (s *Simulation) AddNode(cfg NodeConfig) (*Node, error) {
 	if node.cfg.IsBorderRouter {
 		// Start a 2nd node, an NCP, with slightly modified config. as part of the BR.
 		cfg.IsNcp = true // copy of node config with 'NCP' marked
+		cfg.IsRcp = false
 		cfg.ExecutablePath = s.cfg.ExeConfig.DetermineExecutableBasedOnConfig(&cfg)
 		node.ncpNode, err = newNode(s, nodeid, cfg)
 		if err != nil {
@@ -255,6 +256,23 @@ func (s *Simulation) OnNodeRecover(nodeid NodeId) {
 	simplelogger.AssertNotNil(node)
 }
 
+// OnUartWrite notifies the simulation that a node has received some data from UART.
+// It is part of implementation of dispatcher.CallbackHandler.
+func (s *Simulation) OnUartWrite(nodeid NodeId, data []byte) {
+	node := s.nodes[nodeid]
+	if node == nil {
+		return
+	}
+
+	node.onUartWrite(data)
+}
+
+func (s *Simulation) OnTimeAdvance(nodeid NodeId, timestamp uint64) {
+	if s.nodes[nodeid] != nil {
+		s.nodes[nodeid].timestamp = timestamp // FIXME thread race cond
+	}
+}
+
 func (s *Simulation) OnNodeProcessFailure(node *Node) {
 	if s.ctx.Err() != nil {
 		// ignore any node errors when simulation is closing up.
@@ -266,17 +284,6 @@ func (s *Simulation) OnNodeProcessFailure(node *Node) {
 		simplelogger.Infof("Deleting node %v due to process failure.", node.Id)
 		_ = s.DeleteNode(node.Id)
 	})
-}
-
-// OnUartWrite notifies the simulation that a node has received some data from UART.
-// It is part of implementation of dispatcher.CallbackHandler.
-func (s *Simulation) OnUartWrite(nodeid NodeId, data []byte) {
-	node := s.nodes[nodeid]
-	if node == nil {
-		return
-	}
-
-	node.onUartWrite(data)
 }
 
 func (s *Simulation) PostAsync(trivial bool, f func()) {
