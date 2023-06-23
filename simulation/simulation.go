@@ -131,7 +131,6 @@ func (s *Simulation) AddNode(cfg NodeConfig) (*Node, error) {
 	s.nodes[nodeid] = node
 
 	// init of the sim/dispatcher nodes
-	node.uartType = NodeUartTypeVirtualTime
 	simplelogger.AssertTrue(s.d.IsAlive(nodeid))
 	evtCnt := s.d.RecvEvents() // allow new node to connect, and to receive its startup events.
 
@@ -163,7 +162,7 @@ func (s *Simulation) AddNode(cfg NodeConfig) (*Node, error) {
 		cfg.IsNcp = true // copy of node config with 'NCP' marked
 		cfg.IsRcp = false
 		cfg.ExecutablePath = s.cfg.ExeConfig.DetermineExecutableBasedOnConfig(&cfg)
-		node.ncpNode, err = newNode(s, nodeid, cfg)
+		node.ncpNode, err = newNcpNode(s, nodeid, cfg)
 		if err != nil {
 			simplelogger.Errorf("Border Router NCP init failed, deleting node: %v", err)
 			_ = s.DeleteNode(node.Id)
@@ -271,19 +270,6 @@ func (s *Simulation) OnTimeAdvance(nodeid NodeId, timestamp uint64) {
 	if s.nodes[nodeid] != nil {
 		s.nodes[nodeid].timestamp = timestamp // FIXME thread race cond
 	}
-}
-
-func (s *Simulation) OnNodeProcessFailure(node *Node) {
-	if s.ctx.Err() != nil {
-		// ignore any node errors when simulation is closing up.
-		return
-	}
-	s.err = node.errProc
-	simplelogger.Errorf("Node %v process failed: %s", node.Id, node.errProc)
-	s.PostAsync(false, func() {
-		simplelogger.Infof("Deleting node %v due to process failure.", node.Id)
-		_ = s.DeleteNode(node.Id)
-	})
 }
 
 func (s *Simulation) PostAsync(trivial bool, f func()) {

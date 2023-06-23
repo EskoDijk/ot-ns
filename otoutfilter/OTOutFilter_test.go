@@ -46,6 +46,10 @@ func TestOTOutFilter(t *testing.T) {
 		"D  33:00:17.817 [N] log4\n" +
 		"E text 44:33:22.123 [I]log5\n" +
 		"F text [x] no log\n" +
+		"F text [L] logging line for OTBR with unknown loglevel\n" +
+		"[L] + This is log for BR\n" +
+		"[L] +++ [D] This is log for BR\n" +
+		"+ This is not log for BR\n" +
 		"00:00:00.000 [INFO]-CORE----: Notifier: StateChanged (0x01001009) [Ip6+ LLAddr Ip6Mult+ NetifState]\n" +
 		"00:00:00.000 [NOTE]-CLI-----: Output: > Done\n" +
 		"00:00:00.000 [DEBG]-PLAT----: Clear ExtAddr entries\n" +
@@ -65,6 +69,7 @@ func TestOTOutFilter(t *testing.T) {
 		"cmd3\n" +
 		"" +
 		"F text [x] no log\n" +
+		"+ This is not log for BR\n" +
 		"\n" +
 		"Done\n" +
 		""

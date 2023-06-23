@@ -5,6 +5,8 @@
 # is running. The PTY will have a known name PTY_FILE.
 # See for more info: https://openthread.io/guides/border-router
 #
+# This script starts the ot-ctl CLI terminal that connects to the OTBR NCP.
+
 # Cmdline parameters provided by OT-NS:
 # $1  <node>    Node number in the simulation
 # $2  <socket>  File for the Unix domain socket for OT-NS communication.
@@ -12,68 +14,29 @@
 # $4  <ptyFile> The absolute file path that OTNS expects for the PTY device (or a symlink to it).
 #               The PTY file (symlink) path will be in a temp folder as created by OTNS.
 
+set -u
+
 if [[ $# -ne 4 ]]; then
-    echo "ERROR: ob-br-ncp.sh requires 4 arguments; not for interactive use."
+    echo "[C] ERROR: ob-br-ncp.sh requires 4 arguments; not for interactive use."
     exit 1
 fi
 
-SOCAT_PID=""
-PTY_FILE="${4}"
-PTY_FILE2="${PTY_FILE}d"
 CONTAINER_NAME="otns_otbr_${3}_${1}"
-WEB_PORT="$((8080 + ${1} + ${3} * 1000))"
 
-echo "ot-br-ncp.sh started - simid=$3  node=$1  socketfile=$2"
-echo "                       ptyFile=$PTY_FILE  ptyFileDocker=$PTY_FILE2"
-echo "                       webPort=${WEB_PORT}"
-
-#set -ux
+echo "[D] ot-br-ncp.sh started - $3_$1  simid=$3  node=$1  socket=$2"
 
 _term()
 {
-    echo " - Received SIGTERM! Killing SOCAT_PID ($SOCAT_PID) and docker kill ${CONTAINER_NAME}."
-    kill $SOCAT_PID
-    docker kill ${CONTAINER_NAME}
-    wait
+    echo "[D] Received SIGTERM"
+    docker kill ${CONTAINER_NAME} >& /dev/null
     exit 0
 }
 trap _term SIGTERM
 
-echo " - starting 'socat' to connect OT-NS pty to Docker pty"
-socat -d pty,raw,echo=0,link=$PTY_FILE pty,raw,echo=0,link=$PTY_FILE2 &
-SOCAT_PID=$!
+echo "[D] Waiting for Docker container ${CONTAINER_NAME}"
+sleep 3
 
-echo " - starting docker container '${CONTAINER_NAME}' for OT-BR NCP side"
-# https://docs.docker.com/engine/reference/run/
-# -t flag must not be used when stdinput is piped to this script. So -it becomes -i
-# --rm flag to remove container after exit to avoid pollution of Docker data. Remove this for post mortem debug.
-# --entrypoint overrides the default otbr docker startup script - non-trivial to use see docs.
-# -c provides cmd arguments for the 'entrypoint' executable.
-# sed pipe prepends a log string to each line coming from docker.
-docker run --name ${CONTAINER_NAME} \
-    --sysctl "net.ipv6.conf.all.disable_ipv6=0 net.ipv4.conf.all.forwarding=1 net.ipv6.conf.all.forwarding=1" \
-    -p ${WEB_PORT}:80 --dns=127.0.0.1 -i --rm --volume $PTY_FILE2:/dev/ttyUSB0 --privileged \
-    --entrypoint /bin/bash \
-    openthread/otbr \
-    -c "/app/etc/docker/docker_entrypoint.sh" \
-    | sed -E 's/^/[L] /' &
+echo "[D] Starting ot-ctl CLI on Docker container ${CONTAINER_NAME}"
+docker exec -i ${CONTAINER_NAME} /bin/bash -c "until [ -e /dev/wpan0 ];do sleep 0.2;done; ot-ctl"
 
-# Wait for 'wpan0' device to appear
-#docker exec -i ${CONTAINER_NAME} /bin/bash -c "ls /dev/wpan0"
-#while [ $? -ne 0 ]
-#do
-#  docker exec -i ${CONTAINER_NAME} /bin/bash -c "ls /dev/wpan0"
-#done
-
-# Run OT CLI in foreground until 'exit' typed or SIGTERM sent to this script.
-sleep 7
-echo "Starting ot-ctl CLI"
-docker exec -i ${CONTAINER_NAME} ot-ctl
-
-echo " - CLI exited, stopping docker and killing 'socat' process"
-docker kill ${CONTAINER_NAME}
-kill $SOCAT_PID
-wait
-
-echo " - script exit"
-exit 0
+echo "[D] script exit"

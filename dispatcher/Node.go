@@ -75,7 +75,6 @@ type Node struct {
 	CurTime       uint64
 	Role          OtDeviceRole
 	conn          net.Conn
-	err           error
 	failureCtrl   *FailureCtrl
 	isFailed      bool
 	radioNode     *radiomodel.RadioNode
@@ -107,7 +106,6 @@ func newNode(d *Dispatcher, nodeid NodeId, cfg NodeConfig) *Node {
 		Rloc16:        threadconst.InvalidRloc16,
 		Role:          OtDeviceRoleDisabled,
 		conn:          nil, // connection will be set when first event is received from node.
-		err:           nil, // keep track of connection errors.
 		radioNode:     radiomodel.NewRadioNode(nodeid, radioCfg),
 		joinerState:   OtJoinerStateIdle,
 		watchLogLevel: WatchDefaultLevel,
@@ -127,8 +125,8 @@ func (node *Node) String() string {
 
 // SendEvent sends Event evt serialized to the node, over socket. If evt.Timestamp != InvalidTimestamp,
 // it uses the valid timestamp and modifies the evt.Delay value based on the target node's CurTime,
-// and may update other Event fields too for bookkeeping purposes.
-func (node *Node) sendEvent(evt *Event) {
+// and may update other Event fields too for bookkeeping purposes. Returns success flag.
+func (node *Node) sendEvent(evt *Event) bool {
 	evt.NodeId = node.Id
 	oldTime := node.CurTime
 	if evt.Timestamp == InvalidTimestamp {
@@ -151,9 +149,11 @@ func (node *Node) sendEvent(evt *Event) {
 	}
 	//simplelogger.Debugf("N%v sendEvent -> %v", node.Id, evt.String())
 	err := node.sendRawData(evt.Serialize())
-	if err != nil && node.err == nil {
-		node.err = err
+	if err != nil {
+		node.onError(err)
+		return false
 	}
+	return true
 }
 
 // sendRawData is INTERNAL to send bytes to socket of node
@@ -198,6 +198,11 @@ func (node *Node) DumpStat() string {
 
 func (node *Node) SetFailTime(failTime FailTime) {
 	node.failureCtrl.SetFailTime(failTime)
+}
+
+// onError is called if an error in communication or event handling occurs.
+func (node *Node) onError(err error) {
+	simplelogger.Errorf("%v - %v", node, err)
 }
 
 func (node *Node) onPingRequest(timestamp uint64, dstaddr string, datasize int) {

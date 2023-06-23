@@ -607,9 +607,9 @@ func (d *Dispatcher) eventsReader() {
 			defer d.waitGroupNodes.Done()
 			defer myConn.Close()
 
-			buf := make([]byte, 65536)
+			buf := make([]byte, 65536) // TODO size
 			myNodeId := 0
-			var myNode *Node = nil
+
 			for {
 				_ = myConn.SetReadDeadline(time.Now().Add(readTimeout))
 				n, err := myConn.Read(buf)
@@ -622,10 +622,7 @@ func (d *Dispatcher) eventsReader() {
 					}
 					continue
 				} else if err != nil {
-					simplelogger.Errorf("Node %d - Socket read error: %+v", myNodeId, err)
-					if myNode != nil && myNode.err == nil {
-						myNode.err = err
-					}
+					simplelogger.Fatalf("Node %d - Socket read error: %+v", myNodeId, err)
 					break
 				}
 
@@ -676,8 +673,8 @@ func (d *Dispatcher) advanceNodeTime(node *Node, timestamp uint64, force bool) {
 	d.cbHandler.OnTimeAdvance(node.Id, timestamp)
 }
 
-// SendToUART sends data to virtual time UART of the target node.
-func (d *Dispatcher) SendToUART(id NodeId, data []byte) {
+// SendToUART sends data to virtual time UART of the target node. Returns success flag.
+func (d *Dispatcher) SendToUART(id NodeId, data []byte) bool {
 	evt := &Event{
 		Timestamp: InvalidTimestamp,
 		Delay:     0,
@@ -687,9 +684,10 @@ func (d *Dispatcher) SendToUART(id NodeId, data []byte) {
 	}
 	dstnode := d.nodes[id]
 	if dstnode != nil {
-		dstnode.sendEvent(evt)
+		return dstnode.sendEvent(evt)
 	} else {
 		simplelogger.Debugf("SendToUART() cannot send to deleted/unknown node: %v", id)
+		return false
 	}
 }
 

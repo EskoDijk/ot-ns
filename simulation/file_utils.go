@@ -34,14 +34,9 @@ import (
 	"github.com/simonlingoogle/go-simplelogger"
 )
 
-// cleanTmpDir cleans the tmp dir by removing only .flash/.log files
+// cleanTmpDir cleans the tmp dir by removing only log/flash/temp/socket files associated to current simulation ID
 func cleanTmpDir(simulationId int) error {
-	// tmp directory is used by nodes for saving *.flash files. Need to be cleaned when simulation started
-	err := types.RemoveAllFiles(fmt.Sprintf("%s/%d_*.flash", types.GetTmpDir(), simulationId))
-	if err != nil {
-		return err
-	}
-	err = types.RemoveAllFiles(fmt.Sprintf("%s/%d_*.log", types.GetTmpDir(), simulationId))
+	err := types.RemoveAllFiles(fmt.Sprintf("%s/%d_*.*", types.GetTmpDir(), simulationId))
 	return err
 }
 

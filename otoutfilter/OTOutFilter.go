@@ -1,4 +1,4 @@
-// Copyright (c) 2020-2022, The OTNS Authors.
+// Copyright (c) 2020-2023, The OTNS Authors.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -36,7 +36,7 @@ import (
 )
 
 var (
-	logPattern = regexp.MustCompile(`\[(-|C|W|N|I|D|CRIT|WARN|NOTE|INFO|DEBG)].+\n`)
+	logPattern = regexp.MustCompile(`\[(-|C|W|N|I|D|L|CRIT|WARN|NOTE|INFO|DEBG)].+\n`)
 )
 
 type otOutFilter struct {
@@ -59,11 +59,12 @@ func (cc *otOutFilter) Read(p []byte) (int, error) {
 
 		var b [4096]byte
 		n, err := cc.subr.Read(b[:])
-		if err != nil {
-			return n, err
+		if n > 0 {
+			cc.linebuf = cc.linebuf + string(b[:n])
 		}
-
-		cc.linebuf = cc.linebuf + string(b[:n])
+		if err != nil {
+			return 0, err // TODO try to return partial line in case of error, copied into p.
+		}
 	}
 }
 
@@ -80,17 +81,28 @@ func (cc *otOutFilter) readFirstLine(p []byte) int {
 		var sn int
 
 		firstline := cc.linebuf[:newLineIdx+1]
+		isLogLabelRemoved := false
 
 		// remove > (the input prompt) to make cli output easier to parse
 		if strings.HasPrefix(firstline, "> ") {
 			firstline = firstline[2:]
 			sn += 2
 		}
+		// remove [L] (generic logline indicator) to parse true log level indicator (if present)
+		if strings.HasPrefix(firstline, "[L] ") {
+			firstline = firstline[4:]
+			sn += 4
+			isLogLabelRemoved = true
+		}
 
 		logIdx := logPattern.FindStringSubmatchIndex(firstline)
 
-		if logIdx == nil {
+		if logIdx == nil && !isLogLabelRemoved {
 			rn += copy(p, firstline[:])
+		} else if logIdx == nil && isLogLabelRemoved {
+			logStr := strings.TrimSpace(firstline)
+			cc.printLog("L", logStr)
+			sn += len(firstline)
 		} else {
 			// filter out the log line and send to printLog()
 			simplelogger.AssertTrue(logIdx[1] == len(firstline))
@@ -98,7 +110,7 @@ func (cc *otOutFilter) readFirstLine(p []byte) int {
 			logLevelIndicatorStr := firstline[logIdx[2] : logIdx[2]+1]
 			simplelogger.AssertTrue(len(logLevelIndicatorStr) == 1)
 			cc.printLog(logLevelIndicatorStr, logStr)
-			sn += logIdx[1]
+			sn += len(firstline)
 		}
 
 		simplelogger.AssertTrue(rn+sn > 0) // should always read/skip something

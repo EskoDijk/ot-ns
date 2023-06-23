@@ -46,10 +46,11 @@ import (
 	"github.com/openthread/ot-ns/dispatcher"
 	"github.com/openthread/ot-ns/otoutfilter"
 	. "github.com/openthread/ot-ns/types"
+	"math"
 )
 
 const (
-	DefaultCommandTimeout = time.Second * 10
+	DefaultCommandTimeout = time.Second * 5
 )
 
 var (
@@ -69,11 +70,10 @@ type Node struct {
 	Id        int
 	cfg       *NodeConfig
 	cmd       *exec.Cmd
-	logFile   *os.File // any node output over UART, stdout, stderr is written to the log
-	timestamp uint64   // timestamp for logging
-	err       error    // any error that occurred while communicating with node (locally in Go)
-	errProc   error    // any error that occurred in the node's process (C/C++ etc)
-	ncpNode   *Node    // optional NCP node that connects to this radio-node (only for RCP nodetype).
+	logFile   *os.File   // any node output over UART, stdout, stderr is written to the log
+	timestamp uint64     // timestamp for logging
+	errors    chan error // collects any runtime errors, or communication errors, for this node
+	ncpNode   *OtbrNode  // optional NCP node that connects to this radio-node (only for RCP nodetype).
 
 	pendingLines      chan string        // lines with command output (non-log) from node, pending processing
 	pipeStdIn         io.WriteCloser     // pipe to write data to StdIn of Node
@@ -87,23 +87,14 @@ type Node struct {
 }
 
 func newNode(s *Simulation, nodeid NodeId, cfg NodeConfig) (*Node, error) {
+	simplelogger.AssertTrue(!cfg.IsNcp)
 	var err error
-	logNameSuffix := ""
 
-	if cfg.Restore && cfg.IsNcp {
-		return nil, errors.New("cfg.Restore == true not implemented for NCP node (cfg.IsNcp)")
-	}
-	if cfg.IsNcp {
-		logNameSuffix = "_ncp"
-	}
-
-	logFileName := fmt.Sprintf("tmp/%d_%d%s.log", s.cfg.Id, nodeid, logNameSuffix)
+	logFileName := fmt.Sprintf("%s/%d_%d.log", GetTmpDir(), s.cfg.Id, nodeid)
 	if !cfg.Restore {
-		if !cfg.IsNcp {
-			flashFile := fmt.Sprintf("tmp/%d_%d.flash", s.cfg.Id, nodeid)
-			if err = os.RemoveAll(flashFile); err != nil {
-				return nil, fmt.Errorf("remove flash file failed: %w", err)
-			}
+		flashFile := fmt.Sprintf("%s/%d_%d.flash", GetTmpDir(), s.cfg.Id, nodeid)
+		if err = os.RemoveAll(flashFile); err != nil {
+			return nil, fmt.Errorf("remove flash file failed: %w", err)
 		}
 		if err = os.RemoveAll(logFileName); err != nil {
 			return nil, fmt.Errorf("remove node log file failed: %w", err)
@@ -111,14 +102,7 @@ func newNode(s *Simulation, nodeid NodeId, cfg NodeConfig) (*Node, error) {
 	}
 
 	simplelogger.Debugf("newNode() exe path: %s", cfg.ExecutablePath)
-	var cmd *exec.Cmd
-	ptyPath := getPtyFilePath(s.cfg.Id, nodeid)
-	if cfg.IsNcp {
-		cmd = exec.CommandContext(context.Background(), cfg.ExecutablePath,
-			strconv.Itoa(nodeid), s.d.GetUnixSocketName(), strconv.Itoa(s.cfg.Id), ptyPath)
-	} else {
-		cmd = exec.CommandContext(context.Background(), cfg.ExecutablePath, strconv.Itoa(nodeid), s.d.GetUnixSocketName())
-	}
+	cmd := exec.CommandContext(context.Background(), cfg.ExecutablePath, strconv.Itoa(nodeid), s.d.GetUnixSocketName())
 
 	node := &Node{
 		S:            s,
@@ -126,14 +110,12 @@ func newNode(s *Simulation, nodeid NodeId, cfg NodeConfig) (*Node, error) {
 		cfg:          &cfg,
 		cmd:          cmd,
 		pendingLines: make(chan string, 10000),
-		uartType:     NodeUartTypeUndefined,
+		errors:       make(chan error, 100),
 	}
 
-	if !cfg.IsNcp {
+	if !cfg.IsRcp {
 		node.virtualUartReader, node.virtualUartPipe = io.Pipe()
-	}
-
-	if cfg.IsRcp {
+	} else {
 		node.ptyChan = make(chan []byte, 1024)
 	}
 
@@ -161,17 +143,15 @@ func newNode(s *Simulation, nodeid NodeId, cfg NodeConfig) (*Node, error) {
 		return nil, err
 	}
 
-	go node.lineReader(node.pipeStdOut, NodeUartTypeRealTime)
-
-	if !cfg.IsNcp {
-		go node.lineReaderStdErr(node.pipeStdErr)
-		if cfg.IsRcp {
-			go node.ptyPiper(ptyPath)
-		} else {
-			go node.lineReader(node.virtualUartReader, NodeUartTypeVirtualTime)
-		}
+	node.uartType = NodeUartTypeVirtualTime
+	go node.processMonitor()
+	go node.lineReaderStdErr(node.pipeStdErr, true)
+	if cfg.IsRcp {
+		ptyPath := getPtyFilePath(s.cfg.Id, nodeid)
+		simplelogger.Debugf("%v - starting ptyPiper for PTY %s", node, ptyPath)
+		go node.ptyPiper(ptyPath)
 	} else {
-		go node.lineReader(node.pipeStdErr, NodeUartTypeRealTime) // on NCP, StdErr output is okay.
+		go node.lineReader(node.virtualUartReader)
 	}
 
 	return node, err
@@ -184,12 +164,18 @@ func (node *Node) String() string {
 func (node *Node) RunInitScript(cfg []string) error {
 	simplelogger.AssertNotNil(cfg)
 	for _, cmd := range cfg {
-		if node.err != nil {
-			return node.err
-		}
 		node.Command(cmd, DefaultCommandTimeout)
+		select {
+		case err, ok := <-node.errors:
+			if !ok {
+				return errors.New("node process failed or stopped during init script execution")
+			}
+			return err
+		default:
+			break
+		}
 	}
-	return node.err
+	return nil
 }
 
 // GetInfo returns an info string with node properties and its configured network parameters
@@ -251,23 +237,27 @@ func (node *Node) AssurePrompt() {
 	_, _ = node.expectLine("", DefaultCommandTimeout)
 }
 
-func (node *Node) inputCommand(cmd string) {
-	simplelogger.AssertTrue(node.uartType != NodeUartTypeUndefined)
-
+// inputCommand sends the CLI cmd to the node. Returns success flag.
+func (node *Node) inputCommand(cmd string) bool {
 	// If this node has associated NCP, that gets the CLI command.
 	targetNode := node
 	if node.ncpNode != nil {
-		targetNode = node.ncpNode
+		targetNode = &node.ncpNode.Node
 	}
 
+	simplelogger.AssertTrue(targetNode.uartType != NodeUartTypeUndefined)
 	if targetNode.uartType == NodeUartTypeRealTime {
 		_, err := targetNode.pipeStdIn.Write([]byte(cmd + "\n"))
 		if err != nil {
-			simplelogger.Errorf("%v - ncpNode.pipeStdIn write error for cmd '%s': %v", targetNode, cmd, err)
+			err = fmt.Errorf("%v - ncpNode.pipeStdIn write error for cmd '%s': %v", targetNode, cmd, err)
+			simplelogger.Debugf("%v", err)
+			node.errors <- err
+			return false
 		}
 	} else {
-		targetNode.S.Dispatcher().SendToUART(targetNode.Id, []byte(cmd+"\n"))
+		return targetNode.S.Dispatcher().SendToUART(targetNode.Id, []byte(cmd+"\n"))
 	}
+	return true
 }
 
 func (node *Node) CommandExpectNone(cmd string, timeout time.Duration) {
@@ -276,40 +266,42 @@ func (node *Node) CommandExpectNone(cmd string, timeout time.Duration) {
 }
 
 func (node *Node) Command(cmd string, timeout time.Duration) []string {
+	var err error
+	var output []string
+
 	node.inputCommand(cmd)
-	_, err1 := node.expectLine(cmd, timeout)
-	if err1 != nil {
-		node.err = err1
-		simplelogger.Error(err1)
-		return []string{}
-	}
-	output, err := node.expectLine(DoneOrErrorRegexp, timeout)
+	_, err = node.expectLine(cmd, timeout) // cmd itself is echoed back
 	if err != nil {
-		node.err = err
+		err = fmt.Errorf("%v - did not echo cmd '%s'", node, cmd)
 		simplelogger.Error(err)
 		return []string{}
 	}
-	if len(output) == 0 {
-		err = fmt.Errorf("%v - Command() response timeout for cmd '%s' after %v", node, cmd, timeout)
-		node.err = err
+	output, err = node.expectLine(DoneOrErrorRegexp, timeout)
+	if err != nil || len(output) == 0 {
+		err = fmt.Errorf("%v - did not find Done or Error for cmd '%s'", node, cmd)
 		simplelogger.Error(err)
 		return []string{}
 	}
+
 	var result string
-	output, result = output[:len(output)-1], output[len(output)-1]
+	var outputCl []string
+	outputCl, result = output[:len(output)-1], output[len(output)-1]
+	// case where a CLI command gave an error. This is not a failure of the node.
 	if result != "Done" {
-		err = fmt.Errorf("%v - Unexpected cmd result for cmd '%s': %s", node, cmd, result)
-		node.err = err
-		simplelogger.Error(err)
+		err = fmt.Errorf("%v - Unexpected result for cmd '%s': %s", node, cmd, result)
+		simplelogger.Debugf("%v", err)
+		return output
 	}
-	return output
+
+	return outputCl
 }
 
 func (node *Node) CommandExpectString(cmd string, timeout time.Duration) string {
 	output := node.Command(cmd, timeout)
 	if len(output) != 1 {
-		node.err = fmt.Errorf("%v - expected 1 line, but received %d: %#v", node, len(output), output)
-		simplelogger.Error(node.err)
+		err := fmt.Errorf("%v - expected 1 line, but received %d: %#v", node, len(output), output)
+		simplelogger.Error(err)
+		node.errors <- err
 		return ""
 	}
 
@@ -328,7 +320,10 @@ func (node *Node) CommandExpectInt(cmd string, timeout time.Duration) int {
 	}
 
 	if err != nil {
-		simplelogger.Panicf("%v - parsing unexpected Int number: %#v", node, s)
+		err := fmt.Errorf("%v - expected Int, but received '%s'", node, s)
+		simplelogger.Error(err)
+		node.errors <- err
+		return math.MaxInt
 	}
 	return int(iv)
 }
@@ -341,7 +336,10 @@ func (node *Node) CommandExpectHex(cmd string, timeout time.Duration) int {
 	iv, err = strconv.ParseInt(s[2:], 16, 0)
 
 	if err != nil {
-		simplelogger.Panicf("unexpected number: %#v", s)
+		err := fmt.Errorf("%v - expected Hex string, but received '%s'", node, s)
+		simplelogger.Error(err)
+		node.errors <- err
+		return math.MaxInt
 	}
 	return int(iv)
 }
@@ -686,9 +684,33 @@ func (node *Node) GetSingleton() bool {
 	}
 }
 
-func (node *Node) lineReader(reader io.Reader, uartType NodeUartType) {
-	// TODO close the line channel after line reader routine exits?
+// processMonitor runs in a thread to monitor the node process/comms for fatal errors.
+func (node *Node) processMonitor() {
+	for {
+		err, ok := <-node.errors
+		if !ok || node.S.ctx.Err() != nil { // don't act on node errors when simulation is closing up.
+			return
+		}
+		simplelogger.Errorf("Node %v process failed: %s", node.Id, err)
 
+		node.S.PostAsync(false, func() {
+			simplelogger.Infof("Deleting node %v due to process failure.", node.Id)
+			_ = node.S.DeleteNode(node.Id)
+		})
+		break
+	}
+
+	for {
+		err, ok := <-node.errors
+		if !ok {
+			return
+		}
+		simplelogger.Error(err)
+	}
+}
+
+// lineReader reads lines until EOF. Each non-log file is written to node.pendingLines for later processing.
+func (node *Node) lineReader(reader io.Reader) {
 	// Below filter takes out any OT node log-message lines and sends these to the handler.
 	scanner := bufio.NewScanner(otoutfilter.NewOTOutFilter(bufio.NewReader(reader), "", node.handlerLogMsg))
 	scanner.Split(bufio.ScanLines)
@@ -698,24 +720,20 @@ func (node *Node) lineReader(reader io.Reader, uartType NodeUartType) {
 		line := scanner.Text()
 		node.writeToLogFile(line)
 
-		if node.uartType == NodeUartTypeUndefined {
-			simplelogger.Debugf("%v's UART type is %v", node, uartType)
-			node.uartType = uartType
-		}
-
 		select {
 		case node.pendingLines <- line:
 			break
-		default:
-			// if we failed to append line, panic - should not happen normally. If so, needs fix.
+		default: // panic - should not happen normally. If so, needs a fix.
 			simplelogger.Panicf("%v - node.pendingLines exceeded length %v", node, len(node.pendingLines))
-			break
 		}
 	}
+	node.onProcessStops()
+	close(node.pendingLines)
 }
 
-// lineReaderStdErr reads lines (if any) and marks first line as a 'node process error'
-func (node *Node) lineReaderStdErr(reader io.Reader) {
+// lineReaderStdErr reads lines (if any) until EOF. Read lines are sent as Watch log messages.
+// If isLineFatal is true, treats any read line as a 'node process error'
+func (node *Node) lineReaderStdErr(reader io.Reader, isLineFatal bool) {
 	scanner := bufio.NewScanner(bufio.NewReader(reader)) // no filter applied.
 	scanner.Split(bufio.ScanLines)
 
@@ -723,83 +741,15 @@ func (node *Node) lineReaderStdErr(reader io.Reader) {
 		line := scanner.Text()
 		node.writeToLogFile(line)
 
-		// mark the first error output line of the node
-		if node.errProc == nil {
-			node.errProc = errors.New(line)
-		}
-
-		// send it to watch output.
 		node.S.PostAsync(false, func() {
 			node.S.Dispatcher().WatchMessage(node.Id, dispatcher.WatchCritLevel, fmt.Sprintf("%v StdErr: %v", node, line))
 		})
-	}
 
-	// when the stderr of the node closes and any error was raised, inform simulation of node's failure.
-	if node.errProc != nil {
-		node.S.OnNodeProcessFailure(node)
-	}
-}
-
-func (node *Node) ptyReader(reader io.Reader) {
-	buf := make([]byte, 1024) // FIXME
-	for reader != nil {
-		n, err := reader.Read(buf)
-		simplelogger.Debugf("read %d bytes from PTY", n)
-		if err != nil {
-			if errors.Is(err, io.EOF) {
-				simplelogger.Debugf("%v - ptyReader was closed.", node)
-				return
-			}
-			simplelogger.Errorf("%v - ptyReader error: %v", node, err)
-			return
-		}
-		node.S.Dispatcher().SendToUART(node.Id, buf[0:n])
-	}
-}
-
-// ptyPiper pipes data from node's ptyChan (where virtual UART dat comes in) to node's associated
-// PTY (for handling by an OT NCP)
-func (node *Node) ptyPiper(ptyPath string) {
-loop:
-	for {
-		// check when the PTY device becomes available.
-		_, err := os.Stat(ptyPath)
-		if node.ptyFile == nil && err == nil {
-			node.ptyFile, err = os.OpenFile(ptyPath, os.O_RDWR, 0)
-			if err != nil {
-				simplelogger.Errorf("%v - ptyPiper couldn't open ptyFile: %v", node, err)
-				return
-			}
-			break loop
-		}
-
-		select {
-		case <-node.S.ctx.Done():
-			break loop
-		default:
-			time.Sleep(20 * time.Millisecond)
+		if isLineFatal {
+			node.errors <- errors.New(line)
 		}
 	}
-
-	go node.ptyReader(node.ptyFile)
-
-loop2:
-	for {
-		select {
-		case b := <-node.ptyChan:
-			_, err := node.ptyFile.Write(b)
-			if err != nil {
-				if errors.Is(err, io.EOF) {
-					simplelogger.Debugf("%v - ptyPiper output was closed.", node)
-					return
-				}
-				simplelogger.Errorf("%v - ptyPiper error: %v", node, err)
-				return
-			}
-		case <-node.S.ctx.Done():
-			break loop2
-		}
-	}
+	node.onProcessStops()
 }
 
 // handles an incoming log message from the OT-Node and its detected loglevel (otLevel). It is written
@@ -820,7 +770,7 @@ func (node *Node) TryExpectLine(line interface{}, timeout time.Duration) (bool, 
 	deadline := time.After(timeout)
 	cliNode := node
 	if node.ncpNode != nil {
-		cliNode = node.ncpNode
+		cliNode = &node.ncpNode.Node
 	}
 
 	for {
@@ -828,7 +778,10 @@ func (node *Node) TryExpectLine(line interface{}, timeout time.Duration) (bool, 
 		case <-deadline:
 			return false, outputLines
 		case readLine, ok := <-cliNode.pendingLines:
-			simplelogger.AssertTrue(ok, "%s EOF: cliNode.pendingLines channel was closed", node)
+			if !ok {
+				simplelogger.Debugf("%v - cliNode.pendingLines channel was closed", node)
+				return false, outputLines
+			}
 
 			if !strings.HasPrefix(readLine, "|") && !strings.HasPrefix(readLine, "+") {
 				simplelogger.Debugf("%v %s", node, readLine)
@@ -854,9 +807,9 @@ func (node *Node) TryExpectLine(line interface{}, timeout time.Duration) (bool, 
 func (node *Node) expectLine(line interface{}, timeout time.Duration) ([]string, error) {
 	found, output := node.TryExpectLine(line, timeout)
 	if !found {
-		node.err = errors.Errorf("%v - expect line timeout: %#v", node, line)
-		simplelogger.Error(node.err)
-		return []string{}, node.err
+		err := errors.Errorf("%v - expect line timeout: %#v", node, line)
+		simplelogger.Debugf("%v", err)
+		return []string{}, err
 	}
 
 	return output, nil
@@ -932,9 +885,16 @@ func (node *Node) setupMode() {
 func (node *Node) onUartWrite(data []byte) {
 	if node.ptyChan != nil {
 		node.ptyChan <- data
-	} else {
+	} else if node.virtualUartPipe != nil {
 		_, _ = node.virtualUartPipe.Write(data)
+	} else {
+		simplelogger.Panicf("onUartWrite - %v misconfiguration", node)
 	}
+}
+
+// onProcessStops is called when the node process exits/stops. It may be called multiple times.
+func (node *Node) onProcessStops() {
+	// TODO
 }
 
 func (node *Node) writeToLogFile(line string) {
@@ -942,7 +902,8 @@ func (node *Node) writeToLogFile(line string) {
 		return
 	}
 
-	logStr := fmt.Sprintf("%-10d ", node.timestamp) + line + "\n"
+	//logStr := fmt.Sprintf("%-10d ", node.timestamp) + line + "\n" // TODO use timestamp in log line
+	logStr := line + "\n"
 	_, err := node.logFile.WriteString(logStr)
 	if err != nil {
 		simplelogger.Warnf("[%s] %s", node.logFile.Name(), logStr)
