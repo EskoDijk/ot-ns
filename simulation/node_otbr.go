@@ -39,10 +39,17 @@ import (
 	"github.com/simonlingoogle/go-simplelogger"
 
 	. "github.com/openthread/ot-ns/types"
+	"syscall"
 )
 
 type OtbrNode struct {
 	Node
+	processList         []*exec.Cmd
+	errorList           []error
+	cmdSocat            *exec.Cmd
+	cmdDocker           *exec.Cmd
+	dockerContainerName string
+	httpPort            int
 }
 
 func newNcpNode(s *Simulation, nodeid NodeId, cfg NodeConfig) (*OtbrNode, error) {
@@ -53,25 +60,23 @@ func newNcpNode(s *Simulation, nodeid NodeId, cfg NodeConfig) (*OtbrNode, error)
 		return nil, errors.New("cfg.Restore == true not implemented for OTBR NCP")
 	}
 
-	logFileName := fmt.Sprintf("%s/%d_%d.ncp.log", GetTmpDir(), s.cfg.Id, nodeid)
-	if err = os.RemoveAll(logFileName); err != nil {
-		return nil, fmt.Errorf("remove node log file failed: %w", err)
-	}
-
-	simplelogger.Debugf("newNode() exe path: %s", cfg.ExecutablePath)
+	simplelogger.Debugf("newNcpNode() exe path: %s", cfg.ExecutablePath)
 	ptyPath := getPtyFilePath(s.cfg.Id, nodeid)
 	cmd := exec.CommandContext(context.Background(), cfg.ExecutablePath, strconv.Itoa(nodeid), s.d.GetUnixSocketName(),
 		strconv.Itoa(s.cfg.Id), ptyPath)
 
 	node := &OtbrNode{
-		Node{
+		Node: Node{
 			S:            s,
 			Id:           nodeid,
 			cfg:          &cfg,
 			cmd:          cmd,
 			pendingLines: make(chan string, 10000),
 			errors:       make(chan error, 100),
+			logFiles:     make(map[int]*os.File, 0),
 		},
+		processList: make([]*exec.Cmd, 0),
+		errorList:   make([]error, 0),
 	}
 
 	if node.pipeStdIn, err = cmd.StdinPipe(); err != nil {
@@ -86,39 +91,138 @@ func newNcpNode(s *Simulation, nodeid NodeId, cfg NodeConfig) (*OtbrNode, error)
 		return nil, err
 	}
 
-	// open log file for node's OT output
-	node.logFile, err = os.OpenFile(logFileName, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0664)
-	if err != nil {
-		return nil, fmt.Errorf("create node log file failed: %w", err)
-	}
-	simplelogger.Debugf("Node log file '%s' created.", logFileName)
-
 	go node.processMonitor()
 
 	node.uartType = NodeUartTypeRealTime
+	node.ptyPath = getPtyFilePath(s.cfg.Id, nodeid)
+
 	go node.lineReader(node.pipeStdOut)
-	go node.lineReaderStdErr(node.pipeStdErr, false) // on NCP, StdErr output is not fatal.
-	if err = node.StartNcp(); err != nil {
-		_ = node.logFile.Close()
+	go node.logReader(node.pipeStdErr, false, 1) // on NCP, StdErr output is not fatal.
+	if err = node.startNcp(); err != nil {
 		return nil, err
 	}
 
-	return node, err
+	return node, nil
 }
 
-func (node *OtbrNode) StartNcp() error {
+func (node *OtbrNode) startNcp() error {
 	simplelogger.AssertTrue(node.cfg.IsNcp)
 
-	if err := node.cmd.Start(); err != nil {
+	node.dockerContainerName = fmt.Sprintf("otbr_%d_%d", node.S.cfg.Id, node.Id)
+	node.httpPort = 8080 + node.Id
+
+	// start socat
+	// socat -d pty,raw,echo=0,link=$PTY_FILE pty,raw,echo=0,link=$PTY_FILE2 >> ${LOG_FILE} 2>&1 &
+	node.cmdSocat = exec.CommandContext(context.Background(), "socat", "-d",
+		fmt.Sprintf("pty,raw,echo=0,link=%s", node.ptyPath),
+		fmt.Sprintf("pty,raw,echo=0,link=%s", node.ptyPath+"d"))
+	node.handleError(node.stderrProcess(node.cmdSocat, 2))
+	node.handleError(node.addProcess(node.cmdSocat, 100*time.Millisecond))
+
+	// start docker OTBR
+	// # https://docs.docker.com/engine/reference/run/
+	//# -d flag to run main docker detached in the background.
+	//# -t flag must not be used when stdinput is piped to this script. So -it becomes -i
+	//# --rm flag to remove container after exit to avoid pollution of Docker data. Remove this for post mortem debug.
+	//# --entrypoint overrides the default otbr docker startup script - non-trivial to use see docs.
+	//# -c provides cmd arguments for the 'entrypoint' executable.
+	//# sed pipe prepends a log string to each line coming from docker.
+	//docker run --name ${CONTAINER_NAME} \
+	//    --sysctl "net.ipv6.conf.all.disable_ipv6=0 net.ipv4.conf.all.forwarding=1 net.ipv6.conf.all.forwarding=1" \
+	//    -p ${WEB_PORT}:80 --dns=127.0.0.1 --rm --volume $PTY_FILE2:/dev/ttyUSB0 --privileged \
+	//    --entrypoint /bin/bash \
+	//    openthread/otbr \
+	//    -c "/app/etc/docker/docker_entrypoint.sh" \
+	//     2>&1 | sed -E 's/^/[L] /' &
+	node.cmdDocker = exec.CommandContext(context.Background(), "docker", "run",
+		"--name", node.dockerContainerName,
+		"--sysctl", "net.ipv6.conf.all.disable_ipv6=0 net.ipv4.conf.all.forwarding=1 net.ipv6.conf.all.forwarding=1",
+		"-p", fmt.Sprintf("%d:80", node.httpPort),
+		"--entrypoint", "/bin/bash",
+		"openthread/otbr",
+		"-c", "/app/etc/docker/docker_entrypoint.sh")
+
+	node.handleError(node.logProcess(node.cmdDocker, true, true, 1))
+	node.handleError(node.addProcess(node.cmdDocker, 7*time.Second))
+
+	// start ot-ctl CLI script
+	node.handleError(node.cmd.Start())
+
+	return node.getErrors()
+}
+
+func (node *OtbrNode) stderrProcess(cmd *exec.Cmd, logId int) error {
+	var err error
+
+	var pipeStdErr io.Reader
+	if pipeStdErr, err = cmd.StderrPipe(); err != nil {
 		return err
+	}
+	go node.logReader(pipeStdErr, true, logId)
+
+	return nil
+}
+
+func (node *OtbrNode) logProcess(cmd *exec.Cmd, isLogStdOut bool, isLogStdErr bool, logId int) error {
+	simplelogger.AssertTrue((isLogStdOut || isLogStdErr) && logId >= 0)
+	var err error
+
+	if isLogStdOut {
+		var pipeStdOut io.Reader
+		if pipeStdOut, err = cmd.StdoutPipe(); err != nil {
+			return err
+		}
+		go node.logReader(pipeStdOut, false, logId)
+	}
+
+	if isLogStdErr {
+		var pipeStdErr io.Reader
+		if pipeStdErr, err = cmd.StderrPipe(); err != nil {
+			return err
+		}
+		go node.logReader(pipeStdErr, false, logId)
 	}
 
 	return nil
 }
 
-func (node *OtbrNode) Exit() error {
-	simplelogger.AssertTrue(node.cfg.IsNcp)
+// AddProcess adds a new concurrent process Cmd to the node, to be run and monitored.
+func (node *OtbrNode) addProcess(cmd *exec.Cmd, startupDelay time.Duration) error {
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+	node.processList = append(node.processList, cmd)
+	time.Sleep(startupDelay)
+
 	return nil
+}
+
+func (node *OtbrNode) exitNcp() error {
+	simplelogger.AssertTrue(node.cfg.IsNcp)
+
+	node.handleError(node.Exit())
+
+	// stop all processes
+	for _, cmd := range node.processList {
+		_ = cmd.Process.Signal(syscall.SIGTERM)
+		node.handleError(cmd.Wait())
+	}
+
+	return node.getErrors()
+}
+
+// handleError stores the error in the list, if any.
+func (node *OtbrNode) handleError(err error) {
+	if err != nil {
+		node.errorList = append(node.errorList, err)
+	}
+}
+
+func (node *OtbrNode) getErrors() error {
+	if len(node.errorList) == 0 {
+		return nil
+	}
+	return fmt.Errorf("%v", node.errorList)
 }
 
 // ptyReader reads data from a PTY device and sends it directly to the UART of the node.
@@ -147,13 +251,13 @@ loop:
 
 // ptyPiper pipes data from node's ptyChan (where virtual UART dat comes in) to node's associated
 // PTY (for handling by an OT NCP)
-func (node *Node) ptyPiper(ptyPath string) {
+func (node *Node) ptyPiper() {
 loop:
 	for {
 		// check when the PTY device becomes available.
-		_, err := os.Stat(ptyPath)
+		_, err := os.Stat(node.ptyPath)
 		if node.ptyFile == nil && err == nil {
-			node.ptyFile, err = os.OpenFile(ptyPath, os.O_RDWR, 0)
+			node.ptyFile, err = os.OpenFile(node.ptyPath, os.O_RDWR, 0)
 			if err != nil {
 				err = fmt.Errorf("%v - ptyPiper couldn't open ptyFile: %v", node, err)
 				node.errors <- err
