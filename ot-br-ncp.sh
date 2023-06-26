@@ -28,7 +28,7 @@ echo "[D] ot-br-ncp.sh started - $3_$1  simid=$3  node=$1  socket=$2"
 _term()
 {
     echo "[D] Received SIGTERM"
-    docker kill ${CONTAINER_NAME} >&/dev/null
+    docker kill "${CONTAINER_NAME}" >&/dev/null
     exit 0
 }
 trap _term SIGTERM
@@ -37,6 +37,6 @@ echo "[D] Waiting for Docker container ${CONTAINER_NAME}"
 sleep 3
 
 echo "[D] Starting ot-ctl CLI on Docker container ${CONTAINER_NAME}"
-docker exec -i ${CONTAINER_NAME} /bin/bash -c "until [ -e /dev/wpan0 ];do sleep 0.2;done; ot-ctl"
+docker exec -i "${CONTAINER_NAME}" /bin/bash -c "until [ -e /dev/wpan0 ];do sleep 0.2;done; ot-ctl"
 
 echo "[D] script exit"
