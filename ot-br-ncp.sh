@@ -28,7 +28,7 @@ echo "[D] ot-br-ncp.sh started - $3_$1  simid=$3  node=$1  socket=$2"
 _term()
 {
     echo "[D] Received SIGTERM"
-    docker kill ${CONTAINER_NAME} >& /dev/null
+    docker kill ${CONTAINER_NAME} >&/dev/null
     exit 0
 }
 trap _term SIGTERM

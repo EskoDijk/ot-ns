@@ -23,14 +23,13 @@ trap _term SIGTERM
 echo " - starting docker container '${CONTAINER_NAME}' for testing OT-BR NCP side"
 docker run --name ${CONTAINER_NAME} -i --rm --entrypoint /bin/bash openthread/otbr -c "sleep 5"
 
-while read -p ">" INPUT
-do
-  echo "$INPUT"
-  echo "This is fake output for your '$INPUT' command. Hello there!"
-  echo "Done"
-  if [ "$INPUT" == "exit" ]; then
-    exit 0
-  fi
+while read -p ">" INPUT; do
+    echo "$INPUT"
+    echo "This is fake output for your '$INPUT' command. Hello there!"
+    echo "Done"
+    if [ "$INPUT" == "exit" ]; then
+        exit 0
+    fi
 done
 
 echo " - script exit"

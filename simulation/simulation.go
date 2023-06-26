@@ -47,7 +47,6 @@ type Simulation struct {
 	err            error
 	cfg            *Config
 	nodes          map[NodeId]*Node
-	deletedNodes   chan *Node
 	d              *dispatcher.Dispatcher
 	vis            visualize.Visualizer
 	cmdRunner      CmdRunner
@@ -66,13 +65,12 @@ func NewSimulation(ctx *progctx.ProgCtx, cfg *Config, dispatcherCfg *dispatcher.
 	}
 
 	s := &Simulation{
-		ctx:          ctx,
-		cfg:          cfg,
-		nodes:        map[NodeId]*Node{},
-		deletedNodes: make(chan *Node, 10000), // FIXME
-		rawMode:      cfg.RawMode,
-		networkInfo:  visualize.DefaultNetworkInfo(),
-		nodePlacer:   NewNodeAutoPlacer(),
+		ctx:         ctx,
+		cfg:         cfg,
+		nodes:       map[NodeId]*Node{},
+		rawMode:     cfg.RawMode,
+		networkInfo: visualize.DefaultNetworkInfo(),
+		nodePlacer:  NewNodeAutoPlacer(),
 	}
 	s.networkInfo.Real = cfg.Real
 
@@ -231,7 +229,6 @@ func (s *Simulation) Stop() {
 
 	for _, node := range s.nodes {
 		_ = node.Exit()
-		s.deletedNodes <- node
 	}
 	simplelogger.Debugf("all simulation nodes exited.")
 }
@@ -310,7 +307,6 @@ func (s *Simulation) DeleteNode(nodeid NodeId) error {
 	delete(s.nodes, nodeid)
 	_ = node.Exit()
 	s.d.DeleteNode(nodeid)
-	s.deletedNodes <- node
 	return nil
 }
 

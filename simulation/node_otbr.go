@@ -33,23 +33,25 @@ import (
 	"os"
 	"os/exec"
 	"strconv"
+	"sync"
+	"syscall"
 	"time"
 
+	. "github.com/openthread/ot-ns/types"
 	"github.com/pkg/errors"
 	"github.com/simonlingoogle/go-simplelogger"
-
-	. "github.com/openthread/ot-ns/types"
-	"syscall"
 )
 
 type OtbrNode struct {
 	Node
-	processList         []*exec.Cmd
-	errorList           []error
-	cmdSocat            *exec.Cmd
-	cmdDocker           *exec.Cmd
+
 	dockerContainerName string
 	httpPort            int
+
+	waitGroup sync.WaitGroup // waits on the external cmd processes started by this node.
+	cmdSocat  *exec.Cmd
+	cmdDocker *exec.Cmd
+	loggerNcp chan string
 }
 
 func newNcpNode(s *Simulation, nodeid NodeId, cfg NodeConfig) (*OtbrNode, error) {
@@ -60,64 +62,69 @@ func newNcpNode(s *Simulation, nodeid NodeId, cfg NodeConfig) (*OtbrNode, error)
 		return nil, errors.New("cfg.Restore == true not implemented for OTBR NCP")
 	}
 
-	simplelogger.Debugf("newNcpNode() exe path: %s", cfg.ExecutablePath)
+	simplelogger.Debugf("newNcpNode() NCP CLI exe path: %s", cfg.ExecutablePath)
 	ptyPath := getPtyFilePath(s.cfg.Id, nodeid)
 	cmd := exec.CommandContext(context.Background(), cfg.ExecutablePath, strconv.Itoa(nodeid), s.d.GetUnixSocketName(),
 		strconv.Itoa(s.cfg.Id), ptyPath)
 
 	node := &OtbrNode{
 		Node: Node{
-			S:            s,
-			Id:           nodeid,
-			cfg:          &cfg,
-			cmd:          cmd,
-			pendingLines: make(chan string, 10000),
-			errors:       make(chan error, 100),
-			logFiles:     make(map[int]*os.File, 0),
+			S:               s,
+			Id:              nodeid,
+			cfg:             &cfg,
+			cmd:             cmd,
+			pendingCliLines: make(chan string, 10000),
+			uartType:        NodeUartTypeRealTime,
+			ptyPath:         ptyPath,
 		},
-		processList: make([]*exec.Cmd, 0),
-		errorList:   make([]error, 0),
+		loggerNcp:           make(chan string, 10),
+		dockerContainerName: fmt.Sprintf("otbr_%d_%d", s.cfg.Id, nodeid),
+		httpPort:            8080 + nodeid,
 	}
 
+	// pipes for the NCP CLI only
 	if node.pipeStdIn, err = cmd.StdinPipe(); err != nil {
 		return nil, err
 	}
-
 	if node.pipeStdOut, err = cmd.StdoutPipe(); err != nil {
 		return nil, err
 	}
-
 	if node.pipeStdErr, err = cmd.StderrPipe(); err != nil {
 		return nil, err
 	}
 
-	go node.processMonitor()
+	err = node.runNcpProcesses()
 
-	node.uartType = NodeUartTypeRealTime
-	node.ptyPath = getPtyFilePath(s.cfg.Id, nodeid)
-
-	go node.lineReader(node.pipeStdOut)
-	go node.logReader(node.pipeStdErr, false, 1) // on NCP, StdErr output is not fatal.
-	if err = node.startNcp(); err != nil {
-		return nil, err
-	}
-
-	return node, nil
+	return node, err
 }
 
-func (node *OtbrNode) startNcp() error {
+// runNcpProcesses runs all the OTBR NCP processes and configures input/output for these.
+func (node *OtbrNode) runNcpProcesses() error {
 	simplelogger.AssertTrue(node.cfg.IsNcp)
+	var pipeStdOut io.Reader
+	var pipeStdErr io.Reader
+	var err error
 
-	node.dockerContainerName = fmt.Sprintf("otbr_%d_%d", node.S.cfg.Id, node.Id)
-	node.httpPort = 8080 + node.Id
+	// start logger
+	go node.processLogger(1, node.loggerNcp)
+
+	// start reader processes
+	go node.processCliReader(node.pipeStdOut)
+	go node.processLogReader(node.pipeStdErr, true, node.logger)
 
 	// start socat
 	// socat -d pty,raw,echo=0,link=$PTY_FILE pty,raw,echo=0,link=$PTY_FILE2 >> ${LOG_FILE} 2>&1 &
 	node.cmdSocat = exec.CommandContext(context.Background(), "socat", "-d",
 		fmt.Sprintf("pty,raw,echo=0,link=%s", node.ptyPath),
 		fmt.Sprintf("pty,raw,echo=0,link=%s", node.ptyPath+"d"))
-	node.handleError(node.stderrProcess(node.cmdSocat, 2))
-	node.handleError(node.addProcess(node.cmdSocat, 100*time.Millisecond))
+
+	if pipeStdErr, err = node.cmdSocat.StderrPipe(); err != nil {
+		return err
+	}
+	go node.processLogReader(pipeStdErr, true, node.loggerNcp)
+	if err = node.addProcess(node.cmdSocat, 100*time.Millisecond); err != nil {
+		return err
+	}
 
 	// start docker OTBR
 	// # https://docs.docker.com/engine/reference/run/
@@ -142,48 +149,24 @@ func (node *OtbrNode) startNcp() error {
 		"openthread/otbr",
 		"-c", "/app/etc/docker/docker_entrypoint.sh")
 
-	node.handleError(node.logProcess(node.cmdDocker, true, true, 1))
-	node.handleError(node.addProcess(node.cmdDocker, 7*time.Second))
-
-	// start ot-ctl CLI script
-	node.handleError(node.cmd.Start())
-
-	return node.getErrors()
-}
-
-func (node *OtbrNode) stderrProcess(cmd *exec.Cmd, logId int) error {
-	var err error
-
-	var pipeStdErr io.Reader
-	if pipeStdErr, err = cmd.StderrPipe(); err != nil {
+	if pipeStdOut, err = node.cmdDocker.StdoutPipe(); err != nil {
 		return err
 	}
-	go node.logReader(pipeStdErr, true, logId)
+	go node.processLogReader(pipeStdOut, false, node.loggerNcp)
 
-	return nil
-}
+	if pipeStdErr, err = node.cmdDocker.StderrPipe(); err != nil {
+		return err
+	}
+	go node.processLogReader(pipeStdErr, false, node.loggerNcp)
 
-func (node *OtbrNode) logProcess(cmd *exec.Cmd, isLogStdOut bool, isLogStdErr bool, logId int) error {
-	simplelogger.AssertTrue((isLogStdOut || isLogStdErr) && logId >= 0)
-	var err error
-
-	if isLogStdOut {
-		var pipeStdOut io.Reader
-		if pipeStdOut, err = cmd.StdoutPipe(); err != nil {
-			return err
-		}
-		go node.logReader(pipeStdOut, false, logId)
+	if err = node.addProcess(node.cmdDocker, 7*time.Second); err != nil {
+		return err
 	}
 
-	if isLogStdErr {
-		var pipeStdErr io.Reader
-		if pipeStdErr, err = cmd.StderrPipe(); err != nil {
-			return err
-		}
-		go node.logReader(pipeStdErr, false, logId)
-	}
+	// start ot-ctl CLI script
+	err = node.cmd.Start()
 
-	return nil
+	return err
 }
 
 // AddProcess adds a new concurrent process Cmd to the node, to be run and monitored.
@@ -191,38 +174,56 @@ func (node *OtbrNode) addProcess(cmd *exec.Cmd, startupDelay time.Duration) erro
 	if err := cmd.Start(); err != nil {
 		return err
 	}
-	node.processList = append(node.processList, cmd)
-	time.Sleep(startupDelay)
 
-	return nil
+	// monitor started process in the background, signal error if it exits with non-zero exit code.
+	errChan := make(chan error, 1)
+	node.waitGroup.Add(1)
+	go func(cmd *exec.Cmd) {
+		defer node.waitGroup.Done()
+		_ = cmd.Wait()
+		if cmd.ProcessState.Exited() {
+			ec := cmd.ProcessState.ExitCode()
+			if ec > 0 {
+				errChan <- fmt.Errorf("process exited with error code %d, %s", ec, cmd.Path)
+			}
+		}
+	}(cmd)
+
+	// wait for either startupDelay to pass or process to exit with error.
+	deadline := time.After(startupDelay)
+	var err error = nil
+loop:
+	for {
+		select {
+		case err = <-errChan:
+			break loop
+		case <-deadline:
+			break loop
+		}
+	}
+	return err // if any node's process caused an error, return it.
 }
 
 func (node *OtbrNode) exitNcp() error {
 	simplelogger.AssertTrue(node.cfg.IsNcp)
 
-	node.handleError(node.Exit())
+	err := node.Exit()
 
-	// stop all processes
-	for _, cmd := range node.processList {
-		_ = cmd.Process.Signal(syscall.SIGTERM)
-		node.handleError(cmd.Wait())
-	}
+	// stop all processes and wait for all threads to finish.
+	_ = node.cmdDocker.Process.Signal(syscall.SIGTERM)
+	_ = node.cmdSocat.Process.Signal(syscall.SIGTERM)
+	node.waitGroup.Wait()
 
-	return node.getErrors()
-}
+	// remove docker container
+	rmCmd := exec.CommandContext(context.Background(), "docker", "rm", node.dockerContainerName)
+	err2 := rmCmd.Run()
 
-// handleError stores the error in the list, if any.
-func (node *OtbrNode) handleError(err error) {
+	close(node.loggerNcp)
+
 	if err != nil {
-		node.errorList = append(node.errorList, err)
+		return err
 	}
-}
-
-func (node *OtbrNode) getErrors() error {
-	if len(node.errorList) == 0 {
-		return nil
-	}
-	return fmt.Errorf("%v", node.errorList)
+	return err2
 }
 
 // ptyReader reads data from a PTY device and sends it directly to the UART of the node.
@@ -260,7 +261,7 @@ loop:
 			node.ptyFile, err = os.OpenFile(node.ptyPath, os.O_RDWR, 0)
 			if err != nil {
 				err = fmt.Errorf("%v - ptyPiper couldn't open ptyFile: %v", node, err)
-				node.errors <- err
+				simplelogger.Error(err)
 				return
 			}
 			break loop
@@ -287,8 +288,7 @@ loop2:
 					break loop2
 				}
 				err = fmt.Errorf("%v - ptyPiper error: %v", node, err)
-				simplelogger.Debugf("%v", err)
-				node.errors <- err
+				simplelogger.Errorf("%v", err)
 				break loop2
 			}
 		case <-node.S.ctx.Done():
