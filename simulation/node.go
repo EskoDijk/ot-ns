@@ -132,7 +132,7 @@ func newNode(s *Simulation, nodeid NodeId, cfg NodeConfig) (*Node, error) {
 
 	// open main log file for node's OT output
 	go node.processLogger(0, node.logger)
-	node.logger <- fmt.Sprintf("[D] %v - Logfile created", node)
+	node.logger <- fmt.Sprintf("[D] %v logfile created", node)
 	simplelogger.Debugf("Node log file '%s' created.", node.getLogfileName(0))
 
 	if err = cmd.Start(); err != nil {
@@ -140,12 +140,13 @@ func newNode(s *Simulation, nodeid NodeId, cfg NodeConfig) (*Node, error) {
 		return nil, err
 	}
 
-	go node.processLogReader(node.pipeStdErr, true, node.logger)
+	go node.processErrorReader(node.pipeStdErr, node.logger)
 
 	if cfg.IsRcp {
+		node.logger <- "[D] This is the log of the OT RCP executable. For CLI/NCP logs of this node, see the other logs."
 		node.ptyPath = getPtyFilePath(s.cfg.Id, nodeid)
-		simplelogger.Debugf("%v - starting ptyPiper for PTY %s", node, node.ptyPath)
-		go node.ptyPiper()
+		simplelogger.Debugf("%v - starting processPtyPiper for PTY %s", node, node.ptyPath)
+		go node.processPtyPiper()
 	} else {
 		go node.processCliReader(node.virtualUartReader)
 	}
@@ -672,18 +673,6 @@ func (node *Node) GetSingleton() bool {
 	}
 }
 
-// handles an incoming log message from the OT-Node and its detected loglevel (otLevel). It is written
-// to the node's log file. Display of the log message is done by the Dispatcher.
-func (node *Node) handlerLogMsg(otLevel string, msg string) {
-	node.logger <- msg
-
-	// create a node-specific log message that may be used by the Dispatcher's Watch function.
-	lev := dispatcher.ParseWatchLogLevel(otLevel)
-	node.S.PostAsync(false, func() {
-		node.S.Dispatcher().WatchMessage(node.Id, lev, msg)
-	})
-}
-
 func (node *Node) TryExpectLine(line interface{}, timeout time.Duration) (bool, []string) {
 	var outputLines []string
 
@@ -853,6 +842,18 @@ func (node *Node) processLogger(logId int, logger chan string) {
 	_ = f.Close()
 }
 
+// handles an incoming log message from otOutFilter and its detected loglevel (otLevel). It is written
+// to the node's log file. Display of the log message is done by the Dispatcher.
+func (node *Node) handlerLogMsg(otLevel string, msg string) {
+	node.logger <- msg
+
+	// create a node-specific log message that may be used by the Dispatcher's Watch function.
+	lev := dispatcher.ParseWatchLogLevel(otLevel)
+	node.S.PostAsync(false, func() {
+		node.S.Dispatcher().WatchMessage(node.Id, lev, msg)
+	})
+}
+
 // processCliReader reads CLI lines, filters out any OT log messages, and sends the remaining CLI lines/output
 // to the watch function and to the logger.
 func (node *Node) processCliReader(reader io.Reader) {
@@ -876,29 +877,25 @@ func (node *Node) processCliReader(reader io.Reader) {
 	close(node.pendingCliLines)
 }
 
-// processLogReader reads lines from 'reader'. These lines are sent as Watch messages and written to a logger.
-// If isLineFatal is true, it treats any read line as a 'node process error'.
-func (node *Node) processLogReader(reader io.Reader, isLineFatal bool, logger chan string) {
+// processErrorReader reads lines from a (StdErr) 'reader'. These lines are sent as Watch messages and written to a
+// logger. It treats any read line as a 'node process error' and schedules to stop the node automatically.
+func (node *Node) processErrorReader(reader io.Reader, logger chan string) {
 	scanner := bufio.NewScanner(bufio.NewReader(reader)) // no filter applied.
 	scanner.Split(bufio.ScanLines)
-	prefix := ""
 	wasProcessFailed := false
-	if isLineFatal {
-		prefix = "StdErr: "
-	}
 
 	for scanner.Scan() {
 		line := scanner.Text()
 		logger <- line
 
 		node.S.PostAsync(false, func() {
-			node.S.Dispatcher().WatchMessage(node.Id, dispatcher.WatchCritLevel, fmt.Sprintf("%s%s", prefix, line))
+			node.S.Dispatcher().WatchMessage(node.Id, dispatcher.WatchCritLevel, fmt.Sprintf("StdErr> %s", line))
 		})
 
-		if isLineFatal && !wasProcessFailed {
+		if !wasProcessFailed {
 			wasProcessFailed = true
-			simplelogger.Errorf("Node %v process failed", node.Id)
-			simplelogger.Error(line)
+			simplelogger.Debugf("%v process failed", node)
+			simplelogger.Errorf("%v StdErr> %s", node, line)
 
 			node.S.PostAsync(false, func() {
 				if _, ok := node.S.nodes[node.Id]; ok {
