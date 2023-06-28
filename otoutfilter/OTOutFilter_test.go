@@ -46,9 +46,8 @@ func TestOTOutFilter(t *testing.T) {
 		"D  33:00:17.817 [N] log4\n" +
 		"E text 44:33:22.123 [I]log5\n" +
 		"F text [x] no log\n" +
-		"F text [L] logging line for OTBR with unknown loglevel\n" +
-		"[L] + This is log for BR\n" +
-		"[L] +++ [D] This is log for BR\n" +
+		"WARNING: this is interpreted as a warning (W) line\n" +
+		"WARNING:this is not interpreted as a warning (W) line\n" +
 		"+ This is not log for BR\n" +
 		"00:00:00.000 [INFO]-CORE----: Notifier: StateChanged (0x01001009) [Ip6+ LLAddr Ip6Mult+ NetifState]\n" +
 		"00:00:00.000 [NOTE]-CLI-----: Output: > Done\n" +
@@ -60,6 +59,7 @@ func TestOTOutFilter(t *testing.T) {
 		"JKL[I]log5\n" +
 		"\n[D]log6\n" +
 		"Done\n" +
+		"docker: Error response from daemon: Conflict. The container name \"/otbr_0_1\" is already in use by container \"ddbcd5fe260c86e17e528deaa39d1e445ca6d6bd4895ceb0ab7c1722fe3ef5c7\". You have to remove (or rename) that container to be able to reuse that name.\n" +
 		""
 	expectOutput := "cmd1\n" +
 		"Done\n" +
@@ -69,6 +69,7 @@ func TestOTOutFilter(t *testing.T) {
 		"cmd3\n" +
 		"" +
 		"F text [x] no log\n" +
+		"WARNING:this is not interpreted as a warning (W) line\n" +
 		"+ This is not log for BR\n" +
 		"\n" +
 		"Done\n" +
