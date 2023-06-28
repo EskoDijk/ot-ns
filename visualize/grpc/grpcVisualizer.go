@@ -31,15 +31,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/openthread/ot-ns/energy"
-	"github.com/openthread/ot-ns/visualize/grpc/replay"
-
 	"github.com/simonlingoogle/go-simplelogger"
 
-	pb "github.com/openthread/ot-ns/visualize/grpc/pb"
-
+	"github.com/openthread/ot-ns/energy"
 	. "github.com/openthread/ot-ns/types"
 	"github.com/openthread/ot-ns/visualize"
+	pb "github.com/openthread/ot-ns/visualize/grpc/pb"
+	"github.com/openthread/ot-ns/visualize/grpc/replay"
 )
 
 type grpcVisualizer struct {
@@ -514,11 +512,11 @@ func (gv *grpcVisualizer) UpdateNodesEnergy(nodes []*pb.NodeEnergy, timestamp ui
 	}
 }
 
-func (gc *grpcVisualizer) SetEnergyAnalyser(ea *energy.EnergyAnalyser) {
-	gc.Lock()
-	defer gc.Unlock()
+func (gv *grpcVisualizer) SetEnergyAnalyser(ea *energy.EnergyAnalyser) {
+	gv.Lock()
+	defer gv.Unlock()
 
-	gc.energyAnalyser = ea
+	gv.energyAnalyser = ea
 }
 
 func NewGrpcVisualizer(address string, replayFn string) visualize.Visualizer {
