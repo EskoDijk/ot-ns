@@ -171,6 +171,13 @@ func (s *Simulation) AddNode(cfg NodeConfig) (*Node, error) {
 			s.nodePlacer.ReuseNextNodePosition()
 			return nil, err
 		}
+
+		err := node.ncpNode.RunInitScript(cfg.InitScript)
+		if err == nil {
+			simplelogger.Infof(node.ncpNode.GetInfo())
+		} else {
+			simplelogger.Errorf("simulation init script failed: %v", err) // TODO return error also
+		}
 	}
 
 	return node, nil
