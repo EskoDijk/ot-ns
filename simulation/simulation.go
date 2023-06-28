@@ -231,8 +231,9 @@ func (s *Simulation) Stop() {
 	simplelogger.Infof("stopping simulation and exiting nodes ...")
 	s.stopped = true
 
-	for nodeid, _ := range s.nodes {
-		s.DeleteNode(nodeid)
+	for nodeid, node := range s.nodes {
+		delete(s.nodes, nodeid)
+		_ = node.Exit()
 	}
 	simplelogger.Debugf("all simulation nodes exited.")
 }
