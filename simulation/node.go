@@ -189,6 +189,7 @@ func (node *Node) Stop() {
 	simplelogger.Debugf("%v - stopped, state = %s", node, node.GetState())
 }
 
+// FIXME prevent that Exit() can be called twice e.g. when exiting and failure at same time.
 func (node *Node) Exit() error {
 	var errNcp error
 	var err error
@@ -899,8 +900,10 @@ func (node *Node) processErrorReader(reader io.Reader, logger chan string) {
 
 			node.S.PostAsync(false, func() {
 				if _, ok := node.S.nodes[node.Id]; ok {
-					simplelogger.Warnf("Deleting node %v due to process failure.", node.Id)
-					_ = node.S.DeleteNode(node.Id)
+					if node.S.ctx.Err() == nil {
+						simplelogger.Warnf("Deleting node %v due to process failure.", node.Id)
+						_ = node.S.DeleteNode(node.Id)
+					}
 				}
 			})
 		}

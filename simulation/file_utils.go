@@ -44,7 +44,7 @@ func cleanTmpDir(simulationId int) error {
 func getPtyFilePath(simulationId int, nodeId int) string {
 	simplelogger.AssertTrue(simulationId >= 0)
 	simplelogger.AssertTrue(nodeId > 0)
-	p, err := filepath.Abs(filepath.Join(types.GetTmpDir(), fmt.Sprintf("%d_%d.ncp.pty", simulationId, nodeId)))
+	p, err := filepath.Abs(filepath.Join(types.GetTmpDir(), fmt.Sprintf("%d_%d.pty", simulationId, nodeId)))
 	if err != nil {
 		simplelogger.Panicf("getPtyFilePath: %v", err)
 	}

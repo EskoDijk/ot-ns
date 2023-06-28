@@ -39,7 +39,8 @@ type NodeConfig struct {
 	IsRcp          bool
 	RxOffWhenIdle  bool
 	RadioRange     int
-	ExecutablePath string
+	ExecutablePath string // path to a script or executable or image to launch the node
+	CliPath        string // path to a script or executable to launch the node's CLI (for BR, it's separate)
 	Restore        bool
 	InitScript     []string
 }
@@ -53,5 +54,6 @@ func DefaultNodeConfig() NodeConfig {
 		IsAutoPlaced:   true,
 		RadioRange:     160,
 		ExecutablePath: "",
+		CliPath:        "",
 	}
 }

@@ -31,14 +31,15 @@ import (
 	"sort"
 	"time"
 
+	"github.com/pkg/errors"
+	"github.com/simonlingoogle/go-simplelogger"
+
 	"github.com/openthread/ot-ns/dispatcher"
 	"github.com/openthread/ot-ns/energy"
 	"github.com/openthread/ot-ns/progctx"
 	"github.com/openthread/ot-ns/radiomodel"
 	. "github.com/openthread/ot-ns/types"
 	"github.com/openthread/ot-ns/visualize"
-	"github.com/pkg/errors"
-	"github.com/simonlingoogle/go-simplelogger"
 )
 
 type Simulation struct {
@@ -114,6 +115,9 @@ func (s *Simulation) AddNode(cfg NodeConfig) (*Node, error) {
 	// auto-selection of Executable by simulation's policy, in case not defined yet.
 	if len(cfg.ExecutablePath) == 0 {
 		cfg.ExecutablePath = s.cfg.ExeConfig.DetermineExecutableBasedOnConfig(&cfg)
+	}
+	if len(cfg.CliPath) == 0 {
+		cfg.CliPath = s.cfg.ExeConfig.DetermineCliBasedOnConfig(&cfg)
 	}
 
 	// creation of the sim/dispatcher nodes
@@ -227,8 +231,8 @@ func (s *Simulation) Stop() {
 	simplelogger.Infof("stopping simulation and exiting nodes ...")
 	s.stopped = true
 
-	for _, node := range s.nodes {
-		_ = node.Exit()
+	for nodeid, _ := range s.nodes {
+		s.DeleteNode(nodeid)
 	}
 	simplelogger.Debugf("all simulation nodes exited.")
 }

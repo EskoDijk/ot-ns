@@ -1008,8 +1008,17 @@ func (rt *CmdRunner) executeExe(cc *CommandContext, cmd *ExeCmd) {
 		cc.outputf("mtd   : %s\n", cfg.ExeConfig.Mtd)
 		cc.outputf("br    : %s\n", cfg.ExeConfig.BrRcp)
 		cc.outputf("brncp : %s\n", cfg.ExeConfig.BrNcp)
-		cc.outputf("Executables search path: %s\n", cfg.ExeConfig.SearchPathsString())
-		cc.outputf("Detected FTD path      : %s\n", cfg.ExeConfig.DetermineExecutableBasedOnConfig(&cfg.NewNodeConfig))
+		cc.outputf("-------------------------\n")
+		cc.outputf("Executables search path : %s\n", cfg.ExeConfig.SearchPathsString())
+		tempCfg := cfg.NewNodeConfig
+		cc.outputf("Detected FTD path       : %s\n", cfg.ExeConfig.DetermineExecutableBasedOnConfig(&tempCfg))
+		tempCfg.IsMtd = true
+		tempCfg.IsRouter = false
+		cc.outputf("Detected MTD path       : %s\n", cfg.ExeConfig.DetermineExecutableBasedOnConfig(&tempCfg))
+		tempCfg.IsMtd = false
+		tempCfg.IsBorderRouter = true
+		tempCfg.IsNcp = true
+		cc.outputf("Detected BR NCP CLI path: %s\n", cfg.ExeConfig.DetermineCliBasedOnConfig(&tempCfg))
 	})
 }
 

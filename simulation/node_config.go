@@ -27,12 +27,14 @@
 package simulation
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
-	. "github.com/openthread/ot-ns/types"
 	"github.com/simonlingoogle/go-simplelogger"
+
+	. "github.com/openthread/ot-ns/types"
 )
 
 type ExecutableConfig struct {
@@ -57,8 +59,8 @@ var DefaultExecutableConfig ExecutableConfig = ExecutableConfig{
 	Ftd:         "ot-cli-ftd",
 	Mtd:         "ot-cli-ftd",
 	BrRcp:       "ot-rcp",
-	BrNcp:       "ot-br-ncp.sh",
-	SearchPaths: []string{".", "./ot-rfsim/ot-versions"},
+	BrNcp:       "openthread/otbr",
+	SearchPaths: []string{".", "./ot-rfsim/ot-versions", "./script"},
 }
 
 func (cfg *ExecutableConfig) SearchPathsString() string {
@@ -83,6 +85,35 @@ func isFile(exePath string) bool {
 	return false
 }
 
+// locateFilePath locates the first occurrence of a file 'fileName' in the cfg.SearchPaths and returns the
+// full path. If 'fileName' is already an absolute path then the argument itself is returned.
+func (cfg *ExecutableConfig) locateFilePath(fileName string) (string, error) {
+	if filepath.IsAbs(fileName) {
+		return fileName, nil
+	}
+
+	// if not found directly, it means it's just a name that needs to be located in our search paths.
+	for _, sp := range cfg.SearchPaths {
+		exePath := filepath.Join(sp, fileName)
+		if isFile(exePath) {
+			if filepath.IsAbs(exePath) || exePath[0] == '.' {
+				return exePath, nil
+			}
+			return "./" + exePath, nil
+		}
+	}
+	return "", fmt.Errorf("file '%s' could not be located in cfg.SearchPaths", fileName)
+}
+
+func (cfg *ExecutableConfig) DetermineCliBasedOnConfig(nodeCfg *NodeConfig) string {
+	exeName := "run-docker-ot-ctl.sh"
+	fpath, err := cfg.locateFilePath(exeName)
+	if err != nil {
+		return ""
+	}
+	return fpath
+}
+
 func (cfg *ExecutableConfig) DetermineExecutableBasedOnConfig(nodeCfg *NodeConfig) string {
 	exeName := cfg.Ftd
 	if nodeCfg.IsMtd {
@@ -91,25 +122,16 @@ func (cfg *ExecutableConfig) DetermineExecutableBasedOnConfig(nodeCfg *NodeConfi
 	if nodeCfg.IsBorderRouter {
 		exeName = cfg.BrRcp
 		if nodeCfg.IsNcp {
-			exeName = cfg.BrNcp
+			exeName = cfg.BrNcp // for a BR, this holds the Docker image name
+			return exeName
 		}
 	}
 
-	if filepath.IsAbs(exeName) {
-		return exeName
+	fpath, err := cfg.locateFilePath(exeName)
+	if err != nil {
+		return exeName + "__ERROR-NOT-FOUND"
 	}
-
-	// if not found directly, it means it's just a name that needs to be located in our search paths.
-	for _, sp := range cfg.SearchPaths {
-		exePath := filepath.Join(sp, exeName)
-		if isFile(exePath) {
-			if filepath.IsAbs(exePath) || exePath[0] == '.' {
-				return exePath
-			}
-			return "./" + exePath
-		}
-	}
-	return "./" + exeName + "__EXECUTABLE-NOT-FOUND"
+	return fpath
 }
 
 func NewNodeAutoPlacer() *NodeAutoPlacer {

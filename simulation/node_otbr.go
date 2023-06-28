@@ -27,23 +27,23 @@
 package simulation
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
-	"strconv"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
 
-	"bufio"
+	"github.com/pkg/errors"
+	"github.com/simonlingoogle/go-simplelogger"
+
 	"github.com/openthread/ot-ns/dispatcher"
 	"github.com/openthread/ot-ns/otoutfilter"
 	. "github.com/openthread/ot-ns/types"
-	"github.com/pkg/errors"
-	"github.com/simonlingoogle/go-simplelogger"
-	"strings"
 )
 
 type OtbrNode struct {
@@ -52,7 +52,7 @@ type OtbrNode struct {
 	dockerContainerName string
 	httpPort            int
 
-	waitGroup sync.WaitGroup // waits on the external cmd processes started by this node.
+	waitGroup sync.WaitGroup // waits on all external cmd processes started for this node.
 	cmdSocat  *exec.Cmd
 	cmdDocker *exec.Cmd
 	loggerNcp chan string
@@ -66,10 +66,10 @@ func newNcpNode(s *Simulation, nodeid NodeId, cfg NodeConfig) (*OtbrNode, error)
 		return nil, errors.New("cfg.Restore == true not implemented for OTBR NCP")
 	}
 
-	simplelogger.Debugf("newNcpNode() NCP CLI exe path: %s", cfg.ExecutablePath)
+	simplelogger.Debugf("newNcpNode() using Docker container: %s", cfg.ExecutablePath)
 	ptyPath := getPtyFilePath(s.cfg.Id, nodeid)
-	cmd := exec.CommandContext(context.Background(), cfg.ExecutablePath, strconv.Itoa(nodeid), s.d.GetUnixSocketName(),
-		strconv.Itoa(s.cfg.Id), ptyPath)
+	contName := fmt.Sprintf("otbr_%d_%d", s.cfg.Id, nodeid)
+	cmd := exec.CommandContext(context.Background(), cfg.CliPath, contName)
 
 	node := &OtbrNode{
 		Node: Node{
@@ -83,7 +83,7 @@ func newNcpNode(s *Simulation, nodeid NodeId, cfg NodeConfig) (*OtbrNode, error)
 			ptyPath:         ptyPath,
 		},
 		loggerNcp:           make(chan string, 10),
-		dockerContainerName: fmt.Sprintf("otbr_%d_%d", s.cfg.Id, nodeid),
+		dockerContainerName: contName,
 		httpPort:            8080 + nodeid,
 	}
 
@@ -122,9 +122,9 @@ func (node *OtbrNode) runNcpProcesses() error {
 	go node.processCliReader(node.pipeStdOut)
 	go node.processErrorReader(node.pipeStdErr, node.logger)
 
-	// start socat
+	// start cmd: socat
 	// socat -d pty,raw,echo=0,link=$PTY_FILE pty,raw,echo=0,link=$PTY_FILE2 >> ${LOG_FILE} 2>&1 &
-	node.cmdSocat = exec.CommandContext(context.Background(), "socat", "-d",
+	node.cmdSocat = exec.CommandContext(context.Background(), "socat",
 		fmt.Sprintf("pty,raw,echo=0,link=%s", node.ptyPath),
 		fmt.Sprintf("pty,raw,echo=0,link=%s", node.ptyPath+"d"))
 
@@ -136,7 +136,7 @@ func (node *OtbrNode) runNcpProcesses() error {
 		return err
 	}
 
-	// start docker OTBR
+	// start cmd: docker OTBR
 	// # https://docs.docker.com/engine/reference/run/
 	//# -d flag to run main docker detached in the background.
 	//# -t flag must not be used when stdinput is piped to this script. So -it becomes -i
@@ -152,12 +152,14 @@ func (node *OtbrNode) runNcpProcesses() error {
 	//    -c "/app/etc/docker/docker_entrypoint.sh" \
 	//     2>&1 | sed -E 's/^/[L] /' &
 	node.cmdDocker = exec.CommandContext(context.Background(), "docker", "run",
-		"--name", node.dockerContainerName, "--rm",
+		"--name", node.dockerContainerName,
 		"--sysctl", "net.ipv6.conf.all.disable_ipv6=0 net.ipv4.conf.all.forwarding=1 net.ipv6.conf.all.forwarding=1",
 		"-p", fmt.Sprintf("%d:80", node.httpPort),
-		"--entrypoint", "/bin/bash",
-		"openthread/otbr",
-		"-c", "/app/etc/docker/docker_entrypoint.sh")
+		"--dns=127.0.0.1", "--rm",
+		"--volume", fmt.Sprintf("%sd:/dev/ttyUSB0", node.ptyPath),
+		"--privileged",
+		node.cfg.ExecutablePath)
+	// "--entrypoint", "/bin/bash", "-c", "/app/etc/docker/docker_entrypoint.sh")
 
 	if pipeStdOut, err = node.cmdDocker.StdoutPipe(); err != nil {
 		return err
@@ -169,12 +171,12 @@ func (node *OtbrNode) runNcpProcesses() error {
 	}
 	go node.processLogReader(pipeStdErr, node.loggerNcp)
 
-	if err = node.addProcess(node.cmdDocker, 2*time.Second); err != nil {
+	if err = node.addProcess(node.cmdDocker, 1500*time.Millisecond); err != nil {
 		return err
 	}
 
 	// start ot-ctl CLI script
-	err = node.cmd.Start()
+	err = node.addProcess(node.cmd, 200*time.Millisecond)
 
 	return err
 }
@@ -218,24 +220,27 @@ loop:
 
 func (node *OtbrNode) exitNcp() error {
 	simplelogger.AssertTrue(node.cfg.IsNcp)
-
-	err := node.Exit()
+	simplelogger.Debugf("%v - exitNcp() called", node)
 
 	// stop all processes and wait for all threads to finish.
+	_ = node.cmd.Process.Signal(syscall.SIGTERM)
 	_ = node.cmdDocker.Process.Signal(syscall.SIGTERM)
 	_ = node.cmdSocat.Process.Signal(syscall.SIGTERM)
 	node.waitGroup.Wait()
 
-	// remove docker container
+	node.S.Dispatcher().RecvEvents() // ensure to receive any remaining events of exited node.
+
+	// stop docker container (if still required)
+	stopCmd := exec.CommandContext(context.Background(), "docker", "stop", node.dockerContainerName)
+	_ = stopCmd.Run()
+
+	// remove docker container (if still required)
 	rmCmd := exec.CommandContext(context.Background(), "docker", "rm", node.dockerContainerName)
-	err2 := rmCmd.Run()
+	_ = rmCmd.Run()
 
 	close(node.loggerNcp)
 
-	if err != nil {
-		return err
-	}
-	return err2
+	return nil
 }
 
 // processPtyReader reads data from a PTY device and sends it directly to the UART of the node.
