@@ -38,14 +38,15 @@ func TestDetermineExecutableBasedOnConfig(t *testing.T) {
 	cfg := ExecutableConfig{
 		Ftd:         "my-ftd-fail",
 		Mtd:         "ot-cli-mtd",
-		BrRcp:       "br-script",
-		SearchPaths: []string{".", "./otrfsim/path/not/found", "../ot-rfsim/build/bin"},
+		BrRcp:       "docker/imagename",
+		BrNcp:       "run-docker-ot-ctl.sh",
+		SearchPaths: []string{".", "./otrfsim/path/not/found", "../ot-rfsim/build/bin", "../script"},
 	}
 
 	// if file could not be located, special name is returned.
 	nodeCfg := types.DefaultNodeConfig()
 	exe := cfg.DetermineExecutableBasedOnConfig(&nodeCfg)
-	assert.Equal(t, "./my-ftd-fail__EXECUTABLE-NOT-FOUND", exe)
+	assert.Equal(t, "my-ftd-fail__ERROR-NOT-FOUND", exe)
 
 	// test assumes that ot-rfsim has been built.
 	nodeCfg.IsMtd = true
@@ -58,8 +59,14 @@ func TestDetermineExecutableBasedOnConfig(t *testing.T) {
 	exe = cfg.DetermineExecutableBasedOnConfig(&nodeCfg)
 	assert.Equal(t, "../ot-rfsim/build/bin/ot-cli-mtd", exe)
 
+	nodeCfg.IsBorderRouter = true
+	nodeCfg.IsMtd = false
+	exe = cfg.DetermineCliBasedOnConfig(&nodeCfg)
+	assert.Equal(t, "../script/run-docker-ot-ctl.sh", exe)
+
 	// Also non-executable files could be supplied. The error comes only later when adding the node type.
 	cfg.Ftd = "../simulation/node_config.go"
+	nodeCfg.IsBorderRouter = false
 	nodeCfg.IsMtd = false
 	nodeCfg.IsRouter = true
 	exe = cfg.DetermineExecutableBasedOnConfig(&nodeCfg)
