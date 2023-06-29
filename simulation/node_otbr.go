@@ -110,31 +110,11 @@ func (node *OtbrNode) runNcpProcesses() error {
 	var pipeStdErr io.Reader
 	var err error
 
-	// start loggers
-	go node.processLogger(1, node.logger)
-	go node.processLogger(2, node.loggerNcp)
-	node.logger <- fmt.Sprintf("[D] %v ot-ctl CLI logfile created", node)
-	node.loggerNcp <- fmt.Sprintf("[D] %v NCP logfile created", node)
-	simplelogger.Debugf("Node CLI log file '%s' created.", node.getLogfileName(1))
-	simplelogger.Debugf("Node NCP log file '%s' created.", node.getLogfileName(2))
-
-	// start reader processes
-	go node.processCliReader(node.pipeStdOut)
-	go node.processErrorReader(node.pipeStdErr, node.logger)
-
 	// start cmd: socat
 	// socat -d pty,raw,echo=0,link=$PTY_FILE pty,raw,echo=0,link=$PTY_FILE2 >> ${LOG_FILE} 2>&1 &
 	node.cmdSocat = exec.CommandContext(context.Background(), "socat",
 		fmt.Sprintf("pty,raw,echo=0,link=%s", node.ptyPath),
 		fmt.Sprintf("pty,raw,echo=0,link=%s", node.ptyPath+"d"))
-
-	if pipeStdErr, err = node.cmdSocat.StderrPipe(); err != nil {
-		return err
-	}
-	go node.processErrorReader(pipeStdErr, node.loggerNcp)
-	if err = node.addProcess(node.cmdSocat, 100*time.Millisecond); err != nil {
-		return err
-	}
 
 	// start cmd: docker OTBR
 	// # https://docs.docker.com/engine/reference/run/
@@ -161,28 +141,46 @@ func (node *OtbrNode) runNcpProcesses() error {
 		node.cfg.ExecutablePath)
 	// "--entrypoint", "/bin/bash", "-c", "/app/etc/docker/docker_entrypoint.sh")
 
+	// start loggers
+	go node.processLogger(1, node.logger)
+	go node.processLogger(2, node.loggerNcp)
+	node.logger <- fmt.Sprintf("[D] %v ot-ctl CLI logfile created", node)
+	node.loggerNcp <- fmt.Sprintf("[D] %v NCP logfile created", node)
+	simplelogger.Debugf("Node CLI log file '%s' created.", node.getLogfileName(1))
+	simplelogger.Debugf("Node NCP log file '%s' created.", node.getLogfileName(2))
+
+	// start reader processes
+	go node.processCliReader(node.pipeStdOut)
+	go node.processErrorReader(node.pipeStdErr, node.logger)
+
+	// start pipes to cmd processes, and the cmd processes
+	if pipeStdErr, err = node.cmdSocat.StderrPipe(); err != nil {
+		return err
+	}
+	go node.processErrorReader(pipeStdErr, node.loggerNcp)
+	if err = node.startProcess(node.cmdSocat, 100*time.Millisecond); err != nil {
+		return err
+	}
 	if pipeStdOut, err = node.cmdDocker.StdoutPipe(); err != nil {
 		return err
 	}
 	go node.processLogReader(pipeStdOut, node.loggerNcp)
-
 	if pipeStdErr, err = node.cmdDocker.StderrPipe(); err != nil {
 		return err
 	}
 	go node.processLogReader(pipeStdErr, node.loggerNcp)
-
-	if err = node.addProcess(node.cmdDocker, 1500*time.Millisecond); err != nil {
+	if err = node.startProcess(node.cmdDocker, 1500*time.Millisecond); err != nil {
 		return err
 	}
 
 	// start ot-ctl CLI script
-	err = node.addProcess(node.cmd, 200*time.Millisecond)
+	err = node.startProcess(node.cmd, 200*time.Millisecond)
 
 	return err
 }
 
-// AddProcess adds a new concurrent process Cmd to the node, to be run and monitored.
-func (node *OtbrNode) addProcess(cmd *exec.Cmd, startupDelay time.Duration) error {
+// startProcess starts a new concurrent process Cmd associated to the node, to be run and monitored.
+func (node *OtbrNode) startProcess(cmd *exec.Cmd, startupDelay time.Duration) error {
 	simplelogger.Debugf("Starting process: %v", cmd)
 	if err := cmd.Start(); err != nil {
 		return err
@@ -222,10 +220,16 @@ func (node *OtbrNode) exitNcp() error {
 	simplelogger.AssertTrue(node.cfg.IsNcp)
 	simplelogger.Debugf("%v - exitNcp() called", node)
 
-	// stop all processes and wait for all threads to finish.
-	_ = node.cmd.Process.Signal(syscall.SIGTERM)
-	_ = node.cmdDocker.Process.Signal(syscall.SIGTERM)
-	_ = node.cmdSocat.Process.Signal(syscall.SIGTERM)
+	// stop all processes and wait for all threads to finish using waitGroup.
+	if node.cmd.Process != nil {
+		_ = node.cmd.Process.Signal(syscall.SIGTERM)
+	}
+	if node.cmdDocker.Process != nil {
+		_ = node.cmdDocker.Process.Signal(syscall.SIGTERM)
+	}
+	if node.cmdSocat.Process != nil {
+		_ = node.cmdSocat.Process.Signal(syscall.SIGTERM)
+	}
 	node.waitGroup.Wait()
 
 	node.S.Dispatcher().RecvEvents() // ensure to receive any remaining events of exited node.
