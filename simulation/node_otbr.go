@@ -41,6 +41,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/simonlingoogle/go-simplelogger"
 
+	"encoding/hex"
 	"github.com/openthread/ot-ns/dispatcher"
 	"github.com/openthread/ot-ns/otoutfilter"
 	. "github.com/openthread/ot-ns/types"
@@ -256,6 +257,7 @@ loop:
 		n, err := reader.Read(buf)
 
 		if n > 0 {
+			simplelogger.Debugf("PTY->RCP: %s (%d bytes)", hex.EncodeToString(buf[0:n]), n)
 			node.S.Dispatcher().SendToUART(node.Id, buf[0:n])
 		}
 
@@ -301,8 +303,13 @@ loop:
 loop2:
 	for {
 		select {
-		case b := <-node.ptyChan:
-			_, err := node.ptyFile.Write(b)
+		case b, ok := <-node.ptyChan:
+			if !ok {
+				simplelogger.Debugf("%v - ptyChan was closed.", node)
+				break loop2
+			}
+			n, err := node.ptyFile.Write(b)
+			simplelogger.Debugf("RCP->PTY: %s (%d bytes, writ %d)", hex.EncodeToString(b), len(b), n)
 			if err != nil {
 				if errors.Is(err, io.EOF) {
 					simplelogger.Debugf("%v - processPtyPiper output was closed.", node)
