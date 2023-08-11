@@ -28,8 +28,6 @@ name: Docker
 
 on:
   workflow_dispatch:
-    branches:
-      - '*'
   pull_request:
     branches:
       - 'docker'
