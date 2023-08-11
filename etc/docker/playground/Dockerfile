@@ -25,7 +25,7 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 # Stage 0: build OTNS and dependencies
-FROM golang:1.17-buster
+FROM golang:1.18
 
 RUN apt-get update
 RUN apt-get install -y python3 python3-pip unzip
@@ -37,6 +37,9 @@ RUN ./script/install
 WORKDIR /otns/ot-rfsim
 RUN ./script/bootstrap
 RUN ./script/build_latest
+RUN ./script/build_v11
+RUN ./script/build_v12
+RUN ./script/build_v13
 
 RUN strip /go/bin/grpcwebproxy /go/bin/otns
 
