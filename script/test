@@ -127,8 +127,6 @@ build_openthread()
     )
 
     OT_CLI_FTD_PATH="$OTBIN_DIR/ot-cli-ftd"
-    echo "To use build result, launch OTNS with command: otns -ot-cli $OT_CLI_FTD_PATH"
-    echo "Or cd into $OTBIN_DIR and start OTNS with: otns"
 }
 
 build_openthread_versions()
@@ -153,10 +151,6 @@ build_openthread_versions()
             ./script/build_latest
         fi
     )
-
-    OT_CLI_FTD_PATH="$OT_DIR/ot-versions/ot-cli-ftd"
-    echo "To use build result, launch OTNS with command: otns -ot-cli $OT_CLI_FTD_PATH"
-    echo "Or cd into the directory of $OT_CLI_FTD_PATH and start OTNS with: otns"
 }
 
 py_unittests()

@@ -49,7 +49,7 @@ class StressTest(BaseStressTest):
     Parameter LARGE_N can be set higher e.g. 32 to run a 1024 node network. This takes multiple hours
     and also requires an ot-cli-ftd node build with -DOT_FULL_LOGS=OFF build setting, for performance.
     """
-    SUITE = 'network-forming'
+    SUITE = 'very-large'
 
     def __init__(self):
         super(StressTest, self).__init__("Large Network Formation Test",
@@ -71,7 +71,8 @@ class StressTest(BaseStressTest):
 
         for r in range(n):
             for c in range(n):
-                self.ns.add("router", 50 + XGAP * c, 50 + YGAP * r, radio_range=RADIO_RANGE)
+                self.ns.add("router", 50 + XGAP * c, 50 + YGAP * r, radio_range=RADIO_RANGE,
+                            executable="ot-cli-ftd_nologs")
 
         for _ in range(SIMULATE_TIME_TOTAL // SIMULATE_TIME_PERIOD):
             t0 = time.time()
