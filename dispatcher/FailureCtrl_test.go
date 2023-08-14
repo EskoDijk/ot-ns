@@ -29,11 +29,12 @@ package dispatcher
 import (
 	"testing"
 
+	"math/rand"
+	"time"
+
 	. "github.com/openthread/ot-ns/types"
 	"github.com/openthread/ot-ns/visualize"
 	"github.com/stretchr/testify/assert"
-	"math/rand"
-	"time"
 )
 
 type mockDispatcherCallback struct {
