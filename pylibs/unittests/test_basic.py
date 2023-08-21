@@ -286,11 +286,17 @@ class BasicTests(OTNSTestCase):
         self.tearDown()
 
         with OTNS(otns_args=['-log', 'debug']) as ns:
-            ns.add("router")
+            nid = ns.add("router")
+            self.assertEqual(1, nid)
+            ns.go(10)
+            self.assertEqual(10e6,ns.time)
 
         # run a second time to make sure the previous simulation is properly terminated
         with OTNS(otns_args=['-log', 'debug']) as ns:
-            ns.add("router")
+            nid = ns.add("router")
+            self.assertEqual(1, nid)
+            ns.go(10)
+            self.assertEqual(10e6,ns.time)
 
     def testSetRouterUpgradeThreshold(self):
         ns: OTNS = self.ns
