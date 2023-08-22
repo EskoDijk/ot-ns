@@ -115,6 +115,7 @@ class MleidConnectivityStressTest(BaseStressTest):
             ns.radio_set_fail_time(nid, fail_time=(FAIL_DURATION, FAIL_INTERVAL))
             ns.set_poll_period(nid, SED_PULL_PERIOD)
 
+        assert TOTAL_NODE_COUNT < PING_INTERVAL
         for nodeid in range(1, TOTAL_NODE_COUNT + 1):
             ns.ping(nodeid, BR_ADDR, datasize=PING_DATA_SIZE, count=TOTAL_SIMULATION_TIME // PING_INTERVAL,
                     interval=PING_INTERVAL)
