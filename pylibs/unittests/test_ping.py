@@ -41,26 +41,38 @@ class PingTests(OTNSTestCase):
         ns.add("router")
         ns.add("router")
 
+        # The pinging starts already while the network is still being formed. Hence, the first few pings will
+        # fail with 'Error 5: Busy' from the OT node.
         for i in range(100):
             ns.ping(1, 2, datasize=10)
             ns.ping(2, 1, datasize=10)
             ns.go(1)
 
         pings = ns.pings()
-        self.assertTrue(pings)
+        logging.debug('len(pings)=%d, expected ~180' % (len(pings)))
+        self.assertTrue(len(pings) < 200)
+        self.assertTrue(len(pings) > 150)
+
+        dst_addrs = (str(ns.get_mleid(1)), str(ns.get_mleid(2)))
+
         for srcid, dst, datasize, delay in pings:
             assert srcid in (1, 2)
+            assert dst in dst_addrs
             assert datasize == 10
+            assert delay > 0
+            assert delay <= 10000
 
+        self.assertFalse(ns.pings())
+        ns.go(11)
         self.assertFalse(ns.pings())
 
     def testPingLineTopology(self):
         ns = self.ns
         pingDelays = []
-        pingDataSize = 128
+        pingDataSize = 128 # two-fragment ping packet adds extra closely spaced traffic.
 
         for i in range(10):
-            ns.add("router", i*80, 0)
+            ns.add("router", i*80, 200)
         ns.go(300)
 
         for i in range(80):
@@ -84,7 +96,11 @@ class PingTests(OTNSTestCase):
 
         logging.info(f"Ping success rate   : {pingSuccess}")
         logging.info(f"Average ping latency: {pingAvg}")
-        self.assertTrue(pingAvg < 900 and pingSuccess > 0.7)
+        if ns.radiomodel == 'MIDisc':
+            # For the MIDisc radio model, the hidden-node problem pops up strongly. Lower expectations.
+            self.assertTrue(pingAvg < 600 and pingSuccess > 0.2)
+        else:
+            self.assertTrue(pingAvg < 600 and pingSuccess > 0.7)
 
 if __name__ == '__main__':
     unittest.main()
