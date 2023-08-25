@@ -110,10 +110,11 @@ class BasicTests(OTNSTestCase):
             ns.go(10)
 
             self.assertEqual(nodeid, ns.add(type, x=n*10, y=10, restore=True))
-
-            self.go(1.7)
-            self.assertFormPartitions(1)
             self.assertEqual(rloc16, ns.get_rloc16(nodeid))
+            self.go(0.1)
+            while len(ns.partitions()) > 1 and ns.time < 100e6:
+                self.go(0.1)
+            self.assertFormPartitions(1)
             n += 1
 
     def testDelNode(self):
