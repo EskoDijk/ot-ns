@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (c) 2020-2022, The OTNS Authors.
+# Copyright (c) 2020-2023, The OTNS Authors.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -25,6 +25,7 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
+import logging
 import tracemalloc
 import unittest
 
@@ -81,8 +82,8 @@ class PingTests(OTNSTestCase):
         pingDelays = list(filter(lambda a: a < 10000, pingDelays))
         pingAvg = sum(pingDelays) / len(pingDelays)
 
-        print("Ping success rate   : ", pingSuccess)
-        print("Average ping latency: ", pingAvg)
+        logging.info(f"Ping success rate   : {pingSuccess}")
+        logging.info(f"Average ping latency: {pingAvg}")
         self.assertTrue(pingAvg < 900 and pingSuccess > 0.7)
 
 if __name__ == '__main__':
