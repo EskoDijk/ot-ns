@@ -25,6 +25,7 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 #
+
 import logging
 import unittest
 from typing import Dict
@@ -36,7 +37,7 @@ from otns.cli import errors, OTNS
 class BasicTests(OTNSTestCase):
     def testGetSetSpeed(self):
         ns = self.ns
-        self.assertEqual(ns.speed, OTNS.MAX_SIMULATE_SPEED)
+        self.assertEqual(ns.speed, OTNS.DEFAULT_SIMULATE_SPEED)
         ns.speed = 2
         self.assertEqual(ns.speed, 2)
         ns.speed = float('inf')
@@ -286,17 +287,26 @@ class BasicTests(OTNSTestCase):
         self.tearDown()
 
         with OTNS(otns_args=['-log', 'debug']) as ns:
+            self.assertEqual(OTNS.DEFAULT_SIMULATE_SPEED, ns.speed)
+            ns.speed = 19999
             nid = ns.add("router")
             self.assertEqual(1, nid)
             ns.go(10)
             self.assertEqual(10e6,ns.time)
 
         # run a second time to make sure the previous simulation is properly terminated
-        with OTNS(otns_args=['-log', 'debug']) as ns:
+        with OTNS(otns_args=['-log', 'warn', '-speed', '18123']) as ns:
+            self.assertEqual(18123, ns.speed)
             nid = ns.add("router")
             self.assertEqual(1, nid)
             ns.go(10)
             self.assertEqual(10e6,ns.time)
+
+        with OTNS() as ns:
+            ns.add('router')
+            ns.add('router')
+            self.assertEqual(OTNS.DEFAULT_SIMULATE_SPEED, ns.speed)
+            self.assertEqual(0,ns.time)
 
     def testSetRouterUpgradeThreshold(self):
         ns: OTNS = self.ns
