@@ -1528,8 +1528,8 @@ func (d *Dispatcher) handleRadioState(node *Node, evt *Event) {
 	energyState := evt.RadioStateData.EnergyState
 
 	if node.watchLogLevel >= WatchTraceLevel && d.IsWatching(node.Id) {
-		msg := fmt.Sprintf("%s %9d EnergyState=%+v SubState=%+v RadioState=%+v",
-			node, evt.Timestamp, energyState, subState, state)
+		msg := fmt.Sprintf("%s %9d EnergyState=%+v SubState=%+v RadioState=%+v RadioTime=%+v",
+			node, evt.Timestamp, energyState, subState, state, evt.RadioStateData.RadioTime)
 		// TODO may consider own logger object for dispatcher to avoid below workaround.
 		if simplelogger.GetLevel() == simplelogger.DebugLevel {
 			simplelogger.Debugf(msg)
