@@ -714,23 +714,19 @@ func (rt *CmdRunner) executeRadioModel(cc *CommandContext, cmd *RadioModelCmd) {
 
 func (rt *CmdRunner) executeLogLevel(cc *CommandContext, cmd *LogLevelCmd) {
 	if cmd.Level == "" {
-		cc.outputf("%v\n", simplelogger.GetLevel().String())
+		cc.outputf("%v\n", GetWatchLogLevelString(rt.sim.GetLogLevel()))
 	} else {
-		simplelogger.SetLevel(simplelogger.ParseLevel(cmd.Level))
+		rt.sim.SetLogLevel(ParseWatchLogLevel(cmd.Level))
 	}
 }
 
 func (rt *CmdRunner) executeWatch(cc *CommandContext, cmd *WatchCmd) {
 	rt.postAsyncWait(func(sim *simulation.Simulation) {
-		watchLogLevel := ""
+		watchLogLevelStr := ""
+		var watchLogLevel WatchLogLevel = WatchDefaultLevel
 		if len(cmd.Level) > 0 {
-			watchLogLevel = cmd.Level
-			// if a 'low' level is given, ensure that the level's messages can be seen by activating 'Info' level.
-			// TODO have separate log objects
-			lev := dispatcher.ParseWatchLogLevel(watchLogLevel)
-			if lev > dispatcher.WatchInfoLevel && simplelogger.GetLevel() > simplelogger.InfoLevel {
-				simplelogger.SetLevel(simplelogger.InfoLevel)
-			}
+			watchLogLevelStr = cmd.Level
+			watchLogLevel = ParseWatchLogLevel(watchLogLevelStr)
 		}
 		nodesToWatch := cmd.Nodes
 
@@ -775,6 +771,12 @@ func (rt *CmdRunner) executeWatch(cc *CommandContext, cmd *WatchCmd) {
 				continue
 			}
 			sim.Dispatcher().WatchNode(node.Id, watchLogLevel)
+		}
+
+		// adapt simulation's overall logLevel down to 'info', if needed to see watch items.
+		if watchLogLevel > sim.GetLogLevel() && sim.GetLogLevel() < WatchInfoLevel {
+			sim.SetLogLevel(WatchInfoLevel)
+			simplelogger.Infof("Simulation log level lowered to 'info'.")
 		}
 	})
 }

@@ -79,8 +79,6 @@ class OTNS(object):
     def close(self) -> None:
         """
         Close OTNS simulation.
-
-        :param timeout: timeout for waiting otns process to quit
         """
         if self._closed:
             return

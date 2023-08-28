@@ -1,4 +1,4 @@
-// Copyright (c) 2020-2022, The OTNS Authors.
+// Copyright (c) 2020-2023, The OTNS Authors.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -31,7 +31,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/openthread/ot-ns/types"
+	"fmt"
+	. "github.com/openthread/ot-ns/types"
 )
 
 type CmdRunner interface {
@@ -39,10 +40,26 @@ type CmdRunner interface {
 
 	// GetContextNodeId gets the user's current selected node ID context for running commands, or
 	// types.InvalidNodeId if no node context selected.
-	GetContextNodeId() types.NodeId
+	GetContextNodeId() NodeId
 }
 
-func RemoveAllFiles(globPath string) error {
+type logEntry struct {
+	level   WatchLogLevel
+	msg     string
+	isWatch bool
+}
+
+func (e logEntry) toString(ts uint64) string {
+	return fmt.Sprintf("%11d %s", ts, e.msg)
+}
+
+func (e logEntry) display(id NodeId, ts uint64) {
+	nodePrefix := GetNodeName(id)
+	line := e.toString(ts)
+	PrintLog(e.level, nodePrefix+line)
+}
+
+func removeAllFiles(globPath string) error {
 	files, err := filepath.Glob(globPath)
 	if err != nil {
 		return err

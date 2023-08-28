@@ -54,11 +54,9 @@ import (
 )
 
 const (
-	Ever uint64 = math.MaxUint64 / 2
-)
-
-const (
-	MaxSimulateSpeed = 1000000
+	Ever               uint64 = math.MaxUint64 / 2
+	MaxSimulateSpeed          = 1000000
+	DefaultReadTimeout        = time.Second * 500
 )
 
 type pcapFrameItem struct {
@@ -90,11 +88,23 @@ func DefaultConfig() *Config {
 }
 
 type CallbackHandler interface {
+	// OnNodeFail Notifies that the node's radio went into a simulated "fail" (off) state
 	OnNodeFail(nodeid NodeId)
+
+	// OnNodeRecover Notifies that the node's radio recovered from a simulated "fail" (off) state
 	OnNodeRecover(nodeid NodeId)
 
-	// Notifies that the node's UART was written with data.
+	// OnUartWrite Notifies that the node's UART was written with data.
 	OnUartWrite(nodeid NodeId, data []byte)
+
+	// OnUartWritesComplete Notifies that the node's UART writes are completed (for current node alive period).
+	OnUartWritesComplete(nodeid NodeId)
+
+	// OnLogMessage Notifies that a log message from Dispatcher can be added to the node's log.
+	OnLogMessage(nodeid NodeId, level WatchLogLevel, isWatchTriggered bool, msg string)
+
+	// OnNextEventTime Notifies that the Dispatcher simulation moves to the next event time.
+	OnNextEventTime(curTimeUs uint64, nextTimeUs uint64)
 }
 
 // represents a particular duration of simulation at a given speed, or DefaultDispatcherSpeed. It can be
@@ -184,7 +194,7 @@ func NewDispatcher(ctx *progctx.ProgCtx, cfg *Config, cbHandler CallbackHandler)
 		speedStartRealTime: time.Now(),
 		lastVizTime:        time.Unix(0, 0),
 		vis:                vis,
-		taskChan:           make(chan func(), 100000),
+		taskChan:           make(chan func(), 10000),
 		watchingNodes:      map[NodeId]struct{}{},
 		goDurationChan:     make(chan goDuration, 1),
 		visOptions:         defaultVisualizationOptions(),
@@ -299,22 +309,21 @@ loop:
 				// no nodes or no sim progress, sleep for a small duration to avoid high cpu
 				d.RecvEvents()
 				time.Sleep(time.Millisecond * 10)
-				close(duration.done)
-				break
-			}
+			} else {
+				simplelogger.AssertTrue(d.CurTime == d.pauseTime)
+				d.goSimulateForDuration(duration)
+				simplelogger.AssertTrue(d.CurTime == d.pauseTime)
 
-			simplelogger.AssertTrue(d.CurTime == d.pauseTime)
-			d.goSimulateForDuration(duration)
-			simplelogger.AssertTrue(d.CurTime == d.pauseTime)
-
-			d.syncAllNodes()
-			if d.pcap != nil {
-				_ = d.pcap.Sync()
+				d.syncAllNodes()
+				if d.pcap != nil {
+					_ = d.pcap.Sync()
+				}
 			}
 			close(duration.done)
 			break
 
 		case <-done:
+			simplelogger.Warnf("dispatcher done chan")
 			break loop
 		}
 	}
@@ -409,6 +418,7 @@ func (d *Dispatcher) handleRecvEvent(evt *Event) {
 		d.Counters.AlarmEvents += 1
 		d.setSleeping(node.Id)
 		d.alarmMgr.SetTimestamp(nodeid, d.CurTime+delay) // schedule future wake-up of node
+		d.cbHandler.OnUartWritesComplete(node.Id)
 	case EventTypeRadioReceived:
 		simplelogger.Panicf("legacy EventTypeRadioReceived received - unsupported OT node executable version.")
 	case EventTypeRadioCommStart:
@@ -438,7 +448,7 @@ func (d *Dispatcher) handleRecvEvent(evt *Event) {
 
 // RecvEvents receives events from nodes, and handles these, until there is no more alive node.
 func (d *Dispatcher) RecvEvents() int {
-	blockTimeout := time.After(time.Second * 5)
+	blockTimeout := time.After(DefaultReadTimeout)
 	count := 0
 
 loop:
@@ -468,7 +478,7 @@ loop:
 	return count
 }
 
-// processNextEvent processes all next events from the eventQueue for the current time instant.
+// processNextEvent processes all next events from the eventQueue for the next time instant.
 // Returns true if the simulation needs to continue, or false if not (e.g. it's time to pause).
 func (d *Dispatcher) processNextEvent(simSpeed float64) bool {
 	simplelogger.AssertTrue(d.CurTime <= d.pauseTime)
@@ -527,10 +537,14 @@ func (d *Dispatcher) processNextEvent(simSpeed float64) bool {
 		return false
 	}
 
+	// before advancing dispatcher time, process any pending tasks. Tasks may include
+	// node adds/deletes, or any other CLI command actions.
+	d.handleTasks()
+	d.advanceTime(nextEventTime)
+
 	// process (if any) all queued events, that happen at exactly procUntilTime
 	procUntilTime := nextEventTime
 	for nextEventTime <= procUntilTime {
-		d.advanceTime(nextEventTime)
 
 		if nextAlarmTime <= nextSendTime {
 			// process next alarm
@@ -602,7 +616,7 @@ func (d *Dispatcher) eventsReader() {
 		}
 
 		// Handle the new connection in a separate goroutine.
-		readTimeout := time.Millisecond * 5000
+		readTimeout := DefaultReadTimeout
 		d.waitGroupNodes.Add(1)
 
 		go func(myConn net.Conn) {
@@ -660,7 +674,7 @@ func (d *Dispatcher) advanceNodeTime(node *Node, timestamp uint64, force bool) {
 
 	oldTime := node.CurTime
 	if timestamp <= oldTime && !force {
-		// node time was already newer than the requested timestamp
+		// node time was already equal to or newer than the requested timestamp
 		return
 	}
 
@@ -922,16 +936,8 @@ func (d *Dispatcher) GetVisualizer() visualize.Visualizer {
 	return d.vis
 }
 
-func (d *Dispatcher) logDebugForNode(id NodeId, str string) {
-	spacing := ""
-	if id < 10 {
-		spacing = " "
-	}
-	simplelogger.Debugf("Node<%d>%s %9d - %s", id, spacing, d.CurTime, str)
-}
-
 func (d *Dispatcher) handleStatusPush(srcnode *Node, data string) {
-	d.logDebugForNode(srcnode.Id, fmt.Sprintf("status push: %#v", data))
+	d.cbHandler.OnLogMessage(srcnode.Id, WatchTraceLevel, srcnode.watchLogLevel >= WatchTraceLevel, fmt.Sprintf("status push: %#v", data))
 	statuses := strings.Split(data, ";")
 	srcid := srcnode.Id
 	for _, status := range statuses {
@@ -1036,7 +1042,7 @@ func (d *Dispatcher) AddNode(nodeid NodeId, cfg *NodeConfig) *Node {
 	d.setAlive(nodeid)
 
 	if d.cfg.DefaultWatchOn {
-		d.WatchNode(nodeid, d.cfg.DefaultWatchLevel)
+		d.WatchNode(nodeid, ParseWatchLogLevel(d.cfg.DefaultWatchLevel))
 	}
 	return node
 }
@@ -1045,7 +1051,7 @@ func (d *Dispatcher) setNodeRloc16(srcid NodeId, rloc16 uint16) {
 	node := d.nodes[srcid]
 	simplelogger.AssertNotNil(node)
 
-	d.logDebugForNode(srcid, fmt.Sprintf("set node rloc: %x -> %x", node.Rloc16, rloc16))
+	d.cbHandler.OnLogMessage(srcid, WatchDebugLevel, false, fmt.Sprintf("set node RLOC16: %x -> %x", node.Rloc16, rloc16))
 	oldRloc16 := node.Rloc16
 	if oldRloc16 != threadconst.InvalidRloc16 {
 		// remove node from old rloc map
@@ -1164,6 +1170,7 @@ func (d *Dispatcher) visSend(srcid NodeId, dstid NodeId, visInfo *visualize.MsgV
 func (d *Dispatcher) advanceTime(ts uint64) {
 	simplelogger.AssertTrue(d.CurTime <= ts, "%v > %v", d.CurTime, ts)
 	if d.CurTime < ts {
+		d.cbHandler.OnNextEventTime(d.CurTime, ts)
 		d.CurTime = ts
 		if d.cfg.Real {
 			d.syncAllNodes()
@@ -1221,21 +1228,28 @@ loop:
 	}
 }
 
-func (d *Dispatcher) WatchNode(nodeid NodeId, watchLogLevel string) {
+func (d *Dispatcher) WatchNode(nodeid NodeId, watchLogLevel WatchLogLevel) {
 	d.watchingNodes[nodeid] = struct{}{}
 	node := d.nodes[nodeid]
 	if node != nil {
-		node.watchLogLevel = ParseWatchLogLevel(watchLogLevel)
+		node.watchLogLevel = watchLogLevel
 	}
 }
 
 func (d *Dispatcher) UnwatchNode(nodeid NodeId) {
+	node := d.nodes[nodeid]
+	if node != nil {
+		node.watchLogLevel = WatchCritLevel
+	}
 	delete(d.watchingNodes, nodeid)
 }
 
-func (d *Dispatcher) IsWatching(nodeid NodeId) bool {
-	_, ok := d.watchingNodes[nodeid]
-	return ok
+func (d *Dispatcher) GetWatchLevel(nodeid NodeId) WatchLogLevel {
+	node := d.nodes[nodeid]
+	if node != nil {
+		return node.watchLogLevel
+	}
+	return WatchOffLevel
 }
 
 func (d *Dispatcher) GetWatchingNodes() []NodeId {
@@ -1247,43 +1261,6 @@ func (d *Dispatcher) GetWatchingNodes() []NodeId {
 	}
 	sort.Ints(watchingNodeIds)
 	return watchingNodeIds
-}
-
-// WatchMessage logs a message for a particular node, to be seen by all Watchers of the node.
-func (d *Dispatcher) WatchMessage(id NodeId, logLevel WatchLogLevel, msg string) {
-	node := d.nodes[id]
-	_, isWatching := d.watchingNodes[id]
-	if node == nil || !isWatching {
-		return // ignore, not being watched.
-	}
-	if node.watchLogLevel >= logLevel {
-		watchLog(node, logLevel, fmt.Sprintf("%s %9d %s", node, d.CurTime, msg))
-	}
-}
-
-// helper function to log to right simplelogger level, overriding simplelogger's level.
-func watchLog(node *Node, logLevel WatchLogLevel, msg string) {
-	switch logLevel {
-	case WatchCritLevel:
-		simplelogger.Errorf(msg)
-	case WatchWarnLevel:
-		simplelogger.Warnf(msg)
-	case WatchInfoLevel, WatchNoteLevel:
-		simplelogger.Infof(msg)
-	case WatchDebugLevel, WatchTraceLevel:
-		// TODO may consider own logger object for dispatcher to avoid below workaround.
-		if simplelogger.GetLevel() == simplelogger.DebugLevel {
-			simplelogger.Debugf(msg)
-		} else {
-			simplelogger.Infof(msg)
-		}
-	default:
-		simplelogger.Errorf(msg)
-	}
-}
-
-func (d *Dispatcher) GetAliveCount() int {
-	return len(d.aliveNodes)
 }
 
 func (d *Dispatcher) GetNode(id NodeId) *Node {
@@ -1527,15 +1504,10 @@ func (d *Dispatcher) handleRadioState(node *Node, evt *Event) {
 	state := evt.RadioStateData.State
 	energyState := evt.RadioStateData.EnergyState
 
-	if node.watchLogLevel >= WatchTraceLevel && d.IsWatching(node.Id) {
-		msg := fmt.Sprintf("%s %9d EnergyState=%+v SubState=%+v RadioState=%+v RadioTime=%+v",
-			node, evt.Timestamp, energyState, subState, state, evt.RadioStateData.RadioTime)
-		// TODO may consider own logger object for dispatcher to avoid below workaround.
-		if simplelogger.GetLevel() == simplelogger.DebugLevel {
-			simplelogger.Debugf(msg)
-		} else {
-			simplelogger.Infof(msg)
-		}
+	if node.watchLogLevel >= WatchTraceLevel {
+		msg := fmt.Sprintf("EnergyState=%s SubState=%s RadioState=%s RadioTime=%d NextStTime=+%d",
+			energyState, subState, state, evt.RadioStateData.RadioTime, evt.Delay)
+		d.cbHandler.OnLogMessage(node.Id, WatchTraceLevel, true, msg)
 	}
 
 	node.radioNode.SetRadioState(energyState, subState)
@@ -1547,10 +1519,11 @@ func (d *Dispatcher) handleRadioState(node *Node, evt *Event) {
 		radioEnergy.SetRadioState(energyState, d.CurTime)
 	}
 
-	// if a next radio-state transition is indicated, make sure to schedule node wake-up for that time.
+	// if a next radio-state transition time is indicated, make sure to schedule node wake-up for that time.
 	// This is independent from any alarm-time set by the node.
 	if evt.Delay > 0 {
-		radioWakeUpEvt := evt.Copy()
+		radioWakeUpEvt := evt.Copy() // TODO can recycle event itself
+		radioWakeUpEvt.Delay = 0
 		radioWakeUpEvt.Timestamp += evt.Delay
 		radioWakeUpEvt.MustDispatch = true
 		d.eventQueue.Add(&radioWakeUpEvt)

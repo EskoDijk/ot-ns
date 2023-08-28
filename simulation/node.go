@@ -43,13 +43,14 @@ import (
 	"github.com/pkg/errors"
 	"github.com/simonlingoogle/go-simplelogger"
 
-	"github.com/openthread/ot-ns/dispatcher"
 	"github.com/openthread/ot-ns/otoutfilter"
 	. "github.com/openthread/ot-ns/types"
 )
 
 const (
-	DefaultCommandTimeout = time.Second * 10
+	DefaultCommandTimeout        = time.Second * 1000
+	UartDoneMarkerString         = "_UartDoneMarkerString_"
+	UartDoneMarkerStringNewlined = "_UartDoneMarkerString_\n"
 )
 
 var (
@@ -70,16 +71,18 @@ type Node struct {
 	cfg     *NodeConfig
 	cmd     *exec.Cmd
 	logFile *os.File
-	err     error
-	errProc error
+	err     error // store the last OTNS error related to this node; nil if none.
 
-	pendingLines      chan string
+	pendingLines      chan string   // OT node CLI output lines, pending processing.
+	logFileLines      chan string   // OT node log lines, pending write to the node's log file.
+	logEntries        chan logEntry // OT node log entries, pending display on OTNS CLI or other viewers.
 	pipeIn            io.WriteCloser
 	pipeOut           io.ReadCloser
 	pipeErr           io.ReadCloser
-	virtualUartReader *io.PipeReader
+	virtualUartReader *io.PipeReader // output from OT node's virtual UART is read via this reader.
 	virtualUartPipe   *io.PipeWriter
 	uartType          NodeUartType
+	uartDoneChan      chan bool // write on channel indicates that OT node is done sending UART data.
 }
 
 func newNode(s *Simulation, nodeid NodeId, cfg *NodeConfig) (*Node, error) {
@@ -106,7 +109,10 @@ func newNode(s *Simulation, nodeid NodeId, cfg *NodeConfig) (*Node, error) {
 		cfg:          cfg,
 		cmd:          cmd,
 		pendingLines: make(chan string, 10000),
+		logFileLines: make(chan string, 100),
+		logEntries:   make(chan logEntry, 10000),
 		uartType:     NodeUartTypeUndefined,
+		uartDoneChan: make(chan bool),
 		logFile:      nil,
 		err:          nil,
 	}
@@ -132,6 +138,13 @@ func newNode(s *Simulation, nodeid NodeId, cfg *NodeConfig) (*Node, error) {
 		return nil, err
 	}
 	node.logFile = logFile
+	go node.logFileWriter()
+
+	header := fmt.Sprintf("# OpenThread node log for %s Created %s\n", GetNodeName(nodeid),
+		time.Now().Format(time.RFC3339)) +
+		fmt.Sprintf("# Executable: %s\n", cfg.ExecutablePath) +
+		"# SimTimeUs NodeTime     Lev LogModule       Message"
+	node.logFileLines <- header
 	simplelogger.Debugf("Node log file '%s' opened.", logFileName)
 
 	if err = cmd.Start(); err != nil {
@@ -141,15 +154,14 @@ func newNode(s *Simulation, nodeid NodeId, cfg *NodeConfig) (*Node, error) {
 		return nil, err
 	}
 
-	go node.lineReader(node.pipeOut, NodeUartTypeRealTime)
-	go node.lineReader(node.virtualUartReader, NodeUartTypeVirtualTime)
-	go node.lineReaderStdErr(node.pipeErr)
+	go node.lineReader(node.virtualUartReader) // reads UART bytes from OT node and turns them into lines
+	go node.lineReaderStdErr(node.pipeErr)     // reads StdErr output from OT node exe and acts on failures
 
 	return node, nil
 }
 
 func (node *Node) String() string {
-	return fmt.Sprintf("Node<%d>", node.Id)
+	return GetNodeName(node.Id)
 }
 
 func (node *Node) RunInitScript(cfg []string) error {
@@ -197,6 +209,7 @@ func (node *Node) Exit() error {
 	if node.logFile != nil {
 		_ = node.logFile.Close()
 	}
+	close(node.logFileLines)
 
 	return err
 }
@@ -285,7 +298,8 @@ func (node *Node) CommandExpectInt(cmd string, timeout time.Duration) int {
 	}
 
 	if err != nil {
-		simplelogger.Panicf("%v - parsing unexpected Int number: %#v", node, s)
+		simplelogger.Errorf("%v - parsing unexpected Int number: %#v", node, s)
+		return 0
 	}
 	return int(iv)
 }
@@ -298,7 +312,8 @@ func (node *Node) CommandExpectHex(cmd string, timeout time.Duration) int {
 	iv, err = strconv.ParseInt(s[2:], 16, 0)
 
 	if err != nil {
-		simplelogger.Panicf("unexpected number: %#v", s)
+		simplelogger.Errorf("hex parsing unexpected number: %#v", s)
+		return 0
 	}
 	return int(iv)
 }
@@ -365,7 +380,14 @@ func (node *Node) SetEui64(eui64 string) {
 func (node *Node) GetExtAddr() uint64 {
 	s := node.CommandExpectString("extaddr", DefaultCommandTimeout)
 	v, err := strconv.ParseUint(s, 16, 64)
-	simplelogger.PanicIfError(err)
+	if err != nil {
+		if len(s) > 0 {
+			simplelogger.Errorf("GetExtAddr() unknown address format: %s", s)
+		} else {
+			simplelogger.Errorf("GetExtAddr() address not received.")
+		}
+		return InvalidExtAddr
+	}
 	return v
 }
 
@@ -637,40 +659,52 @@ func (node *Node) GetSingleton() bool {
 		return true
 	} else if s == "false" {
 		return false
+	} else if len(s) == 0 {
+		simplelogger.Errorf("GetSingleton(): no data received.")
+		return false
 	} else {
 		simplelogger.Panicf("expect true/false, but read: %#v", s)
 		return false
 	}
 }
 
-func (node *Node) lineReader(reader io.Reader, uartType NodeUartType) {
-	// TODO close the line channel after line reader routine exits?
+// handlerLogFilter handles an incoming log message from the OT-Node and its detected loglevel (otLevel). It comes
+// from the lineReader below and it is written to the node's log file and may be displayed in the CLI.
+func (node *Node) handlerLogFilter(otLevel string, msg string) {
+	lev := ParseWatchLogLevel(otLevel)
+	node.logEntries <- logEntry{
+		level:   lev,
+		msg:     msg,
+		isWatch: true,
+	}
+}
+
+// lineReader is a goroutine that takes node UART data and composes string lines from it.
+// Each line is sent either to log directly (filtered out by OTOutFilter) or stored in
+// node.pendingLines.
+func (node *Node) lineReader(reader io.Reader) {
+	defer close(node.pendingLines)
 
 	// Below filter takes out any OT node log-message lines and sends these to the handler.
-	scanner := bufio.NewScanner(otoutfilter.NewOTOutFilter(bufio.NewReader(reader), "", node.handlerLogMsg))
+	scanner := bufio.NewScanner(otoutfilter.NewOTOutFilter(bufio.NewReader(reader), "", node.handlerLogFilter))
 	scanner.Split(bufio.ScanLines)
 
 	// Below loop handles the remainder of OT node output that are not OT node log messages.
+	d := node.S.Dispatcher()
 	for scanner.Scan() {
 		line := scanner.Text()
-
-		node.S.PostAsync(false, func() {
-			node.writeToLogFile(line)
-		})
-
-		if node.uartType == NodeUartTypeUndefined {
-			simplelogger.Debugf("%v's UART type is %v", node, uartType)
-			node.uartType = uartType
+		if line == UartDoneMarkerString {
+			simplelogger.AssertTrue(!d.IsAlive(node.Id) || node.S.ctx.Err() != nil)
+			select {
+			case node.uartDoneChan <- true: // signal dispatcher thread that line scanning / task-posting is done.
+				continue
+			case <-node.S.ctx.Done():
+				return
+			}
 		}
 
-		select {
-		case node.pendingLines <- line:
-			break
-		default:
-			// if we failed to append line, panic - should not happen normally. If so, needs fix.
-			simplelogger.Panicf("%v - node.pendingLines exceeded length %v", node, len(node.pendingLines))
-			break
-		}
+		node.log(WatchDebugLevel, line)
+		node.pendingLines <- line
 	}
 }
 
@@ -678,36 +712,23 @@ func (node *Node) lineReaderStdErr(reader io.Reader) {
 	scanner := bufio.NewScanner(bufio.NewReader(reader)) // no filter applied.
 	scanner.Split(bufio.ScanLines)
 
+	var errProc error = nil
 	for scanner.Scan() {
 		line := scanner.Text()
+		stderrLine := fmt.Sprintf("StdErr: %s", line)
 
 		// mark the first error output line of the node
-		if node.errProc == nil {
-			node.errProc = errors.New(line)
+		if errProc == nil {
+			errProc = errors.New(stderrLine)
 		}
 
-		// send it to log file and watch output.
-		node.S.PostAsync(false, func() {
-			node.writeToLogFile(line)
-			node.S.Dispatcher().WatchMessage(node.Id, dispatcher.WatchCritLevel, fmt.Sprintf("%v StdErr: %v", node, line))
-		})
+		node.log(WatchCritLevel, stderrLine)
 	}
 
 	// when the stderr of the node closes and any error was raised, inform simulation of node's failure.
-	if node.errProc != nil {
-		node.S.OnNodeProcessFailure(node)
+	if errProc != nil {
+		node.S.onNodeProcessFailure(node, errProc)
 	}
-}
-
-// handles an incoming log message from the OT-Node and its detected loglevel (otLevel). It is written
-// to the node's log file. Display of the log message is done by the Dispatcher.
-func (node *Node) handlerLogMsg(otLevel string, msg string) {
-	// create a node-specific log message that may be used by the Dispatcher's Watch function.
-	lev := dispatcher.ParseWatchLogLevel(otLevel)
-	node.S.PostAsync(false, func() {
-		node.writeToLogFile(msg)
-		node.S.Dispatcher().WatchMessage(node.Id, lev, msg)
-	})
 }
 
 func (node *Node) TryExpectLine(line interface{}, timeout time.Duration) (bool, []string) {
@@ -720,7 +741,9 @@ func (node *Node) TryExpectLine(line interface{}, timeout time.Duration) (bool, 
 		case <-deadline:
 			return false, outputLines
 		case readLine, ok := <-node.pendingLines:
-			simplelogger.AssertTrue(ok, "%s EOF: node.pendingLines channel was closed", node)
+			if !ok { //channel was closed - signals exit.
+				return false, outputLines
+			}
 
 			if !strings.HasPrefix(readLine, "|") && !strings.HasPrefix(readLine, "+") {
 				simplelogger.Debugf("%v %s", node, readLine)
@@ -747,8 +770,15 @@ func (node *Node) expectLine(line interface{}, timeout time.Duration) ([]string,
 	found, output := node.TryExpectLine(line, timeout)
 	if !found {
 		node.err = errors.Errorf("%v - expect line timeout: %#v", node, line)
-		simplelogger.Error(node.err)
+		if node.S.ctx.Err() == nil { // only log in case we're not exiting.
+			simplelogger.Error(node.err)
+		}
 		return []string{}, node.err
+	}
+
+	// wait until node is asleep (all further (log) events also received)
+	if node.S.Dispatcher().IsAlive(node.Id) {
+		node.S.Dispatcher().RecvEvents()
 	}
 
 	return output, nil
@@ -759,6 +789,9 @@ func (node *Node) CommandExpectEnabledOrDisabled(cmd string, timeout time.Durati
 	if output == "Enabled" {
 		return true
 	} else if output == "Disabled" {
+		return false
+	} else if len(output) == 0 {
+		simplelogger.Errorf("CommandExpectEnabledOrDisabled() did not get data from %v", node)
 		return false
 	} else {
 		simplelogger.Panicf("expect Enabled/Disabled, but read: %#v", output)
@@ -821,23 +854,18 @@ func (node *Node) setupMode() {
 	}
 }
 
-func (node *Node) onUartWrite(data []byte) {
-	_, _ = node.virtualUartPipe.Write(data)
+func (node *Node) log(level WatchLogLevel, msg string) {
+	node.logEntries <- logEntry{
+		level: level,
+		msg:   msg,
+	}
 }
 
 func (node *Node) writeToLogFile(line string) {
 	if node.logFile == nil {
 		return
 	}
-
-	// determine node us timestamp
-	dnode := node.S.Dispatcher().GetNode(node.Id)
-	var timestamp uint64 = 0
-	if dnode != nil {
-		timestamp = dnode.CurTime
-	}
-
-	_, err := node.logFile.WriteString(fmt.Sprintf("%-10d ", timestamp) + line + "\n")
+	_, err := node.logFile.WriteString(line + "\n")
 	if err != nil {
 		if node.S.ctx.Err() == nil {
 			simplelogger.Debugf("ctx.Err()=%v", node.S.ctx.Err())
@@ -845,5 +873,21 @@ func (node *Node) writeToLogFile(line string) {
 		}
 		_ = node.logFile.Close()
 		node.logFile = nil
+	}
+}
+
+// logFileWriter is a goroutine that writes node log lines to the log file.
+func (node *Node) logFileWriter() {
+	defer func() {
+		if node.logFile != nil {
+			_ = node.logFile.Close()
+		}
+	}()
+
+	for line := range node.logFileLines {
+		if node.logFile == nil {
+			return
+		}
+		node.writeToLogFile(line)
 	}
 }

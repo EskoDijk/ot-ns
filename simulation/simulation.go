@@ -56,6 +56,7 @@ type Simulation struct {
 	networkInfo    visualize.NetworkInfo
 	energyAnalyser *energy.EnergyAnalyser
 	nodePlacer     *NodeAutoPlacer
+	logLevel       WatchLogLevel
 }
 
 func NewSimulation(ctx *progctx.ProgCtx, cfg *Config, dispatcherCfg *dispatcher.Config) (*Simulation, error) {
@@ -67,6 +68,7 @@ func NewSimulation(ctx *progctx.ProgCtx, cfg *Config, dispatcherCfg *dispatcher.
 		networkInfo: visualize.DefaultNetworkInfo(),
 		nodePlacer:  NewNodeAutoPlacer(),
 	}
+	s.SetLogLevel(cfg.LogLevel)
 	s.networkInfo.Real = cfg.Real
 
 	// start the event_dispatcher for virtual time
@@ -136,6 +138,7 @@ func (s *Simulation) AddNode(cfg *NodeConfig) (*Node, error) {
 	evtCnt := s.d.RecvEvents() // allow new node to connect, and to receive its startup events.
 
 	if s.ctx.Err() == nil { // only proceed with node if we're not exiting the simulation.
+		simplelogger.AssertFalse(s.d.IsAlive(nodeid))
 		if !dnode.IsConnected() {
 			_ = s.DeleteNode(nodeid)
 			s.nodePlacer.ReuseNextNodePosition()
@@ -215,14 +218,17 @@ func (s *Simulation) Stop() {
 
 	// for faster process, signal node exit first in parallel.
 	for _, node := range s.nodes {
+		simplelogger.Debugf("SignalExit to %v", node)
 		_ = node.SignalExit()
 	}
 	s.Dispatcher().RecvEvents() // meanwhile receive any events of (exiting) nodes.
 
 	// then clean up and wait for each node process to stop, sequentially.
 	for _, node := range s.nodes {
+		simplelogger.Debugf("Exit on %v", node)
 		_ = node.Exit()
 	}
+	simplelogger.Debugf("RecvEvents")
 	s.Dispatcher().RecvEvents() // ensure to receive any remaining events of exited nodes.
 
 	simplelogger.Debugf("all simulation nodes exited.")
@@ -247,19 +253,6 @@ func (s *Simulation) OnNodeRecover(nodeid NodeId) {
 	simplelogger.AssertNotNil(node)
 }
 
-func (s *Simulation) OnNodeProcessFailure(node *Node) {
-	if s.ctx.Err() != nil {
-		// ignore any node errors when simulation is closing up.
-		return
-	}
-	s.err = node.errProc
-	simplelogger.Errorf("Node %v process failed: %s", node.Id, node.errProc)
-	s.PostAsync(false, func() {
-		simplelogger.Infof("Deleting node %v due to process failure.", node.Id)
-		_ = s.DeleteNode(node.Id)
-	})
-}
-
 // OnUartWrite notifies the simulation that a node has received some data from UART.
 // It is part of implementation of dispatcher.CallbackHandler.
 func (s *Simulation) OnUartWrite(nodeid NodeId, data []byte) {
@@ -267,8 +260,81 @@ func (s *Simulation) OnUartWrite(nodeid NodeId, data []byte) {
 	if node == nil {
 		return
 	}
+	_, _ = node.virtualUartPipe.Write(data)
+}
 
-	node.onUartWrite(data)
+// OnUartWritesComplete notifies the simulation that a node is done writing UART data.
+// It is part of implementation of dispatcher.CallbackHandler.
+func (s *Simulation) OnUartWritesComplete(nodeid NodeId) {
+	node := s.nodes[nodeid]
+	if node == nil {
+		return
+	}
+	_, _ = node.virtualUartPipe.Write([]byte(UartDoneMarkerStringNewlined))
+	select {
+	case _ = <-node.uartDoneChan: // pause here until OTOutFilter and lineReader completed their work.
+		break
+	case <-s.ctx.Done():
+		break
+	}
+}
+
+// when isWatchTriggered == true, it signals that it is a watch-message that is requested to be shown to the
+// user based on current node watch-level settings.
+func (s *Simulation) OnLogMessage(nodeid NodeId, level WatchLogLevel, isWatchTriggered bool, msg string) {
+	node := s.nodes[nodeid]
+	if node == nil {
+		PrintLog(level, fmt.Sprintf("Unknown %s: %s", GetNodeName(nodeid), msg))
+		return
+	}
+	node.logEntries <- logEntry{
+		level:   level,
+		msg:     msg,
+		isWatch: isWatchTriggered,
+	}
+}
+
+func (s *Simulation) OnNextEventTime(ts uint64, nextTs uint64) {
+	// display the pending log messages of nodes. Nodes are sorted by id.
+	s.VisitNodesInOrder(func(node *Node) {
+		for s.ctx.Err() == nil {
+			select {
+			case logEntry := <-node.logEntries:
+				logStr := logEntry.toString(ts)
+				node.logFileLines <- logStr // send to the logfile writer
+
+				// watch messages may get increased level/visibility
+				if logEntry.isWatch {
+					if logEntry.level <= s.Dispatcher().GetWatchLevel(node.Id) { // check if must be shown
+						if s.logLevel < logEntry.level && s.logLevel >= WatchInfoLevel { // check how it can be shown (adapting display level if needed)
+							logEntry.level = s.logLevel
+						}
+						logEntry.display(node.Id, ts)
+					}
+				} else {
+					if logEntry.level <= s.logLevel {
+						logEntry.display(node.Id, ts)
+					}
+				}
+			case <-s.ctx.Done():
+				return
+			default:
+				return
+			}
+		}
+	})
+}
+
+func (s *Simulation) onNodeProcessFailure(node *Node, err error) {
+	if s.ctx.Err() != nil { // ignore any node errors when simulation is closing up.
+		return
+	}
+	s.err = err
+	node.log(WatchCritLevel, "Node process failed.")
+	s.PostAsync(false, func() {
+		simplelogger.Infof("Deleting node %v due to process failure.", node.Id)
+		_ = s.DeleteNode(node.Id)
+	})
 }
 
 func (s *Simulation) PostAsync(trivial bool, f func()) {
@@ -334,12 +400,12 @@ func (s *Simulation) CountDown(duration time.Duration, text string) {
 	s.vis.CountDown(duration, text)
 }
 
-// Run simulation for duration at Dispatcher's set speed.
+// Go runs the simulation for duration at Dispatcher's set speed.
 func (s *Simulation) Go(duration time.Duration) <-chan struct{} {
 	return s.d.Go(duration)
 }
 
-// Stop any ongoing (previous) 'go' period and then run simulation for duration at given speed.
+// GoAtSpeed stops any ongoing (previous) 'go' period and then runs simulation for duration at given speed.
 func (s *Simulation) GoAtSpeed(duration time.Duration, speed float64) <-chan struct{} {
 	simplelogger.AssertTrue(speed > 0)
 	_ = s.d.GoCancel()
@@ -348,11 +414,11 @@ func (s *Simulation) GoAtSpeed(duration time.Duration, speed float64) <-chan str
 
 func (s *Simulation) cleanTmpDir(simulationId int) error {
 	// tmp directory is used by nodes for saving *.flash files. Need to be cleaned when simulation started
-	err := RemoveAllFiles(fmt.Sprintf("tmp/%d_*.flash", simulationId))
+	err := removeAllFiles(fmt.Sprintf("tmp/%d_*.flash", simulationId))
 	if err != nil {
 		return err
 	}
-	err = RemoveAllFiles(fmt.Sprintf("tmp/%d_*.log", simulationId))
+	err = removeAllFiles(fmt.Sprintf("tmp/%d_*.log", simulationId))
 	return err
 }
 
@@ -390,4 +456,13 @@ func (s *Simulation) GetEnergyAnalyser() *energy.EnergyAnalyser {
 
 func (s *Simulation) GetConfig() *Config {
 	return s.cfg
+}
+
+func (s *Simulation) GetLogLevel() WatchLogLevel {
+	return s.logLevel
+}
+
+func (s *Simulation) SetLogLevel(level WatchLogLevel) {
+	s.logLevel = level
+	simplelogger.SetLevel(GetSimpleloggerLevel(level))
 }
