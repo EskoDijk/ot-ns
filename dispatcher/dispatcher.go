@@ -545,7 +545,6 @@ func (d *Dispatcher) processNextEvent(simSpeed float64) bool {
 	// process (if any) all queued events, that happen at exactly procUntilTime
 	procUntilTime := nextEventTime
 	for nextEventTime <= procUntilTime {
-
 		if nextAlarmTime <= nextSendTime {
 			// process next alarm
 			nextAlarm := d.alarmMgr.NextAlarm()

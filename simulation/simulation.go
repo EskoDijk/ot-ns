@@ -272,7 +272,7 @@ func (s *Simulation) OnUartWritesComplete(nodeid NodeId) {
 	}
 	_, _ = node.virtualUartPipe.Write([]byte(UartDoneMarkerStringNewlined))
 	select {
-	case _ = <-node.uartDoneChan: // pause here until OTOutFilter and lineReader completed their work.
+	case <-node.uartDoneChan: // pause here until OTOutFilter and lineReader completed their work.
 		break
 	case <-s.ctx.Done():
 		break

@@ -27,11 +27,11 @@
 package simulation
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 
-	"fmt"
 	. "github.com/openthread/ot-ns/types"
 )
 
