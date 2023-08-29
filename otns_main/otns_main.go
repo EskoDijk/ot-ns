@@ -182,10 +182,8 @@ func Main(ctx *progctx.ProgCtx, visualizerCreator func(ctx *progctx.ProgCtx, arg
 	sim := createSimulation(ctx)
 	rt := cli.NewCmdRunner(ctx, sim)
 	sim.SetVisualizer(vis)
-	simplelogger.Warnf("sim.Run() start")
 	go sim.Run()
 	go func() {
-		simplelogger.Warnf("cli.Run() start")
 		err := cli.Run(rt, cliOptions)
 		ctx.Cancel(errors.Wrapf(err, "console exit"))
 	}()
@@ -200,7 +198,6 @@ func Main(ctx *progctx.ProgCtx, visualizerCreator func(ctx *progctx.ProgCtx, arg
 		go autoGo(ctx, sim)
 	}
 
-	simplelogger.Warnf("vis.Run() start")
 	vis.Run() // visualize must run in the main thread
 	ctx.Cancel(nil)
 
@@ -269,6 +266,7 @@ func createSimulation(ctx *progctx.ProgCtx) *simulation.Simulation {
 	if len(args.InitScriptName) > 0 {
 		simcfg.InitScript, err = simulation.ReadNodeScript(args.InitScriptName)
 		if err != nil {
+			simplelogger.Error(err)
 			return nil
 		}
 	}

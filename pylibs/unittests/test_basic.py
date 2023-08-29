@@ -404,6 +404,8 @@ class BasicTests(OTNSTestCase):
         ns.unwatchAll()
         self.assertEqual([], ns.watched())
 
+        ns.watch
+
     def testHelp(self):
         ns: OTNS = self.ns
         ns._do_command("help")

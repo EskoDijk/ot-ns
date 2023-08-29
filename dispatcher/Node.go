@@ -164,9 +164,7 @@ func (node *Node) sendEvent(evt *Event) {
 // sendRawData is INTERNAL to send bytes to socket of node
 func (node *Node) sendRawData(msg []byte) error {
 	simplelogger.AssertNotNil(node.conn)
-	simplelogger.Debugf("before conn.Write")
 	n, err := node.conn.Write(msg)
-	simplelogger.Debugf("after conn.Write")
 	if err != nil {
 		return err
 	} else if len(msg) != n {

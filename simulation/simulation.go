@@ -108,19 +108,19 @@ func (s *Simulation) AddNode(cfg *NodeConfig) (*Node, error) {
 		return nil, errors.Errorf("node %d already exists", nodeid)
 	}
 
-	// node position
+	// node position may use the nodePlacer
 	if cfg.IsAutoPlaced {
 		cfg.X, cfg.Y = s.nodePlacer.NextNodePosition(cfg.IsMtd || !cfg.IsRouter)
 	} else {
 		s.nodePlacer.UpdateReference(cfg.X, cfg.Y)
 	}
 
-	// auto-selection of Executable by simulation's policy, in case not defined yet.
+	// auto-selection of Executable by simulation's policy, in case not defined by cfg.
 	if len(cfg.ExecutablePath) == 0 {
 		cfg.ExecutablePath = s.cfg.ExeConfig.DetermineExecutableBasedOnConfig(cfg)
 	}
 
-	// creation of the sim/dispatcher nodes
+	// creation of the dispatcher and simulation nodes
 	simplelogger.Debugf("simulation:AddNode: %+v, rawMode=%v", cfg, s.rawMode)
 	dnode := s.d.AddNode(nodeid, cfg) // ensure dispatcher-node is present before OT process starts.
 	node, err := newNode(s, nodeid, cfg)
@@ -137,24 +137,26 @@ func (s *Simulation) AddNode(cfg *NodeConfig) (*Node, error) {
 	simplelogger.AssertTrue(s.d.IsAlive(nodeid))
 	evtCnt := s.d.RecvEvents() // allow new node to connect, and to receive its startup events.
 
-	if s.ctx.Err() == nil { // only proceed with node if we're not exiting the simulation.
-		simplelogger.AssertFalse(s.d.IsAlive(nodeid))
-		if !dnode.IsConnected() {
-			_ = s.DeleteNode(nodeid)
+	if s.ctx.Err() != nil { // only proceed if we're not exiting the simulation.
+		return node, nil
+	}
+
+	simplelogger.AssertFalse(s.d.IsAlive(nodeid))
+	if !dnode.IsConnected() {
+		_ = s.DeleteNode(nodeid)
+		s.nodePlacer.ReuseNextNodePosition()
+		return nil, errors.Errorf("simulation AddNode: new node %d did not respond (evtCnt=%d)", nodeid, evtCnt)
+	}
+	node.setupMode()
+	if !s.rawMode {
+		err := node.runInitScript(cfg.InitScript)
+		if err == nil {
+			node.onStart()
+		} else {
+			node.logError(fmt.Errorf("simulation init script failed, deleting node - %v", err))
+			_ = s.DeleteNode(node.Id)
 			s.nodePlacer.ReuseNextNodePosition()
-			return nil, errors.Errorf("simulation AddNode: new node %d did not respond (evtCnt=%d)", nodeid, evtCnt)
-		}
-		node.setupMode()
-		if !s.rawMode {
-			err := node.RunInitScript(cfg.InitScript)
-			if err == nil {
-				node.Start()
-			} else {
-				simplelogger.Errorf("simulation init script failed, deleting node: %v", err)
-				_ = s.DeleteNode(node.Id)
-				s.nodePlacer.ReuseNextNodePosition()
-				return nil, err
-			}
+			return nil, err
 		}
 	}
 
@@ -218,18 +220,15 @@ func (s *Simulation) Stop() {
 
 	// for faster process, signal node exit first in parallel.
 	for _, node := range s.nodes {
-		simplelogger.Debugf("SignalExit to %v", node)
 		_ = node.SignalExit()
 	}
-	s.Dispatcher().RecvEvents() // meanwhile receive any events of (exiting) nodes.
 
 	// then clean up and wait for each node process to stop, sequentially.
 	for _, node := range s.nodes {
 		simplelogger.Debugf("Exit on %v", node)
 		_ = node.Exit()
 	}
-	simplelogger.Debugf("RecvEvents")
-	s.Dispatcher().RecvEvents() // ensure to receive any remaining events of exited nodes.
+	s.Dispatcher().RecvEvents() // receive any remaining events of exited nodes.
 
 	simplelogger.Debugf("all simulation nodes exited.")
 }
@@ -264,18 +263,24 @@ func (s *Simulation) OnUartWrite(nodeid NodeId, data []byte) {
 }
 
 // OnUartWritesComplete notifies the simulation that a node is done writing UART data.
-// It is part of implementation of dispatcher.CallbackHandler.
 func (s *Simulation) OnUartWritesComplete(nodeid NodeId) {
 	node := s.nodes[nodeid]
 	if node == nil {
 		return
 	}
-	_, _ = node.virtualUartPipe.Write([]byte(UartDoneMarkerStringNewlined))
-	select {
-	case <-node.uartDoneChan: // pause here until OTOutFilter and lineReader completed their work.
-		break
-	case <-s.ctx.Done():
-		break
+	// we feed in the marker string into the UART processing pipeline, and wait until it comes out again
+	// which ensures all pending items have been processed as well.
+	_, err := node.virtualUartPipe.Write([]byte(UartDoneMarkerStringNewlined))
+	if err == nil {
+		done := s.ctx.Done()
+		select {
+		case <-node.uartDoneChan: // pause here until OTOutFilter and lineReader completed their work.
+			break
+		case <-done:
+			break
+		}
+	} else {
+		node.logError(err)
 	}
 }
 
@@ -297,7 +302,7 @@ func (s *Simulation) OnLogMessage(nodeid NodeId, level WatchLogLevel, isWatchTri
 func (s *Simulation) OnNextEventTime(ts uint64, nextTs uint64) {
 	// display the pending log messages of nodes. Nodes are sorted by id.
 	s.VisitNodesInOrder(func(node *Node) {
-		for s.ctx.Err() == nil {
+		for {
 			select {
 			case logEntry := <-node.logEntries:
 				logStr := logEntry.toString(ts)
@@ -305,8 +310,8 @@ func (s *Simulation) OnNextEventTime(ts uint64, nextTs uint64) {
 
 				// watch messages may get increased level/visibility
 				if logEntry.isWatch {
-					if logEntry.level <= s.Dispatcher().GetWatchLevel(node.Id) { // check if must be shown
-						if s.logLevel < logEntry.level && s.logLevel >= WatchInfoLevel { // check how it can be shown (adapting display level if needed)
+					if logEntry.level <= s.Dispatcher().GetWatchLevel(node.Id) { // IF it must be shown
+						if s.logLevel < logEntry.level && s.logLevel >= WatchInfoLevel { // HOW it can be shown
 							logEntry.level = s.logLevel
 						}
 						logEntry.display(node.Id, ts)
@@ -316,8 +321,6 @@ func (s *Simulation) OnNextEventTime(ts uint64, nextTs uint64) {
 						logEntry.display(node.Id, ts)
 					}
 				}
-			case <-s.ctx.Done():
-				return
 			default:
 				return
 			}
@@ -332,8 +335,10 @@ func (s *Simulation) onNodeProcessFailure(node *Node, err error) {
 	s.err = err
 	node.log(WatchCritLevel, "Node process failed.")
 	s.PostAsync(false, func() {
-		simplelogger.Infof("Deleting node %v due to process failure.", node.Id)
-		_ = s.DeleteNode(node.Id)
+		if s.ctx.Err() == nil {
+			simplelogger.Infof("Deleting node %v due to process failure.", node.Id)
+			_ = s.DeleteNode(node.Id)
+		}
 	})
 }
 
@@ -356,14 +361,15 @@ func (s *Simulation) VisitNodesInOrder(cb func(node *Node)) {
 	}
 }
 
-func (s *Simulation) MoveNodeTo(nodeid NodeId, x, y int) {
+func (s *Simulation) MoveNodeTo(nodeid NodeId, x, y int) error {
 	dn := s.d.GetNode(nodeid)
 	if dn == nil {
-		simplelogger.Errorf("node not found: %d", nodeid)
-		return
+		err := fmt.Errorf("node not found: %d", nodeid)
+		return err
 	}
 	s.d.SetNodePos(nodeid, x, y)
 	s.nodePlacer.UpdateReference(x, y)
+	return nil
 }
 
 func (s *Simulation) DeleteNode(nodeid NodeId) error {

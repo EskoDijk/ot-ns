@@ -39,7 +39,7 @@ from subprocess import TimeoutExpired
 from OTNSTestCase import OTNSTestCase
 from otns.cli.errors import OTNSExitedError
 
-WAIT_OTNS_TIMEOUT = 3
+WAIT_OTNS_TIMEOUT = 3 # seconds, max wait time for OTNS to exit fully.
 
 
 class SignalsTest(OTNSTestCase):

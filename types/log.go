@@ -26,7 +26,14 @@
 
 package types
 
-import "github.com/simonlingoogle/go-simplelogger"
+import (
+	"fmt"
+	"os"
+
+	"github.com/openthread/ot-ns/cli/runcli"
+
+	"github.com/simonlingoogle/go-simplelogger"
+)
 
 // WatchLogLevel is the log-level for watching what happens in the simulation as a whole, or to watch an
 // individual node. Values inherit OT logging.h values and extend these with OT-NS specific items.
@@ -116,6 +123,7 @@ func GetSimpleloggerLevel(lev WatchLogLevel) simplelogger.Level {
 
 // PrintLog prints the log msg at specified level using simplelogger.
 func PrintLog(lev WatchLogLevel, msg string) {
+	fmt.Fprint(os.Stderr, "\033[2K\r") // ANSI sequence to clear the CLI line
 	switch GetSimpleloggerLevel(lev) {
 	case simplelogger.DebugLevel:
 		simplelogger.Debugf("%s", msg)
@@ -130,4 +138,5 @@ func PrintLog(lev WatchLogLevel, msg string) {
 	default:
 		simplelogger.Panicf("%s", msg)
 	}
+	runcli.RestorePrompt()
 }

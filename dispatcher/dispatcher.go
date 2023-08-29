@@ -232,11 +232,12 @@ func (d *Dispatcher) Stop() {
 	if d.stopped {
 		return
 	}
-	simplelogger.Debugf("stopping dispatcher ...")
 	d.stopped = true
+	simplelogger.Debugf("stopping dispatcher ...")
 	d.ctx.Cancel("dispatcher-stop")
-	_ = d.udpln.Close() // close socket to stop d.eventsReader accepting new clients.
 	d.GoCancel()        // cancel current simulation period
+	_ = d.udpln.Close() // close socket to stop d.eventsReader accepting new clients.
+
 	d.vis.Stop()
 	close(d.pcapFrameChan)
 	simplelogger.Debugf("waiting for dispatcher threads to stop ...")
@@ -323,7 +324,6 @@ loop:
 			break
 
 		case <-done:
-			simplelogger.Warnf("dispatcher done chan")
 			break loop
 		}
 	}
@@ -366,6 +366,7 @@ func (d *Dispatcher) goSimulateForDuration(duration goDuration) {
 			simplelogger.AssertTrue(d.CurTime <= d.pauseTime)
 
 			if !goon && len(d.aliveNodes) == 0 {
+				d.cbHandler.OnNextEventTime(d.CurTime, d.pauseTime)
 				d.advanceTime(d.pauseTime) // if nothing more to do before d.pauseTime.
 				break
 			}
@@ -409,7 +410,7 @@ func (d *Dispatcher) handleRecvEvent(evt *Event) {
 	if d.cfg.Real && (evt.Type == EventTypeAlarmFired || evt.Type == EventTypeRadioReceived ||
 		evt.Type == EventTypeRadioCommStart || evt.Type == EventTypeRadioChannelSample ||
 		evt.Type == EventTypeRadioState) {
-		simplelogger.Fatalf("unexpected event in real mode: %v", evt.Type)
+		simplelogger.Panicf("unexpected event in real mode: %v", evt.Type)
 		return
 	}
 
@@ -536,10 +537,7 @@ func (d *Dispatcher) processNextEvent(simSpeed float64) bool {
 	if nextEventTime > d.pauseTime {
 		return false
 	}
-
-	// before advancing dispatcher time, process any pending tasks. Tasks may include
-	// node adds/deletes, or any other CLI command actions.
-	d.handleTasks()
+	d.cbHandler.OnNextEventTime(d.CurTime, nextEventTime)
 	d.advanceTime(nextEventTime)
 
 	// process (if any) all queued events, that happen at exactly procUntilTime
@@ -582,7 +580,7 @@ func (d *Dispatcher) processNextEvent(simSpeed float64) bool {
 				}
 			} else if evt.NodeId > 0 {
 				// node may have been deleted in the meantime. NodeId=0 means a deactivated event.
-				simplelogger.Debugf("processNextEvent() skipping event for deleted/unknown node %v: %v", evt.NodeId, evt)
+				simplelogger.Warnf("processNextEvent() skips event for deleted/unknown node %v: %v", evt.NodeId, evt)
 			}
 		}
 		nextAlarmTime = d.alarmMgr.NextTimestamp()
@@ -610,7 +608,7 @@ func (d *Dispatcher) eventsReader() {
 			break
 		}
 		if err != nil {
-			simplelogger.Fatalf("connection Accept() failed: %v", err)
+			simplelogger.Panicf("connection Accept() failed: %v", err)
 			break
 		}
 
@@ -936,7 +934,7 @@ func (d *Dispatcher) GetVisualizer() visualize.Visualizer {
 }
 
 func (d *Dispatcher) handleStatusPush(srcnode *Node, data string) {
-	d.cbHandler.OnLogMessage(srcnode.Id, WatchTraceLevel, srcnode.watchLogLevel >= WatchTraceLevel, fmt.Sprintf("status push: %#v", data))
+	d.cbHandler.OnLogMessage(srcnode.Id, WatchDebugLevel, srcnode.watchLogLevel >= WatchDebugLevel, fmt.Sprintf("status push: %#v", data))
 	statuses := strings.Split(data, ";")
 	srcid := srcnode.Id
 	for _, status := range statuses {
@@ -1169,7 +1167,6 @@ func (d *Dispatcher) visSend(srcid NodeId, dstid NodeId, visInfo *visualize.MsgV
 func (d *Dispatcher) advanceTime(ts uint64) {
 	simplelogger.AssertTrue(d.CurTime <= ts, "%v > %v", d.CurTime, ts)
 	if d.CurTime < ts {
-		d.cbHandler.OnNextEventTime(d.CurTime, ts)
 		d.CurTime = ts
 		if d.cfg.Real {
 			d.syncAllNodes()
@@ -1187,7 +1184,7 @@ func (d *Dispatcher) advanceTime(ts uint64) {
 		d.lastVizTime = time.Now()
 	}
 
-	if d.energyAnalyser != nil && (ts >= d.lastEnergyVizTime+energy.ComputePeriod || d.lastEnergyVizTime == 0) {
+	if d.energyAnalyser != nil && (ts >= d.lastEnergyVizTime+energy.ComputePeriod || (d.lastEnergyVizTime == 0 && ts > 0)) {
 		d.energyAnalyser.StoreNetworkEnergy(ts)
 		d.vis.UpdateNodesEnergy(d.energyAnalyser.GetLatestEnergyOfNodes(), ts, true)
 		d.lastEnergyVizTime = ts
