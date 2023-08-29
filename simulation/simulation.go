@@ -225,7 +225,6 @@ func (s *Simulation) Stop() {
 
 	// then clean up and wait for each node process to stop, sequentially.
 	for _, node := range s.nodes {
-		simplelogger.Debugf("Exit on %v", node)
 		_ = node.Exit()
 	}
 	s.Dispatcher().RecvEvents() // receive any remaining events of exited nodes.
