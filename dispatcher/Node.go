@@ -143,9 +143,11 @@ func (node *Node) sendEvent(evt *Event) {
 	node.D.setAlive(node.Id)
 	node.CurTime += evt.Delay
 	simplelogger.AssertTrue(evt.Delay == 0 || node.CurTime == node.D.CurTime)
+
+	// re-evaluate the FailutreCtrl when node time advances.
 	if evt.Timestamp > oldTime {
-		reEvaluateTime := node.failureCtrl.OnTimeAdvanced(oldTime)
-		if reEvaluateTime < Ever {
+		reEvaluateTime, isUpdated := node.failureCtrl.OnTimeAdvanced(oldTime)
+		if isUpdated {
 			failureCtrlEvent := &Event{
 				Type:         EventTypeFailureControl,
 				NodeId:       node.Id,
@@ -155,6 +157,7 @@ func (node *Node) sendEvent(evt *Event) {
 			node.D.eventQueue.Add(failureCtrlEvent)
 		}
 	}
+
 	err := node.sendRawData(evt.Serialize())
 	if err != nil && node.err == nil {
 		node.err = err
