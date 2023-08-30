@@ -171,7 +171,7 @@ func (node *Node) sendRawData(msg []byte) error {
 	if err != nil {
 		return err
 	} else if len(msg) != n {
-		return fmt.Errorf("failed to write complete Event to socket %v+", node.conn)
+		return fmt.Errorf("failed to write complete Event to %s socket %v+", node.String(), node.conn)
 	}
 	return err
 }
