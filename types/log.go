@@ -51,6 +51,17 @@ const (
 	WatchDefaultLevel               = WatchInfoLevel
 )
 
+var (
+	isLogToTerminal = false
+)
+
+func init() {
+	o, _ := os.Stdout.Stat()
+	if (o.Mode() & os.ModeCharDevice) == os.ModeCharDevice {
+		isLogToTerminal = true
+	}
+}
+
 func GetWatchLogLevelString(level WatchLogLevel) string {
 	switch level {
 	case WatchMicroLevel:
@@ -77,6 +88,8 @@ func GetWatchLogLevelString(level WatchLogLevel) string {
 
 func ParseWatchLogLevel(level string) WatchLogLevel {
 	switch level {
+	case "micro":
+		return WatchMicroLevel
 	case "trace", "T":
 		return WatchTraceLevel
 	case "debug", "D":
@@ -123,7 +136,9 @@ func GetSimpleloggerLevel(lev WatchLogLevel) simplelogger.Level {
 
 // PrintLog prints the log msg at specified level using simplelogger.
 func PrintLog(lev WatchLogLevel, msg string) {
-	fmt.Fprint(os.Stderr, "\033[2K\r") // ANSI sequence to clear the CLI line
+	if isLogToTerminal {
+		fmt.Fprint(os.Stderr, "\033[2K\r") // ANSI sequence to clear the CLI line
+	}
 	switch GetSimpleloggerLevel(lev) {
 	case simplelogger.DebugLevel:
 		simplelogger.Debugf("%s", msg)
@@ -138,5 +153,7 @@ func PrintLog(lev WatchLogLevel, msg string) {
 	default:
 		simplelogger.Panicf("%s", msg)
 	}
-	runcli.RestorePrompt()
+	if isLogToTerminal {
+		runcli.RestorePrompt()
+	}
 }
