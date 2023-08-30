@@ -670,7 +670,6 @@ func (d *Dispatcher) eventsReader() {
 				NodeId: myNodeId,
 				Conn:   myConn,
 			}
-
 		}(conn)
 	}
 
