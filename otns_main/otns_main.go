@@ -199,7 +199,7 @@ func Main(ctx *progctx.ProgCtx, visualizerCreator func(ctx *progctx.ProgCtx, arg
 	}
 
 	vis.Run() // visualize must run in the main thread
-	ctx.Cancel(nil)
+	ctx.Cancel("main")
 
 	simplelogger.Debugf("waiting for OTNS to stop gracefully ...")
 	webSite.StopServe()
@@ -219,9 +219,7 @@ func handleSignals(ctx *progctx.ProgCtx) {
 			select {
 			case sig := <-c:
 				simplelogger.Infof("Unix signal received: %v", sig)
-				ctx.Cancel(nil)
-				//time.Sleep(time.Second)
-				//pprof.Lookup("goroutine").WriteTo(os.Stdout, 1)
+				ctx.Cancel("signal-" + sig.String())
 			case <-ctx.Done():
 				return
 			}

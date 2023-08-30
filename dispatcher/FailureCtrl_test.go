@@ -49,7 +49,7 @@ func (m mockDispatcherCallback) OnNodeRecover(nodeid NodeId) {
 func (m mockDispatcherCallback) OnUartWrite(nodeid NodeId, data []byte) {
 }
 
-func (m mockDispatcherCallback) OnUartWritesComplete(nodeid NodeId) {
+func (m mockDispatcherCallback) OnUartWritesComplete(nodeid NodeId, isNodeExited bool) {
 }
 
 func (m mockDispatcherCallback) OnLogMessage(nodeid NodeId, level WatchLogLevel, nodeIsWatched bool, msg string) {

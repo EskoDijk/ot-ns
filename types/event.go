@@ -55,6 +55,7 @@ const (
 	EventTypeExtAddr            EventType = 11
 	EventTypeNodeInfo           EventType = 12
 	EventTypeFailureControl     EventType = 13
+	EventTypeNodeExit           EventType = 14
 )
 
 const (

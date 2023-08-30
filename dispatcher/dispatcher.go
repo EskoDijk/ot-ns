@@ -98,7 +98,7 @@ type CallbackHandler interface {
 	OnUartWrite(nodeid NodeId, data []byte)
 
 	// OnUartWritesComplete Notifies that the node's UART writes are completed (for current node alive period).
-	OnUartWritesComplete(nodeid NodeId)
+	OnUartWritesComplete(nodeid NodeId, isNodeExited bool)
 
 	// OnLogMessage Notifies that a log message from Dispatcher can be added to the node's log.
 	OnLogMessage(nodeid NodeId, level WatchLogLevel, isWatchTriggered bool, msg string)
@@ -324,7 +324,6 @@ loop:
 			break
 
 		case <-done:
-			d.cbHandler.OnNextEventTime(d.CurTime, Ever) // final cb event
 			break loop
 		}
 	}
@@ -420,7 +419,7 @@ func (d *Dispatcher) handleRecvEvent(evt *Event) {
 		d.Counters.AlarmEvents += 1
 		d.setSleeping(node.Id)
 		d.alarmMgr.SetTimestamp(nodeid, d.CurTime+delay) // schedule future wake-up of node
-		d.cbHandler.OnUartWritesComplete(node.Id)
+		d.cbHandler.OnUartWritesComplete(node.Id, false)
 	case EventTypeRadioReceived:
 		simplelogger.Panicf("legacy EventTypeRadioReceived received - unsupported OT node executable version.")
 	case EventTypeRadioCommStart:
@@ -443,6 +442,9 @@ func (d *Dispatcher) handleRecvEvent(evt *Event) {
 		node.onStatusPushExtAddr(extaddr)
 	case EventTypeNodeInfo:
 		break
+	case EventTypeNodeExit:
+		d.setSleeping(node.Id)
+		//d.cbHandler.OnUartWritesComplete(node.Id, true)
 	default:
 		simplelogger.Panicf("received event type not implemented: %v", evt.Type)
 	}
@@ -459,7 +461,10 @@ loop:
 
 		if shouldBlock {
 			select {
-			case evt := <-d.eventChan: // new event
+			case evt, ok := <-d.eventChan: // new event
+				if !ok { // channel closed
+					break loop
+				}
 				count += 1
 				d.handleRecvEvent(evt)
 			case <-blockTimeout: // timeout
@@ -469,7 +474,10 @@ loop:
 			}
 		} else {
 			select {
-			case evt := <-d.eventChan:
+			case evt, ok := <-d.eventChan:
+				if !ok { // channel closed
+					break loop
+				}
 				count += 1
 				d.handleRecvEvent(evt)
 			default:
@@ -602,14 +610,13 @@ func (d *Dispatcher) eventsReader() {
 	for {
 		// Wait for OT nodes to connect.
 		conn, err := d.udpln.Accept()
-		if d.IsStopped() {
+		if err != nil || d.IsStopped() {
 			if conn != nil {
 				_ = conn.Close()
 			}
-			break
-		}
-		if err != nil {
-			simplelogger.Panicf("connection Accept() failed: %v", err)
+			if !d.IsStopped() {
+				simplelogger.Panicf("connection Accept() failed: %v", err)
+			}
 			break
 		}
 
@@ -628,7 +635,7 @@ func (d *Dispatcher) eventsReader() {
 				_ = myConn.SetReadDeadline(time.Now().Add(readTimeout))
 				n, err := myConn.Read(buf)
 
-				if err == io.EOF {
+				if errors.Is(err, io.EOF) {
 					break
 				} else if errors.Is(err, os.ErrDeadlineExceeded) {
 					if n > 0 {
@@ -655,11 +662,21 @@ func (d *Dispatcher) eventsReader() {
 					d.eventChan <- evt
 				}
 			}
+
+			// Once the socket is disconnected, signal one last event.
+			d.eventChan <- &Event{
+				Delay:  0,
+				Type:   EventTypeNodeExit,
+				NodeId: myNodeId,
+				Conn:   myConn,
+			}
+
 		}(conn)
 	}
 
 	simplelogger.Debugf("waiting for dispatcher node socket threads to stop ...")
 	d.waitGroupNodes.Wait() // wait for all node goroutines to stop before closing eventsReader.
+	close(d.eventChan)
 }
 
 func (d *Dispatcher) advanceNodeTime(node *Node, timestamp uint64, force bool) {

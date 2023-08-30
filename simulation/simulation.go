@@ -216,18 +216,20 @@ func (s *Simulation) Stop() {
 	}
 
 	simplelogger.Infof("stopping simulation and exiting nodes ...")
+	s.ctx.Cancel("simulation-stop")
 	s.stopped = true
 
 	// for faster process, signal node exit first in parallel.
 	for _, node := range s.nodes {
 		_ = node.SignalExit()
 	}
+	time.Sleep(time.Millisecond * 100)
 
 	// then clean up and wait for each node process to stop, sequentially.
 	for _, node := range s.nodes {
 		_ = node.Exit()
 	}
-	s.Dispatcher().RecvEvents() // receive any remaining events of exited nodes.
+	//s.Dispatcher().RecvEvents() // receive any remaining events of exited nodes.
 
 	simplelogger.Debugf("all simulation nodes exited.")
 }
@@ -262,7 +264,7 @@ func (s *Simulation) OnUartWrite(nodeid NodeId, data []byte) {
 }
 
 // OnUartWritesComplete notifies the simulation that a node is done writing UART data.
-func (s *Simulation) OnUartWritesComplete(nodeid NodeId) {
+func (s *Simulation) OnUartWritesComplete(nodeid NodeId, isNodeExited bool) {
 	node := s.nodes[nodeid]
 	if node == nil {
 		return
@@ -301,29 +303,7 @@ func (s *Simulation) OnLogMessage(nodeid NodeId, level WatchLogLevel, isWatchTri
 func (s *Simulation) OnNextEventTime(ts uint64, nextTs uint64) {
 	// display the pending log messages of nodes. Nodes are sorted by id.
 	s.VisitNodesInOrder(func(node *Node) {
-		for {
-			select {
-			case logEntry := <-node.logEntries:
-				logStr := logEntry.toString(ts)
-				node.logFileLines <- logStr // send to the logfile writer
-
-				// watch messages may get increased level/visibility
-				if logEntry.isWatch {
-					if logEntry.level <= s.Dispatcher().GetWatchLevel(node.Id) { // IF it must be shown
-						if s.logLevel < logEntry.level && s.logLevel >= WatchInfoLevel { // HOW it can be shown
-							logEntry.level = s.logLevel
-						}
-						logEntry.display(node.Id, ts)
-					}
-				} else {
-					if logEntry.level <= s.logLevel {
-						logEntry.display(node.Id, ts)
-					}
-				}
-			default:
-				return
-			}
-		}
+		node.handlePendingLogEntries(ts)
 	})
 }
 
@@ -379,10 +359,10 @@ func (s *Simulation) DeleteNode(nodeid NodeId) error {
 	}
 
 	delete(s.nodes, nodeid)
-	_ = node.Exit()
-	s.d.RecvEvents() // ensure to receive any final events of deleted node.
+	err := node.Exit()
+	s.d.RecvEvents()
 	s.d.DeleteNode(nodeid)
-	return nil
+	return err
 }
 
 func (s *Simulation) SetNodeFailed(id NodeId, failed bool) {

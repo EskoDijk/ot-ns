@@ -74,7 +74,6 @@ type Node struct {
 	err     error // store the last OTNS error related to this node; nil if none.
 
 	pendingLines      chan string   // OT node CLI output lines, pending processing.
-	logFileLines      chan string   // OT node log lines, pending write to the node's log file.
 	logEntries        chan logEntry // OT node log entries, pending display on OTNS CLI or other viewers.
 	pipeIn            io.WriteCloser
 	pipeOut           io.ReadCloser
@@ -109,7 +108,6 @@ func newNode(s *Simulation, nodeid NodeId, cfg *NodeConfig) (*Node, error) {
 		cfg:          cfg,
 		cmd:          cmd,
 		pendingLines: make(chan string, 10000),
-		logFileLines: make(chan string, 100),
 		logEntries:   make(chan logEntry, 10000),
 		uartType:     NodeUartTypeUndefined,
 		uartDoneChan: make(chan bool),
@@ -138,13 +136,12 @@ func newNode(s *Simulation, nodeid NodeId, cfg *NodeConfig) (*Node, error) {
 		return nil, err
 	}
 	node.logFile = logFile
-	go node.logFileWriter()
 
 	header := fmt.Sprintf("# OpenThread node log for %s Created %s\n", GetNodeName(nodeid),
 		time.Now().Format(time.RFC3339)) +
 		fmt.Sprintf("# Executable: %s\n", cfg.ExecutablePath) +
 		"# SimTimeUs NodeTime     Lev LogModule       Message"
-	node.logFileLines <- header
+	_ = node.writeToLogFile(header)
 	simplelogger.Debugf("Node log file '%s' opened.", logFileName)
 
 	if err = cmd.Start(); err != nil {
@@ -199,11 +196,6 @@ func (node *Node) Exit() error {
 	_ = node.pipeOut.Close()
 	_ = node.virtualUartReader.Close()
 	err := node.cmd.Wait() // wait for process end
-
-	if node.logFile != nil {
-		_ = node.logFile.Close()
-	}
-	close(node.logFileLines)
 
 	return err
 }
@@ -657,7 +649,7 @@ func (node *Node) GetSingleton() bool {
 }
 
 // handlerLogFilter handles an incoming log message from the OT-Node and its detected loglevel (otLevel). It comes
-// from the lineReader below and it is written to the node's log file and may be displayed in the CLI.
+// from the lineReader below, and it is written to the node's log file and may be displayed in the CLI.
 func (node *Node) handlerLogFilter(otLevel string, msg string) {
 	lev := ParseWatchLogLevel(otLevel)
 	node.logEntries <- logEntry{
@@ -861,30 +853,40 @@ func (node *Node) logError(err error) {
 	node.err = err
 }
 
-func (node *Node) writeToLogFile(line string) {
-	if node.logFile == nil {
-		return
-	}
-	_, err := node.logFile.WriteString(line + "\n")
-	if err != nil {
-		node.logError(fmt.Errorf("couldn't write to node log file, closing it (%s)", node.logFile.Name()))
-		_ = node.logFile.Close()
-		node.logFile = nil
+func (node *Node) handlePendingLogEntries(ts uint64) {
+	for {
+		select {
+		case e := <-node.logEntries:
+			line := e.toString(ts)
+			_ = node.writeToLogFile(line)
+
+			// watch messages may get increased level/visibility
+			s := node.S
+			if e.isWatch {
+				if e.level <= s.Dispatcher().GetWatchLevel(node.Id) { // IF it must be shown
+					if s.logLevel < e.level && s.logLevel >= WatchInfoLevel { // HOW it can be shown
+						e.level = s.logLevel
+					}
+					e.display(node.Id, ts)
+				}
+			} else if e.level <= s.logLevel {
+				e.display(node.Id, ts)
+			}
+		default:
+			return
+		}
 	}
 }
 
-// logFileWriter is a goroutine that writes node log lines to the log file.
-func (node *Node) logFileWriter() {
-	defer func() {
-		if node.logFile != nil {
-			_ = node.logFile.Close()
-		}
-	}()
-
-	for line := range node.logFileLines {
-		if node.logFile == nil {
-			return
-		}
-		node.writeToLogFile(line)
+func (node *Node) writeToLogFile(line string) error {
+	if node.logFile == nil {
+		return nil
 	}
+	_, err := node.logFile.WriteString(line + "\n")
+	if err != nil {
+		_ = node.logFile.Close()
+		node.logFile = nil
+		node.logError(fmt.Errorf("couldn't write to node log file, closing it (%s)", node.logFile.Name()))
+	}
+	return err
 }
