@@ -185,7 +185,7 @@ func Main(ctx *progctx.ProgCtx, visualizerCreator func(ctx *progctx.ProgCtx, arg
 	go sim.Run()
 	go func() {
 		err := cli.Run(rt, cliOptions)
-		ctx.Cancel(errors.Wrapf(err, "console exit"))
+		ctx.Cancel(errors.Wrapf(err, "console-exit"))
 	}()
 
 	web.ConfigWeb(args.DispatcherHost, args.DispatcherPort-2, args.DispatcherPort-1, args.DispatcherPort-3)
