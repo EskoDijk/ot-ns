@@ -324,6 +324,7 @@ loop:
 			break
 
 		case <-done:
+			d.cbHandler.OnNextEventTime(d.CurTime, Ever) // final cb event
 			break loop
 		}
 	}
