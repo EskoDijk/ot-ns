@@ -950,7 +950,10 @@ class OTNS(object):
 
     def _on_otns_eof(self):
         exit_code = self._otns.wait()
-        logging.warning("otns exited: code = %d", exit_code)
+        if exit_code < 0:
+            logging.warning("otns exited due to termination signal: code = %d", exit_code)
+        else:
+            logging.warning("otns exited: code = %d", exit_code)
         raise OTNSExitedError(exit_code)
 
 

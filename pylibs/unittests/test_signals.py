@@ -89,7 +89,10 @@ class SignalsTest(OTNSTestCase):
             while True:
                 self.ns.add("router")
         except OTNSExitedError as ex:
-            self.assertEqual(0, ex.exit_code)
+            # Python subprocess may return the negative signal value as exit code
+            # when the process is still starting up.
+            # Normally, after some longer time running, 0 is returned.
+            self.assertTrue(ex.exit_code == 0 or ex.exit_code == -signal.SIGTERM)
 
         t.join()
 
