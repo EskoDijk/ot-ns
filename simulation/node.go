@@ -48,9 +48,7 @@ import (
 )
 
 const (
-	DefaultCommandTimeout        = time.Second * 1000
-	UartDoneMarkerString         = "_UartDoneMarkerString_"
-	UartDoneMarkerStringNewlined = "_UartDoneMarkerString_\n"
+	DefaultCommandTimeout = time.Second * 1000
 )
 
 var (
@@ -73,15 +71,13 @@ type Node struct {
 	logFile *os.File
 	err     error // store the last OTNS error related to this node; nil if none.
 
-	pendingLines      chan string   // OT node CLI output lines, pending processing.
-	logEntries        chan logEntry // OT node log entries, pending display on OTNS CLI or other viewers.
-	pipeIn            io.WriteCloser
-	pipeOut           io.ReadCloser
-	pipeErr           io.ReadCloser
-	virtualUartReader *io.PipeReader // output from OT node's virtual UART is read via this reader.
-	virtualUartPipe   *io.PipeWriter
-	uartType          NodeUartType
-	uartDoneChan      chan bool // write on channel indicates that OT node is done sending UART data.
+	pendingLines chan string   // OT node CLI output lines, pending processing.
+	logEntries   chan logEntry // OT node log entries, pending display on OTNS CLI or other viewers.
+	pipeIn       io.WriteCloser
+	pipeOut      io.ReadCloser
+	pipeErr      io.ReadCloser
+	uartReader   chan []byte
+	uartType     NodeUartType
 }
 
 func newNode(s *Simulation, nodeid NodeId, cfg *NodeConfig) (*Node, error) {
@@ -110,12 +106,10 @@ func newNode(s *Simulation, nodeid NodeId, cfg *NodeConfig) (*Node, error) {
 		pendingLines: make(chan string, 10000),
 		logEntries:   make(chan logEntry, 10000),
 		uartType:     NodeUartTypeUndefined,
-		uartDoneChan: make(chan bool),
+		uartReader:   make(chan []byte, 10000),
 		logFile:      nil,
 		err:          nil,
 	}
-
-	node.virtualUartReader, node.virtualUartPipe = io.Pipe()
 
 	if node.pipeIn, err = cmd.StdinPipe(); err != nil {
 		return nil, err
@@ -151,8 +145,7 @@ func newNode(s *Simulation, nodeid NodeId, cfg *NodeConfig) (*Node, error) {
 		return nil, err
 	}
 
-	go node.lineReader(node.virtualUartReader) // reads UART bytes from OT node and turns them into lines
-	go node.lineReaderStdErr(node.pipeErr)     // reads StdErr output from OT node exe and acts on failures
+	go node.lineReaderStdErr(node.pipeErr) // reads StdErr output from OT node exe and acts on failures
 
 	return node, nil
 }
@@ -189,12 +182,10 @@ func (node *Node) SignalExit() error {
 func (node *Node) Exit() error {
 	_ = node.cmd.Process.Signal(syscall.SIGTERM)
 
-	// no more events or lineReader lines will be accepted, so we close the virtual-UART.
 	// Pipes are closed to allow cmd.Wait() to be successful and not hang.
 	_ = node.pipeIn.Close()
 	_ = node.pipeErr.Close()
 	_ = node.pipeOut.Close()
-	_ = node.virtualUartReader.Close()
 	err := node.cmd.Wait() // wait for process end
 
 	return err
@@ -648,44 +639,51 @@ func (node *Node) GetSingleton() bool {
 	}
 }
 
-// handlerLogFilter handles an incoming log message from the OT-Node and its detected loglevel (otLevel). It comes
-// from the lineReader below, and it is written to the node's log file and may be displayed in the CLI.
-func (node *Node) handlerLogFilter(otLevel string, msg string) {
-	lev := ParseWatchLogLevel(otLevel)
-	node.logEntries <- logEntry{
-		level:   lev,
-		msg:     msg,
-		isWatch: true,
-	}
-}
-
-// lineReader is a goroutine that takes node UART data and composes string lines from it.
-// Each line is sent either to log directly (filtered out by OTOutFilter) or stored in
-// node.pendingLines.
-func (node *Node) lineReader(reader io.Reader) {
-	defer close(node.pendingLines)
-
-	// Below filter takes out any OT node log-message lines and sends these to the handler.
-	scanner := bufio.NewScanner(otoutfilter.NewOTOutFilter(bufio.NewReader(reader), "", node.handlerLogFilter))
-	scanner.Split(bufio.ScanLines)
-
-	// Below loop handles the remainder of OT node output that are not OT node log messages.
+func (node *Node) processUartData() {
 	done := node.S.ctx.Done()
-	d := node.S.Dispatcher()
-	for scanner.Scan() {
-		line := scanner.Text()
-		if line == UartDoneMarkerString {
-			simplelogger.AssertTrue(!d.IsAlive(node.Id) || node.S.ctx.Err() != nil)
-			select {
-			case node.uartDoneChan <- true: // signal dispatcher thread that line scanning / task-posting is done.
-				continue
-			case <-done:
-				return
-			}
-		}
+loop:
+	for {
+		select {
+		case data := <-node.uartReader:
 
-		node.log(WatchDebugLevel, line)
-		node.pendingLines <- line
+			line := string(data)
+			if line == "> " { // filter out prompt.
+				continue
+			}
+			idxNewLine := strings.IndexByte(line, '\n')
+			lineTrim := strings.TrimSpace(line)
+			isLogLine, otLevelChar := otoutfilter.DetectLogLine(line)
+			if isLogLine {
+				lev := ParseWatchLogLevel(otLevelChar)
+				node.logEntries <- logEntry{
+					level:   lev,
+					msg:     lineTrim,
+					isWatch: true,
+				}
+			} else if idxNewLine == -1 {
+			loop2:
+				for {
+					select {
+					case nextData := <-node.uartReader:
+						nextPart := string(nextData)
+						idxNewLinePart := strings.IndexByte(nextPart, '\n')
+						line += nextPart
+						if idxNewLinePart >= 0 {
+							node.pendingLines <- strings.TrimSpace(line)
+							break loop2
+						}
+					case <-done:
+						node.pendingLines <- strings.TrimSpace(line)
+						return
+					}
+				}
+			} else {
+				node.pendingLines <- lineTrim
+			}
+
+		default:
+			break loop
+		}
 	}
 }
 
@@ -721,12 +719,12 @@ func (node *Node) tryExpectLine(line interface{}, timeout time.Duration) ([]stri
 	for {
 		select {
 		case <-done:
-			return outputLines, SimulationExitError
+			return outputLines, exitError
 		case <-deadline:
-			return outputLines, NonResponsiveNodeError
+			return outputLines, nonResponsiveNodeError
 		case readLine, ok := <-node.pendingLines:
 			if !ok { //channel was closed - this may happen on node's exit.
-				return outputLines, SimulationExitError
+				return outputLines, exitError
 			}
 
 			if !strings.HasPrefix(readLine, "|") && !strings.HasPrefix(readLine, "+") {
@@ -746,6 +744,7 @@ func (node *Node) tryExpectLine(line interface{}, timeout time.Duration) ([]stri
 			}
 		default:
 			node.S.Dispatcher().RecvEvents() // keep virtual-UART events coming.
+			node.processUartData()
 		}
 	}
 }
@@ -753,7 +752,7 @@ func (node *Node) tryExpectLine(line interface{}, timeout time.Duration) ([]stri
 func (node *Node) expectLine(line interface{}, timeout time.Duration) ([]string, error) {
 	output, err := node.tryExpectLine(line, timeout)
 	if err != nil {
-		if errors.Is(err, SimulationExitError) {
+		if errors.Is(err, exitError) {
 			return []string{}, err
 		}
 		err = errors.Errorf("%v - expectLine timeout: %#v", node, line)
@@ -843,7 +842,7 @@ func (node *Node) log(level WatchLogLevel, msg string) {
 }
 
 func (node *Node) logError(err error) {
-	if err == nil || errors.Is(err, SimulationExitError) {
+	if err == nil || errors.Is(err, exitError) {
 		return
 	}
 	node.logEntries <- logEntry{
@@ -857,7 +856,7 @@ func (node *Node) handlePendingLogEntries(ts uint64) {
 	for {
 		select {
 		case e := <-node.logEntries:
-			line := e.toString(ts)
+			line := getTimestampedLogMessage(ts, e.msg)
 			_ = node.writeToLogFile(line)
 
 			// watch messages may get increased level/visibility
@@ -867,10 +866,10 @@ func (node *Node) handlePendingLogEntries(ts uint64) {
 					if s.logLevel < e.level && s.logLevel >= WatchInfoLevel { // HOW it can be shown
 						e.level = s.logLevel
 					}
-					e.display(node.Id, ts)
+					PrintLog(e.level, node.String()+line)
 				}
 			} else if e.level <= s.logLevel {
-				e.display(node.Id, ts)
+				PrintLog(e.level, node.String()+line)
 			}
 		default:
 			return

@@ -260,33 +260,12 @@ func (s *Simulation) OnUartWrite(nodeid NodeId, data []byte) {
 	if node == nil {
 		return
 	}
-	_, _ = node.virtualUartPipe.Write(data)
+	node.uartReader <- data
 }
 
-// OnUartWritesComplete notifies the simulation that a node is done writing UART data.
-func (s *Simulation) OnUartWritesComplete(nodeid NodeId, isNodeExited bool) {
-	node := s.nodes[nodeid]
-	if node == nil {
-		return
-	}
-	// we feed in the marker string into the UART processing pipeline, and wait until it comes out again
-	// which ensures all pending items have been processed as well.
-	_, err := node.virtualUartPipe.Write([]byte(UartDoneMarkerStringNewlined))
-	if err == nil {
-		done := s.ctx.Done()
-		select {
-		case <-node.uartDoneChan: // pause here until OTOutFilter and lineReader completed their work.
-			break
-		case <-done:
-			break
-		}
-	} else {
-		node.logError(err)
-	}
-}
-
-// when isWatchTriggered == true, it signals that it is a watch-message that is requested to be shown to the
-// user based on current node watch-level settings.
+// OnLogMessage notifies the simulation of a new node log message. When isWatchTriggered == true,
+// it is watch-message that is requested to be shown to the user based on current node watch-level
+// settings.
 func (s *Simulation) OnLogMessage(nodeid NodeId, level WatchLogLevel, isWatchTriggered bool, msg string) {
 	node := s.nodes[nodeid]
 	if node == nil {
@@ -303,7 +282,11 @@ func (s *Simulation) OnLogMessage(nodeid NodeId, level WatchLogLevel, isWatchTri
 func (s *Simulation) OnNextEventTime(ts uint64, nextTs uint64) {
 	// display the pending log messages of nodes. Nodes are sorted by id.
 	s.VisitNodesInOrder(func(node *Node) {
+		node.processUartData()
 		node.handlePendingLogEntries(ts)
+	})
+	s.VisitNodesInOrder(func(node *Node) {
+		simplelogger.AssertEqual(0, len(node.logEntries))
 	})
 }
 

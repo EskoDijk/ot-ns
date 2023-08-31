@@ -36,8 +36,8 @@ import (
 )
 
 var (
-	SimulationExitError    = fmt.Errorf("operation aborted due to simulation exit")
-	NonResponsiveNodeError = fmt.Errorf("node did not respond within timeout")
+	exitError              = fmt.Errorf("operation aborted due to simulation exit")
+	nonResponsiveNodeError = fmt.Errorf("node did not respond within timeout")
 )
 
 type CmdRunner interface {
@@ -54,14 +54,8 @@ type logEntry struct {
 	isWatch bool
 }
 
-func (e logEntry) toString(ts uint64) string {
-	return fmt.Sprintf("%11d %s", ts, e.msg)
-}
-
-func (e logEntry) display(id NodeId, ts uint64) {
-	nodePrefix := GetNodeName(id)
-	line := e.toString(ts)
-	PrintLog(e.level, nodePrefix+line)
+func getTimestampedLogMessage(ts uint64, logMsg string) string {
+	return fmt.Sprintf("%11d %s", ts, logMsg)
 }
 
 func removeAllFiles(globPath string) error {

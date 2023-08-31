@@ -97,9 +97,6 @@ type CallbackHandler interface {
 	// OnUartWrite Notifies that the node's UART was written with data.
 	OnUartWrite(nodeid NodeId, data []byte)
 
-	// OnUartWritesComplete Notifies that the node's UART writes are completed (for current node alive period).
-	OnUartWritesComplete(nodeid NodeId, isNodeExited bool)
-
 	// OnLogMessage Notifies that a log message from Dispatcher can be added to the node's log.
 	OnLogMessage(nodeid NodeId, level WatchLogLevel, isWatchTriggered bool, msg string)
 
@@ -419,7 +416,6 @@ func (d *Dispatcher) handleRecvEvent(evt *Event) {
 		d.Counters.AlarmEvents += 1
 		d.setSleeping(node.Id)
 		d.alarmMgr.SetTimestamp(nodeid, d.CurTime+delay) // schedule future wake-up of node
-		d.cbHandler.OnUartWritesComplete(node.Id, false)
 	case EventTypeRadioReceived:
 		simplelogger.Panicf("legacy EventTypeRadioReceived received - unsupported OT node executable version.")
 	case EventTypeRadioCommStart:
@@ -444,7 +440,7 @@ func (d *Dispatcher) handleRecvEvent(evt *Event) {
 		break
 	case EventTypeNodeExit:
 		d.setSleeping(node.Id)
-		//d.cbHandler.OnUartWritesComplete(node.Id, true)
+		d.alarmMgr.SetTimestamp(node.Id, Ever)
 	default:
 		simplelogger.Panicf("received event type not implemented: %v", evt.Type)
 	}
