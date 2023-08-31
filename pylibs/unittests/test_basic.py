@@ -435,5 +435,30 @@ class BasicTests(OTNSTestCase):
         self.assertEqual(14003030, ns.time) # rounded to nearest microsecond.
         self.assertFormPartitions(1)
 
+    def testScan(self):
+        self.tearDown()
+        with OTNS(otns_args=['-log', 'warn', '-autogo=true']) as ns:
+            ns.radiomodel = 'MutualInterference'
+            ns.add('router')
+
+            with self.assertRaises(errors.OTNSCliError):
+                ns._do_command("scan 2")
+
+            ns.add('router')
+            ns.add('router')
+            ns.add('router', x=100, y=200)
+            ns.add('router')
+            ns.add('router')
+
+            ns.go(50)
+            ns.speed = 10
+            ns._do_command("scan 1")
+            ns.speed = 50
+            ns._do_command("scan 2")
+            ns.speed = 1e6
+            ns._do_command("scan 3")
+            ns.speed = 1000
+            ns._do_command("scan 6")
+
 if __name__ == '__main__':
     unittest.main()

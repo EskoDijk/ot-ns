@@ -822,26 +822,40 @@ func (rt *CmdRunner) executePlr(cc *CommandContext, cmd *PlrCmd) {
 }
 
 func (rt *CmdRunner) executeScan(cc *CommandContext, cmd *ScanCmd) {
+	var scanStartTs uint64
+	var simTime uint64
+	ok := true
+
 	rt.postAsyncWait(func(sim *simulation.Simulation) {
 		node, _ := rt.getNode(sim, cmd.Node)
 		if node == nil {
 			cc.errorf("node not found")
+			ok = false
 			return
 		}
 
 		node.CommandExpectNone("scan", simulation.DefaultCommandTimeout)
+		scanStartTs = node.S.Dispatcher().CurTime
+		simTime = scanStartTs
 	})
+	if !ok {
+		return
+	}
 
-	timeout := time.Millisecond * 600 // FIXME: hardcoding
-	deadline := time.Now().Add(timeout)
-	for time.Now().Before(deadline) {
+	var scanTimeUs uint64 = 5000000 // TODO: verify if time ok - scan is about 5 seconds of simulation time.
+	for simTime < scanStartTs+scanTimeUs && ok {
 		rt.postAsyncWait(func(sim *simulation.Simulation) {
 			node, _ := rt.getNode(sim, cmd.Node)
 			if node == nil {
+				ok = false
 				return
 			}
 			node.AssurePrompt()
+			simTime = node.S.Dispatcher().CurTime
 		})
+		if ok {
+			time.Sleep(time.Millisecond * 200)
+		}
 	}
 }
 
