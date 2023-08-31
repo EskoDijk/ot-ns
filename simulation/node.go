@@ -647,7 +647,7 @@ loop:
 		case data := <-node.uartReader:
 
 			line := string(data)
-			if line == "> " { // filter out prompt.
+			if line == "> " { // filter out the prompt.
 				continue
 			}
 			idxNewLine := strings.IndexByte(line, '\n')
@@ -660,7 +660,7 @@ loop:
 					msg:     lineTrim,
 					isWatch: true,
 				}
-			} else if idxNewLine == -1 {
+			} else if idxNewLine == -1 { // if no newline, get more items until a line can be formed.
 			loop2:
 				for {
 					select {
@@ -726,9 +726,8 @@ func (node *Node) tryExpectLine(line interface{}, timeout time.Duration) ([]stri
 			if !ok { //channel was closed - this may happen on node's exit.
 				return outputLines, exitError
 			}
-
-			if !strings.HasPrefix(readLine, "|") && !strings.HasPrefix(readLine, "+") {
-				node.log(WatchTraceLevel, readLine)
+			if len(readLine) > 0 {
+				node.log(WatchDebugLevel, "UART: "+readLine)
 			}
 
 			outputLines = append(outputLines, readLine)
@@ -739,7 +738,7 @@ func (node *Node) tryExpectLine(line interface{}, timeout time.Duration) ([]stri
 				// TODO hack: output scan result here, should have better implementation
 				//| J | Network Name     | Extended PAN     | PAN  | MAC Address      | Ch | dBm | LQI |
 				if strings.HasPrefix(readLine, "|") || strings.HasPrefix(readLine, "+") {
-					fmt.Printf("%s\n", readLine)
+					PrintConsole(readLine)
 				}
 			}
 		default:

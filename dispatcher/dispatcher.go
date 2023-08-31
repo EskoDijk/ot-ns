@@ -1418,7 +1418,7 @@ func (d *Dispatcher) dumpPacket(item *Event) {
 		_, _ = fmt.Fprintf(&sb, "%02X", b)
 	}
 
-	_, _ = fmt.Fprintf(os.Stdout, "%s\n", sb.String())
+	PrintConsole(sb.String())
 }
 
 func (d *Dispatcher) setNodeRole(node *Node, role OtDeviceRole) {
