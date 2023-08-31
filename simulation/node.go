@@ -718,8 +718,6 @@ func (node *Node) tryExpectLine(line interface{}, timeout time.Duration) ([]stri
 
 	for {
 		select {
-		case <-done:
-			return outputLines, exitError
 		case <-deadline:
 			return outputLines, nonResponsiveNodeError
 		case readLine, ok := <-node.pendingLines:
@@ -742,8 +740,13 @@ func (node *Node) tryExpectLine(line interface{}, timeout time.Duration) ([]stri
 				}
 			}
 		default:
-			node.S.Dispatcher().RecvEvents() // keep virtual-UART events coming.
-			node.processUartData()
+			select {
+			case <-done:
+				return outputLines, exitError
+			default:
+				node.S.Dispatcher().RecvEvents() // keep virtual-UART events coming.
+				node.processUartData()
+			}
 		}
 	}
 }
@@ -752,10 +755,10 @@ func (node *Node) expectLine(line interface{}, timeout time.Duration) ([]string,
 	output, err := node.tryExpectLine(line, timeout)
 	if err != nil {
 		if errors.Is(err, exitError) {
-			return []string{}, err
+			return []string{"Done"}, err
 		}
 		err = errors.Errorf("%v - expectLine timeout: %#v", node, line)
-		return []string{}, err
+		return []string{"Done"}, err
 	}
 	return output, nil
 }

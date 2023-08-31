@@ -216,20 +216,18 @@ func (s *Simulation) Stop() {
 	}
 
 	simplelogger.Infof("stopping simulation and exiting nodes ...")
-	s.ctx.Cancel("simulation-stop")
 	s.stopped = true
 
 	// for faster process, signal node exit first in parallel.
 	for _, node := range s.nodes {
 		_ = node.SignalExit()
 	}
-	time.Sleep(time.Millisecond * 100)
 
 	// then clean up and wait for each node process to stop, sequentially.
+	s.ctx.Cancel("simulation-stop")
 	for _, node := range s.nodes {
 		_ = node.Exit()
 	}
-	//s.Dispatcher().RecvEvents() // receive any remaining events of exited nodes.
 
 	simplelogger.Debugf("all simulation nodes exited.")
 }
