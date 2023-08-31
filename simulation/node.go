@@ -48,7 +48,7 @@ import (
 )
 
 const (
-	DefaultCommandTimeout = time.Second * 1000
+	DefaultCommandTimeout = time.Second * 8
 )
 
 var (
