@@ -568,6 +568,10 @@ func (d *Dispatcher) processNextEvent(simSpeed float64) bool {
 					switch evt.Type {
 					case EventTypeFailureControl:
 						d.advanceNodeTime(node, evt.Timestamp, false)
+					case EventTypeRadioLog:
+						if node.watchLogLevel >= WatchTraceLevel {
+							d.cbHandler.OnLogMessage(evt.NodeId, WatchTraceLevel, true, string(evt.Data))
+						}
 					default:
 						d.radioModel.HandleEvent(node.radioNode, d.eventQueue, evt)
 					}
@@ -861,6 +865,7 @@ func (d *Dispatcher) sendOneRadioFrame(evt *Event,
 
 	// create new Event copy for individual dispatch to dstNode.
 	evt2 := evt.Copy()
+	evt2.NodeId = dstnode.Id
 
 	// Tx failure cases below:
 	//   3) radio model indicates failure on this specific link (e.g. interference) now.
@@ -1514,8 +1519,9 @@ func (d *Dispatcher) handleRadioState(node *Node, evt *Event) {
 	energyState := evt.RadioStateData.EnergyState
 
 	if node.watchLogLevel >= WatchTraceLevel {
-		msg := fmt.Sprintf("EnergyState=%s SubState=%s RadioState=%s RadioTime=%d NextStTime=+%d",
-			energyState, subState, state, evt.RadioStateData.RadioTime, evt.Delay)
+		const hdr = "(OTNS)       [T] RadioState----:"
+		msg := fmt.Sprintf("%s EnergyState=%s SubState=%s RadioState=%s RadioTime=%d NextStTime=+%d",
+			hdr, energyState, subState, state, evt.RadioStateData.RadioTime, evt.Delay)
 		d.cbHandler.OnLogMessage(node.Id, WatchTraceLevel, true, msg)
 	}
 

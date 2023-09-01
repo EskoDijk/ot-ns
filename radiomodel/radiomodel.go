@@ -30,16 +30,16 @@ import (
 	"math"
 
 	. "github.com/openthread/ot-ns/types"
-	"github.com/simonlingoogle/go-simplelogger"
 )
 
 type DbValue = float64
 
-// IEEE 802.15.4-2015 related parameters
+// IEEE 802.15.4-2015 related parameters for 2.4 GHz O-QPSK PHY
 const (
 	MinChannelNumber     ChannelId = 0 // below 11 are sub-Ghz channels for 802.15.4-2015
 	MaxChannelNumber     ChannelId = 26
 	DefaultChannelNumber ChannelId = 11
+	TimeUsPerBit                   = 4
 )
 
 // default radio & simulation parameters
@@ -130,8 +130,7 @@ func Create(modelName string) RadioModel {
 		}
 	case "MutualInterference", "MI", "M", "3":
 		model = &RadioModelMutualInterference{
-			Name:  "MutualInterference",
-			IsBer: true,
+			Name: "MutualInterference",
 			IndoorParams: &IndoorModelParams{
 				ExponentDb:    35.0,
 				FixedLossDb:   40.0,
@@ -142,7 +141,6 @@ func Create(modelName string) RadioModel {
 		model = &RadioModelMutualInterference{
 			Name:        "MIDisc",
 			IsDiscLimit: true,
-			IsBer:       true,
 			IndoorParams: &IndoorModelParams{
 				ExponentDb:    15.0,
 				FixedLossDb:   40.0,
@@ -156,18 +154,6 @@ func Create(modelName string) RadioModel {
 		model.init()
 	}
 	return model
-}
-
-// interferePsduData simulates the interference (garbling) of PSDU data based on a given SIR level (dB).
-func interferePsduData(data []byte, sirDb DbValue) []byte {
-	simplelogger.AssertTrue(len(data) >= 2)
-	intfData := data
-	if sirDb < 0 {
-		// modify MAC frame FCS, as a substitute for interfered frame.
-		intfData[len(data)-2]++
-		intfData[len(data)-1]++
-	}
-	return intfData
 }
 
 // computeIndoorRssi computes the RSSI for a receiver at distance dist, using a simple indoor exponent loss model.

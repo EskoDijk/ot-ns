@@ -51,6 +51,12 @@ const (
 	WatchDefaultLevel               = WatchInfoLevel
 )
 
+type LogEntry struct {
+	Level   WatchLogLevel
+	Msg     string
+	IsWatch bool
+}
+
 var (
 	isLogToTerminal = false
 )

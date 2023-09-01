@@ -270,10 +270,10 @@ func (s *Simulation) OnLogMessage(nodeid NodeId, level WatchLogLevel, isWatchTri
 		PrintLog(level, fmt.Sprintf("Unknown %s: %s", GetNodeName(nodeid), msg))
 		return
 	}
-	node.logEntries <- logEntry{
-		level:   level,
-		msg:     msg,
-		isWatch: isWatchTriggered,
+	node.logEntries <- LogEntry{
+		Level:   level,
+		Msg:     msg,
+		IsWatch: isWatchTriggered,
 	}
 }
 

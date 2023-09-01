@@ -26,14 +26,40 @@
 
 package radiomodel
 
-import "math"
+import (
+	"fmt"
+	"math"
+	"math/rand"
+
+	. "github.com/openthread/ot-ns/types"
+	"github.com/simonlingoogle/go-simplelogger"
+)
 
 var (
 	binomialCoeff = []float64{120, -560, 1820, -4368, 8008, -11440, 12870, -11440, 8008, -4368, 1820, -560, 120, -16, 1}
 )
 
-func computePacketSuccessRate(sirDb DbValue, frameLenBytes int) float64 {
-	nbits := float64(frameLenBytes * 8) // TODO PHY bits? SHR?
+func applyBerModel(sirDb DbValue, srcNodeId NodeId, evt *Event) (bool, string) {
+	pSuccess := 1.0
+	var nbits int
+	// if sirDb >= 3.0, then ratio SIR=~2, and pSuccess for any regular 15.4 frame is =~ 1.0 always.
+	// Save time (?) by not doing the calculation then.
+	if sirDb < 3.0 {
+		pSuccess, nbits = computePacketSuccessRate(sirDb, evt.RadioCommData.Duration)
+	}
+	if pSuccess < 1.0 && rand.Float64() > pSuccess {
+		evt.Data = interferePsduData(evt.Data)
+		evt.RadioCommData.Error = OT_ERROR_FCS
+		logMsg := fmt.Sprintf("applied OT_ERROR_FCS sirDb=%f src=%d dst=%d Psuc=%f FrLen=%dB",
+			sirDb, srcNodeId, evt.NodeId, pSuccess, nbits/8)
+		return true, logMsg
+	}
+	return false, ""
+}
+
+func computePacketSuccessRate(sirDb DbValue, frameDurationUs uint64) (float64, int) {
+	// see also NS-3 LR-WPAN error model
+	nbits := float64(frameDurationUs / TimeUsPerBit)
 	ber := 0.0
 	snr := math.Pow(10, sirDb/10.0)
 	for idx, coeff := range binomialCoeff {
@@ -46,5 +72,16 @@ func computePacketSuccessRate(sirDb DbValue, frameLenBytes int) float64 {
 	ber = math.Min(ber, 1.0)
 	psuc := math.Pow(1.0-ber, nbits)
 
-	return psuc
+	return psuc, int(nbits)
+}
+
+// interferePsduData simulates bit-error(s) on PSDU data
+func interferePsduData(data []byte) []byte {
+	simplelogger.AssertTrue(len(data) >= 2)
+	intfData := data
+
+	// modify MAC frame FCS, as a substitute for interfered frame.
+	intfData[len(data)-1]++
+
+	return intfData
 }

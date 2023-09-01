@@ -48,12 +48,6 @@ type CmdRunner interface {
 	GetContextNodeId() NodeId
 }
 
-type logEntry struct {
-	level   WatchLogLevel
-	msg     string
-	isWatch bool
-}
-
 func getTimestampedLogMessage(ts uint64, logMsg string) string {
 	return fmt.Sprintf("%11d %s", ts, logMsg)
 }

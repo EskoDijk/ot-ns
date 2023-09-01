@@ -28,7 +28,6 @@ package radiomodel
 
 import (
 	"math"
-	"math/rand"
 
 	. "github.com/openthread/ot-ns/types"
 	"github.com/simonlingoogle/go-simplelogger"
@@ -43,24 +42,19 @@ import (
 type RadioModelMutualInterference struct {
 	Name string
 
-	// Configured minimum Signal-to-Interference (SIR) ratio in dB that is required to receive a signal
-	// in presence of at least one interfering, other signal.
-	MinSirDb DbValue
-
 	// Whether RF signal reception is limited to the RadioRange disc of each node, or not (default false).
 	// If true, the interference (e.g. RSSI sampled on channel) is confined to the disc and frame
 	// reception is also confined to the disc.
 	IsDiscLimit bool
 
-	// Whether BER model of IEEE 802.15.4-2006 E.4.1.8 is applied
-	IsBer bool
-
+	// Parameters of an indoor propagation model
 	IndoorParams *IndoorModelParams
 
 	nodes                 map[NodeId]*RadioNode
 	activeTransmitters    map[ChannelId]map[NodeId]*RadioNode
 	activeChannelSamplers map[ChannelId]map[NodeId]*RadioNode
 	interferedBy          map[NodeId]map[NodeId]*RadioNode
+	eventQ                EventQueue
 }
 
 func (rm *RadioModelMutualInterference) AddNode(nodeid NodeId, radioNode *RadioNode) {
@@ -130,14 +124,16 @@ func (rm *RadioModelMutualInterference) OnEventDispatch(src *RadioNode, dst *Rad
 }
 
 func (rm *RadioModelMutualInterference) HandleEvent(node *RadioNode, q EventQueue, evt *Event) {
+	rm.eventQ = q
+
 	switch evt.Type {
 	case EventTypeRadioCommStart:
-		rm.txStart(node, q, evt)
+		rm.txStart(node, evt)
 		rm.updateChannelSamplingNodes(node, evt) // all channel-sampling nodes detect the new Tx
 	case EventTypeRadioTxDone:
-		rm.txStop(node, q, evt)
+		rm.txStop(node, evt)
 	case EventTypeRadioChannelSample:
-		rm.channelSampleStart(node, q, evt)
+		rm.channelSampleStart(node, evt)
 	default:
 		break // Unknown events not handled.
 	}
@@ -177,7 +173,7 @@ func (rm *RadioModelMutualInterference) getRssiOnChannel(node *RadioNode, channe
 	return rssiMax
 }
 
-func (rm *RadioModelMutualInterference) txStart(node *RadioNode, q EventQueue, evt *Event) {
+func (rm *RadioModelMutualInterference) txStart(node *RadioNode, evt *Event) {
 	// verify node doesn't already transmit or sample on this channel.
 	ch := int(evt.RadioCommData.Channel) // move to the (new) channel for this Tx
 	_, nodeTransmits := rm.activeTransmitters[ch][node.Id]
@@ -189,7 +185,7 @@ func (rm *RadioModelMutualInterference) txStart(node *RadioNode, q EventQueue, e
 		txDoneEvt.RadioCommData.Error = OT_ERROR_ABORT
 		txDoneEvt.MustDispatch = true
 		txDoneEvt.Timestamp += 1
-		q.Add(&txDoneEvt)
+		rm.eventQ.Add(&txDoneEvt)
 		return
 	}
 
@@ -213,7 +209,7 @@ func (rm *RadioModelMutualInterference) txStart(node *RadioNode, q EventQueue, e
 	rxStartEvt.Type = EventTypeRadioCommStart
 	rxStartEvt.RadioCommData.Error = OT_ERROR_NONE
 	rxStartEvt.MustDispatch = true
-	q.Add(&rxStartEvt)
+	rm.eventQ.Add(&rxStartEvt)
 
 	// schedule new internal event to call txStop() at end of duration.
 	txDoneEvt := evt.Copy()
@@ -221,10 +217,10 @@ func (rm *RadioModelMutualInterference) txStart(node *RadioNode, q EventQueue, e
 	txDoneEvt.RadioCommData.Error = OT_ERROR_NONE
 	txDoneEvt.MustDispatch = false
 	txDoneEvt.Timestamp += evt.RadioCommData.Duration
-	q.Add(&txDoneEvt)
+	rm.eventQ.Add(&txDoneEvt)
 }
 
-func (rm *RadioModelMutualInterference) txStop(node *RadioNode, q EventQueue, evt *Event) {
+func (rm *RadioModelMutualInterference) txStop(node *RadioNode, evt *Event) {
 	ch := int(evt.RadioCommData.Channel)
 	_, nodeTransmits := rm.activeTransmitters[ch][node.Id]
 	simplelogger.AssertTrue(nodeTransmits)
@@ -237,14 +233,14 @@ func (rm *RadioModelMutualInterference) txStop(node *RadioNode, q EventQueue, ev
 	txDoneEvt.Type = EventTypeRadioTxDone
 	txDoneEvt.RadioCommData.Error = OT_ERROR_NONE
 	txDoneEvt.MustDispatch = true
-	q.Add(&txDoneEvt)
+	rm.eventQ.Add(&txDoneEvt)
 
 	// Create RxDone event, to signal nearby node(s) that the frame Rx is done, at time==now
 	rxDoneEvt := evt.Copy()
 	rxDoneEvt.Type = EventTypeRadioRxDone
 	rxDoneEvt.RadioCommData.Error = OT_ERROR_NONE
 	rxDoneEvt.MustDispatch = true
-	q.Add(&rxDoneEvt)
+	rm.eventQ.Add(&rxDoneEvt)
 }
 
 func (rm *RadioModelMutualInterference) applyInterference(src *RadioNode, dst *RadioNode, evt *Event) {
@@ -252,6 +248,7 @@ func (rm *RadioModelMutualInterference) applyInterference(src *RadioNode, dst *R
 	rssiInterfererMax := rm.getRssiAmbientNoise(dst, ChannelId(evt.RadioCommData.Channel))
 	for _, interferer := range rm.interferedBy[src.Id] {
 		if interferer == dst { // if dst node was at some point transmitting itself, fail the Rx
+			rm.log(evt.Timestamp, dst.Id, "Detected self-transmission of Node, set Rx OT_ERROR_ABORT")
 			evt.RadioCommData.Error = OT_ERROR_ABORT
 			return
 		}
@@ -262,27 +259,12 @@ func (rm *RadioModelMutualInterference) applyInterference(src *RadioNode, dst *R
 		}
 	}
 
+	// probabilistic BER model
 	rssi := rm.GetTxRssi(src, dst)
 	sirDb := rssi - rssiInterfererMax // the Signal-to-Interferer (SIR/SINR) ratio
-
-	if !rm.IsBer {
-		// simple binary success/fail model.
-		if sirDb < rm.MinSirDb {
-			// interfering signal gets too close to the wanted-signal rssi: impacts the signal.
-			evt.Data = interferePsduData(evt.Data, sirDb)
-			evt.RadioCommData.Error = OT_ERROR_FCS
-			simplelogger.Debugf("%s %11d applied OT_ERROR_FCS with sirDb=%v dst=%v", GetNodeName(src.Id), evt.Timestamp, sirDb, dst.Id)
-		}
-	} else {
-		// probabilistic BER model
-		pSuccess := computePacketSuccessRate(sirDb, len(evt.Data))
-		if pSuccess == 1.0 {
-			// no interference
-		} else if rand.Float64() > pSuccess {
-			evt.Data = interferePsduData(evt.Data, sirDb)
-			evt.RadioCommData.Error = OT_ERROR_FCS
-			simplelogger.Debugf("%s %11d applied OT_ERROR_FCS with sirDb=%v dst=%v Psuc=%f Flen=%d", GetNodeName(src.Id), evt.Timestamp, sirDb, dst.Id, pSuccess, len(evt.Data))
-		}
+	isLogMsg, logMsg := applyBerModel(sirDb, src.Id, evt)
+	if isLogMsg {
+		rm.log(evt.Timestamp, dst.Id, logMsg) // log it on dest node's log
 	}
 }
 
@@ -297,7 +279,7 @@ func (rm *RadioModelMutualInterference) updateChannelSamplingNodes(src *RadioNod
 	}
 }
 
-func (rm *RadioModelMutualInterference) channelSampleStart(srcNode *RadioNode, q EventQueue, evt *Event) {
+func (rm *RadioModelMutualInterference) channelSampleStart(srcNode *RadioNode, evt *Event) {
 	ch := int(evt.RadioCommData.Channel)
 	// verify node doesn't already transmit or sample on its channel.
 	_, nodeTransmits := rm.activeTransmitters[ch][srcNode.Id]
@@ -314,5 +296,15 @@ func (rm *RadioModelMutualInterference) channelSampleStart(srcNode *RadioNode, q
 	sampleDoneEvt.Type = EventTypeRadioChannelSample
 	sampleDoneEvt.Timestamp += evt.RadioCommData.Duration
 	sampleDoneEvt.MustDispatch = true
-	q.Add(&sampleDoneEvt)
+	rm.eventQ.Add(&sampleDoneEvt)
+}
+
+func (rm *RadioModelMutualInterference) log(ts uint64, id NodeId, msg string) {
+	const hdr = "(OTNS)       [T] RadioModelMI--: "
+	rm.eventQ.Add(&Event{
+		Timestamp: ts,
+		Type:      EventTypeRadioLog,
+		NodeId:    id,
+		Data:      []byte(hdr + msg),
+	})
 }

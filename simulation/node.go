@@ -73,7 +73,7 @@ type Node struct {
 	err     error // store the last OTNS error related to this node; nil if none.
 
 	pendingLines chan string   // OT node CLI output lines, pending processing.
-	logEntries   chan logEntry // OT node log entries, pending display on OTNS CLI or other viewers.
+	logEntries   chan LogEntry // OT node log entries, pending display on OTNS CLI or other viewers.
 	pipeIn       io.WriteCloser
 	pipeOut      io.ReadCloser
 	pipeErr      io.ReadCloser
@@ -105,7 +105,7 @@ func newNode(s *Simulation, nodeid NodeId, cfg *NodeConfig) (*Node, error) {
 		cfg:          cfg,
 		cmd:          cmd,
 		pendingLines: make(chan string, 10000),
-		logEntries:   make(chan logEntry, 10000),
+		logEntries:   make(chan LogEntry, 10000),
 		uartType:     NodeUartTypeUndefined,
 		uartReader:   make(chan []byte, 10000),
 		logFile:      nil,
@@ -656,10 +656,10 @@ loop:
 			isLogLine, otLevelChar := otoutfilter.DetectLogLine(line)
 			if isLogLine {
 				lev := ParseWatchLogLevel(otLevelChar)
-				node.logEntries <- logEntry{
-					level:   lev,
-					msg:     lineTrim,
-					isWatch: true,
+				node.logEntries <- LogEntry{
+					Level:   lev,
+					Msg:     lineTrim,
+					IsWatch: true,
 				}
 			} else if idxNewLine == -1 { // if no newline, get more items until a line can be formed.
 			loop2:
@@ -720,7 +720,7 @@ func (node *Node) tryExpectLine(line interface{}, timeout time.Duration) ([]stri
 	for {
 		select {
 		case <-deadline:
-			pprof.Lookup("goroutine").WriteTo(os.Stdout, 2)
+			_ = pprof.Lookup("goroutine").WriteTo(os.Stdout, 2)
 			return outputLines, nonResponsiveNodeError
 		case readLine, ok := <-node.pendingLines:
 			if !ok { //channel was closed - this may happen on node's exit.
@@ -839,9 +839,9 @@ func (node *Node) setupMode() {
 }
 
 func (node *Node) log(level WatchLogLevel, msg string) {
-	node.logEntries <- logEntry{
-		level: level,
-		msg:   msg,
+	node.logEntries <- LogEntry{
+		Level: level,
+		Msg:   msg,
 	}
 }
 
@@ -849,9 +849,9 @@ func (node *Node) logError(err error) {
 	if err == nil || errors.Is(err, exitError) {
 		return
 	}
-	node.logEntries <- logEntry{
-		level: WatchCritLevel,
-		msg:   err.Error(),
+	node.logEntries <- LogEntry{
+		Level: WatchCritLevel,
+		Msg:   err.Error(),
 	}
 	node.err = err
 }
@@ -860,20 +860,20 @@ func (node *Node) handlePendingLogEntries(ts uint64) {
 	for {
 		select {
 		case e := <-node.logEntries:
-			line := getTimestampedLogMessage(ts, e.msg)
+			line := getTimestampedLogMessage(ts, e.Msg)
 			_ = node.writeToLogFile(line)
 
 			// watch messages may get increased level/visibility
 			s := node.S
-			if e.isWatch {
-				if e.level <= s.Dispatcher().GetWatchLevel(node.Id) { // IF it must be shown
-					if s.logLevel < e.level && s.logLevel >= WatchInfoLevel { // HOW it can be shown
-						e.level = s.logLevel
+			if e.IsWatch {
+				if e.Level <= s.Dispatcher().GetWatchLevel(node.Id) { // IF it must be shown
+					if s.logLevel < e.Level && s.logLevel >= WatchInfoLevel { // HOW it can be shown
+						e.Level = s.logLevel
 					}
-					PrintLog(e.level, node.String()+line)
+					PrintLog(e.Level, node.String()+line)
 				}
-			} else if e.level <= s.logLevel {
-				PrintLog(e.level, node.String()+line)
+			} else if e.Level <= s.logLevel {
+				PrintLog(e.Level, node.String()+line)
 			}
 		default:
 			return
