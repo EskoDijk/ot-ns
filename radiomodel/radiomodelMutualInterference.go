@@ -27,10 +27,11 @@
 package radiomodel
 
 import (
-	. "github.com/openthread/ot-ns/types"
-	"github.com/simonlingoogle/go-simplelogger"
 	"math"
 	"math/rand"
+
+	. "github.com/openthread/ot-ns/types"
+	"github.com/simonlingoogle/go-simplelogger"
 )
 
 // RadioModelMutualInterference is a radio model where a transmission may interfere with another transmission
@@ -84,7 +85,7 @@ func (rm *RadioModelMutualInterference) CheckRadioReachable(src *RadioNode, dst 
 		return false
 	}
 	rssi := rm.GetTxRssi(src, dst)
-	return rssi >= RssiMin && rssi <= RssiMax && rssi >= DbValue(dst.RxSensitivity)
+	return rssi >= RssiMin && rssi <= RssiMax && rssi >= dst.RxSensitivity
 }
 
 func (rm *RadioModelMutualInterference) GetTxRssi(srcNode *RadioNode, dstNode *RadioNode) DbValue {

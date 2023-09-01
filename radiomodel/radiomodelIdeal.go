@@ -27,8 +27,9 @@
 package radiomodel
 
 import (
-	. "github.com/openthread/ot-ns/types"
 	"math"
+
+	. "github.com/openthread/ot-ns/types"
 )
 
 // RadioModelIdeal is an ideal radio model with infinite parallel transmission capacity per
