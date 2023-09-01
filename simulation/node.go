@@ -35,6 +35,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime/pprof"
 	"strconv"
 	"strings"
 	"syscall"
@@ -48,7 +49,7 @@ import (
 )
 
 const (
-	DefaultCommandTimeout = time.Second * 8
+	DefaultCommandTimeout = time.Second * 10
 )
 
 var (
@@ -719,6 +720,7 @@ func (node *Node) tryExpectLine(line interface{}, timeout time.Duration) ([]stri
 	for {
 		select {
 		case <-deadline:
+			pprof.Lookup("goroutine").WriteTo(os.Stdout, 2)
 			return outputLines, nonResponsiveNodeError
 		case readLine, ok := <-node.pendingLines:
 			if !ok { //channel was closed - this may happen on node's exit.
