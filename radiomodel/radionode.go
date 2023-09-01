@@ -38,10 +38,10 @@ type RadioNode struct {
 	Id NodeId
 
 	// TxPower contains the last Tx power used by the node.
-	TxPower DbmValue
+	TxPower DbValue
 
 	// RxSensitivity contains the Rx sensitivity in dBm of the node.
-	RxSensitivity int8
+	RxSensitivity DbValue
 
 	// RadioRange is the radio range as configured by the simulation for this node.
 	RadioRange float64
@@ -57,7 +57,7 @@ type RadioNode struct {
 	X, Y float64
 
 	// rssiSampleMax tracks the max RSSI detected during a channel sampling operation.
-	rssiSampleMax DbmValue
+	rssiSampleMax DbValue
 }
 
 type RadioNodeConfig struct {

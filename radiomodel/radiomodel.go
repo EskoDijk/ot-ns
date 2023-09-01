@@ -33,9 +33,9 @@ import (
 	"github.com/simonlingoogle/go-simplelogger"
 )
 
-// IEEE 802.15.4-2015 related parameters
-type DbmValue = int8
+type DbValue = float64
 
+// IEEE 802.15.4-2015 related parameters
 const (
 	MinChannelNumber     ChannelId = 0 // below 11 are sub-Ghz channels for 802.15.4-2015
 	MaxChannelNumber     ChannelId = 26
@@ -44,8 +44,8 @@ const (
 
 // default radio & simulation parameters
 const (
-	receiveSensitivityDbm DbmValue = -100 // TODO for now MUST be manually kept equal to OT: SIM_RECEIVE_SENSITIVITY
-	defaultTxPowerDbm     DbmValue = 0    // Default, RadioTxEvent msg will override it. OT: SIM_TX_POWER
+	receiveSensitivityDbm DbValue = -100.0 // TODO for now MUST be manually kept equal to OT: SIM_RECEIVE_SENSITIVITY
+	defaultTxPowerDbm     DbValue = 0.0    // Default, RadioTxEvent msg will override it. OT: SIM_TX_POWER
 
 	// Handtuned - for indoor model, how many meters r is RadioRange disc until Link
 	// quality drops below 2 (10 dB margin).
@@ -54,10 +54,11 @@ const (
 
 // RSSI parameter encodings
 const (
-	RssiInvalid       DbmValue = 127
-	RssiMax           DbmValue = 126
-	RssiMin           DbmValue = -126
-	RssiMinusInfinity DbmValue = -127
+	RssiInvalid             DbValue = 127.0
+	RssiMax                 DbValue = 126.0
+	RssiMin                 DbValue = -126.0
+	RssiMinusInfinity       DbValue = -127.0
+	RssiAmbientNoiseDefault DbValue = -95.0 // TODO check value. Some situations it can be -90, -80, etc.
 )
 
 // EventQueue is the abstraction of the queue where the radio model sends its outgoing (new) events to.
@@ -81,7 +82,7 @@ type RadioModel interface {
 	// dstNode, according to the radio model, in the ideal case of no other transmitters/interferers.
 	// It returns the expected RSSI value at dstNode, or RssiMinusInfinity if the RSSI value will
 	// fall below the minimum Rx sensitivity of the dstNode.
-	GetTxRssi(srcNode *RadioNode, dstNode *RadioNode) DbmValue
+	GetTxRssi(srcNode *RadioNode, dstNode *RadioNode) DbValue
 
 	// OnEventDispatch is called when the Dispatcher sends an Event to a particular dstNode. The method
 	// implementation may e.g. apply interference to a frame in transit, prior to delivery of the
@@ -129,8 +130,8 @@ func Create(modelName string) RadioModel {
 		}
 	case "MutualInterference", "MI", "M", "3":
 		model = &RadioModelMutualInterference{
-			Name:     "MutualInterference",
-			MinSirDb: 1, // minimum Signal-to-Interference (SIR) (dB) required to detect signal
+			Name:  "MutualInterference",
+			IsBer: true,
 			IndoorParams: &IndoorModelParams{
 				ExponentDb:    35.0,
 				FixedLossDb:   40.0,
@@ -140,8 +141,8 @@ func Create(modelName string) RadioModel {
 	case "MIDisc", "MID", "4":
 		model = &RadioModelMutualInterference{
 			Name:        "MIDisc",
-			MinSirDb:    1, // minimum Signal-to-Interference (SIR) (dB) required to detect signal
 			IsDiscLimit: true,
+			IsBer:       true,
 			IndoorParams: &IndoorModelParams{
 				ExponentDb:    15.0,
 				FixedLossDb:   40.0,
@@ -158,7 +159,7 @@ func Create(modelName string) RadioModel {
 }
 
 // interferePsduData simulates the interference (garbling) of PSDU data based on a given SIR level (dB).
-func interferePsduData(data []byte, sirDb float64) []byte {
+func interferePsduData(data []byte, sirDb DbValue) []byte {
 	simplelogger.AssertTrue(len(data) >= 2)
 	intfData := data
 	if sirDb < 0 {
@@ -170,19 +171,19 @@ func interferePsduData(data []byte, sirDb float64) []byte {
 }
 
 // computeIndoorRssi computes the RSSI for a receiver at distance dist, using a simple indoor exponent loss model.
-func computeIndoorRssi(srcRadioRange float64, dist float64, txPower int8, modelParams *IndoorModelParams) int8 {
+func computeIndoorRssi(srcRadioRange float64, dist float64, txPower DbValue, modelParams *IndoorModelParams) DbValue {
 	pathloss := 0.0
 	distMeters := dist * modelParams.RangeInMeters / srcRadioRange
 	if distMeters >= 0.072 {
 		pathloss = modelParams.ExponentDb*math.Log10(distMeters) + modelParams.FixedLossDb
 	}
-	rssi := float64(txPower) - pathloss
-	rssiInt := int(math.Round(rssi))
-	// constrain RSSI value to int8 and return it. If RSSI is lower, return RssiMinusInfinity.
-	if rssiInt >= int(RssiInvalid) {
-		rssiInt = int(RssiMax)
-	} else if rssiInt < int(RssiMin) {
-		rssiInt = int(RssiMinusInfinity)
+	rssi := txPower - pathloss
+
+	// constrain RSSI value to range and return it. If RSSI is lower, return RssiMinusInfinity.
+	if rssi > RssiMax {
+		rssi = RssiMax
+	} else if rssi < RssiMin {
+		rssi = RssiMinusInfinity
 	}
-	return int8(rssiInt)
+	return rssi
 }

@@ -28,6 +28,7 @@ package radiomodel
 
 import (
 	. "github.com/openthread/ot-ns/types"
+	"math"
 )
 
 // RadioModelIdeal is an ideal radio model with infinite parallel transmission capacity per
@@ -37,7 +38,7 @@ import (
 type RadioModelIdeal struct {
 	Name            string
 	UseVariableRssi bool // when true uses distance-dependent RSSI model, else FixedRssi.
-	FixedRssi       DbmValue
+	FixedRssi       DbValue
 	IndoorParams    *IndoorModelParams
 
 	nodes map[NodeId]*RadioNode
@@ -61,7 +62,7 @@ func (rm *RadioModelIdeal) CheckRadioReachable(src *RadioNode, dst *RadioNode) b
 	return false
 }
 
-func (rm *RadioModelIdeal) GetTxRssi(srcNode *RadioNode, dstNode *RadioNode) DbmValue {
+func (rm *RadioModelIdeal) GetTxRssi(srcNode *RadioNode, dstNode *RadioNode) DbValue {
 	rssi := rm.FixedRssi // in the most ideal case, always assume a good RSSI up until the max range.
 	if rm.UseVariableRssi {
 		rssi = computeIndoorRssi(srcNode.RadioRange, srcNode.GetDistanceTo(dstNode), srcNode.TxPower, rm.IndoorParams)
@@ -75,10 +76,10 @@ func (rm *RadioModelIdeal) OnEventDispatch(src *RadioNode, dst *RadioNode, evt *
 		fallthrough
 	case EventTypeRadioRxDone:
 		// compute the RSSI and store it in the event
-		evt.RadioCommData.PowerDbm = rm.GetTxRssi(src, dst)
+		evt.RadioCommData.PowerDbm = int8(math.Round(rm.GetTxRssi(src, dst)))
 	case EventTypeRadioChannelSample:
 		// store the final sampled RSSI in the event
-		evt.RadioCommData.PowerDbm = src.rssiSampleMax
+		evt.RadioCommData.PowerDbm = int8(math.Ceil(src.rssiSampleMax))
 	}
 	return true
 }
@@ -103,7 +104,7 @@ func (rm *RadioModelIdeal) init() {
 }
 
 func (rm *RadioModelIdeal) txStart(srcNode *RadioNode, q EventQueue, evt *Event) {
-	srcNode.TxPower = evt.RadioCommData.PowerDbm // get last node's properties from the OT node's event params.
+	srcNode.TxPower = DbValue(evt.RadioCommData.PowerDbm) // get last node's properties from the OT node's event params.
 	srcNode.SetChannel(int(evt.RadioCommData.Channel))
 
 	// dispatch radio event RadioComm 'start of frame Rx' to listening nodes.
