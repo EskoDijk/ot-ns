@@ -141,28 +141,36 @@ class BasicTests(OTNSTestCase):
         self.assertTrue(ns.nodes() == {})
 
     def testDelNodeAndImmediatelyRecreate(self):
-        ns = self.ns
-        id = ns.add("router")
-        self.assertTrue(len(ns.nodes()) == 1 and 1 in ns.nodes() and id == 1)
-        self.go(1)
-        self.assertTrue(len(ns.nodes()) == 1 and 1 in ns.nodes())
 
-        ns.delete(1)
-        self.assertTrue(len(ns.nodes()) == 0)
-        id = ns.add("router")
-        self.assertTrue(len(ns.nodes()) == 1 and 1 in ns.nodes() and id == 1)
+        for i in range(100):
+            ns = self.ns
+            ns.loglevel = 'debug'
+            ns.watch_default('debug')
+            id = ns.add("router")
+            self.assertTrue(len(ns.nodes()) == 1 and 1 in ns.nodes() and id == 1)
+            self.go(1)
+            self.assertTrue(len(ns.nodes()) == 1 and 1 in ns.nodes())
 
-        ns.add("router")
-        ns.add("router")
-        id = ns.add("router")
-        self.assertTrue(len(ns.nodes()) == 4 and id == 4)
+            ns.delete(1)
+            self.assertTrue(len(ns.nodes()) == 0)
+            id = ns.add("router")
+            self.assertTrue(len(ns.nodes()) == 1 and 1 in ns.nodes() and id == 1)
 
-        ns.delete(1, 2, 3, 4)
-        self.assertTrue(len(ns.nodes()) == 0)
+            ns.add("router")
+            ns.add("router")
+            id = ns.add("router")
+            self.assertTrue(len(ns.nodes()) == 4 and id == 4)
 
-        ns.add("router")
-        id = ns.add("router")
-        self.assertTrue(len(ns.nodes()) == 2 and id == 2)
+            ns.delete(1, 2, 3, 4)
+            self.assertTrue(len(ns.nodes()) == 0)
+            #ns.go(0)
+
+            ns.add("router")
+            id = ns.add("router")
+            self.assertTrue(len(ns.nodes()) == 2 and id == 2)
+
+            self.tearDown()
+            self.setUp()
 
     def testMDREffective(self):
         ns = self.ns

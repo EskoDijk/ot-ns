@@ -52,6 +52,7 @@ const (
 )
 
 type LogEntry struct {
+	NodeId  NodeId
 	Level   WatchLogLevel
 	Msg     string
 	IsWatch bool

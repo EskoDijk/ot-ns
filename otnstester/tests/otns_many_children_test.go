@@ -52,9 +52,7 @@ func testAddManySEDs(test *otnstester.OtnsTest) {
 	test.Go(time.Second * 10)
 	test.ExpectTrue(test.GetNodeState(nodeid) == RoleLeader)
 
-	N := 1 // number of SED Children - FIXME should be 128, now limited due to bug.
-	// the bug is specific to Go tests (not Python) and comes for N > 1. Some children
-	// are not connected because they can't see the RF frame transmissions by Parent.
+	N := 10 // number of SED Children - 10 is the limit for a minimally Thread compliant Router.
 	var r float64
 	for n := 1; n <= N; n++ {
 		fra := float64(n) / float64(N)

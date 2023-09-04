@@ -71,7 +71,7 @@ func NewSimulation(ctx *progctx.ProgCtx, cfg *Config, dispatcherCfg *dispatcher.
 	s.SetLogLevel(cfg.LogLevel)
 	s.networkInfo.Real = cfg.Real
 
-	// start the event_dispatcher for virtual time
+	// start the dispatcher for virtual time
 	if dispatcherCfg == nil {
 		dispatcherCfg = dispatcher.DefaultConfig()
 	}
@@ -135,7 +135,11 @@ func (s *Simulation) AddNode(cfg *NodeConfig) (*Node, error) {
 	// init of the sim/dispatcher nodes
 	node.uartType = NodeUartTypeVirtualTime
 	simplelogger.AssertTrue(s.d.IsAlive(nodeid))
-	evtCnt := s.d.RecvEvents() // allow new node to connect, and to receive its startup events.
+	simplelogger.Debugf("receiving new node startup events")      // FIXME
+	evtCnt := s.d.RecvEvents()                                    // allow new node to connect, and to receive its startup events.
+	simplelogger.Debugf("receiving new node startup events Done") // FIXME
+	ts := s.d.CurTime
+	node.displayPendingLogEntries(ts)
 
 	if s.ctx.Err() != nil { // only proceed if we're not exiting the simulation.
 		return node, nil
@@ -147,20 +151,25 @@ func (s *Simulation) AddNode(cfg *NodeConfig) (*Node, error) {
 		s.nodePlacer.ReuseNextNodePosition()
 		return nil, errors.Errorf("simulation AddNode: new node %d did not respond (evtCnt=%d)", nodeid, evtCnt)
 	}
+	simplelogger.Debugf("start setup of new node (mode, init script)")
 	node.setupMode()
+	err = node.err
+
 	if !s.rawMode {
-		err := node.runInitScript(cfg.InitScript)
-		if err == nil {
-			node.onStart()
-		} else {
-			node.logError(fmt.Errorf("simulation init script failed, deleting node - %v", err))
-			_ = s.DeleteNode(node.Id)
-			s.nodePlacer.ReuseNextNodePosition()
-			return nil, err
-		}
+		err = node.runInitScript(cfg.InitScript)
 	}
 
-	return node, nil
+	if err != nil {
+		node.logError(fmt.Errorf("simulation node init failed, deleting node - %v", err))
+		_ = s.DeleteNode(node.Id)
+		s.nodePlacer.ReuseNextNodePosition()
+		return nil, err
+	}
+
+	node.onStart()
+	node.displayPendingLogEntries(ts)
+
+	return node, err
 }
 
 func (s *Simulation) genNodeId() NodeId {
@@ -261,19 +270,16 @@ func (s *Simulation) OnUartWrite(nodeid NodeId, data []byte) {
 	node.uartReader <- data
 }
 
-// OnLogMessage notifies the simulation of a new node log message. When isWatchTriggered == true,
-// it is watch-message that is requested to be shown to the user based on current node watch-level
-// settings.
-func (s *Simulation) OnLogMessage(nodeid NodeId, level WatchLogLevel, isWatchTriggered bool, msg string) {
-	node := s.nodes[nodeid]
+// OnLogMessage notifies the simulation of a new node-related log message from Dispatcher.
+func (s *Simulation) OnLogMessage(logEntry LogEntry) {
+	node := s.nodes[logEntry.NodeId]
 	if node == nil {
-		PrintLog(level, fmt.Sprintf("Unknown %s: %s", GetNodeName(nodeid), msg))
+		PrintLog(logEntry.Level, fmt.Sprintf("(Unknown Node %d) %s", logEntry.NodeId, logEntry.Msg))
 		return
 	}
-	node.logEntries <- LogEntry{
-		Level:   level,
-		Msg:     msg,
-		IsWatch: isWatchTriggered,
+	node.logEntries <- logEntry
+	if logEntry.Level <= WatchCritLevel {
+		node.err = fmt.Errorf(logEntry.Msg)
 	}
 }
 
@@ -281,7 +287,7 @@ func (s *Simulation) OnNextEventTime(ts uint64, nextTs uint64) {
 	// display the pending log messages of nodes. Nodes are sorted by id.
 	s.VisitNodesInOrder(func(node *Node) {
 		node.processUartData()
-		node.handlePendingLogEntries(ts)
+		node.displayPendingLogEntries(ts)
 	})
 	s.VisitNodesInOrder(func(node *Node) {
 		simplelogger.AssertEqual(0, len(node.logEntries))
@@ -338,11 +344,13 @@ func (s *Simulation) DeleteNode(nodeid NodeId) error {
 		err := fmt.Errorf("delete node not found: %d", nodeid)
 		return err
 	}
-
-	delete(s.nodes, nodeid)
+	simplelogger.AssertFalse(s.Dispatcher().IsAlive(nodeid))
+	s.d.NotifyCommand(nodeid) // sets node alive, as we expect a NodeExit event as final one in queue.
 	err := node.Exit()
 	s.d.RecvEvents()
 	s.d.DeleteNode(nodeid)
+	node.displayPendingLogEntries(s.d.CurTime)
+	delete(s.nodes, nodeid)
 	return err
 }
 
