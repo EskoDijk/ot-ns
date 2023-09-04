@@ -155,7 +155,7 @@ func (rm *RadioModelMutualInterference) init() {
 }
 
 func (rm *RadioModelMutualInterference) getRssiAmbientNoise(node *RadioNode, channel ChannelId) DbValue {
-	return RssiAmbientNoiseDefault
+	return rm.IndoorParams.RssiNoiseFloor
 }
 
 func (rm *RadioModelMutualInterference) getRssiOnChannel(node *RadioNode, channel ChannelId) DbValue {
@@ -254,7 +254,7 @@ func (rm *RadioModelMutualInterference) applyInterference(src *RadioNode, dst *R
 		}
 		// calculate how strong the interferer was, as seen by dst
 		rssiInterferer := rm.GetTxRssi(interferer, dst)
-		if rssiInterferer > rssiInterfererMax {
+		if rssiInterferer > rssiInterfererMax { // TODO more accurate way of combining signal powers
 			rssiInterfererMax = rssiInterferer
 		}
 	}

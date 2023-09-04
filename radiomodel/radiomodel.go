@@ -50,15 +50,16 @@ const (
 	// Handtuned - for indoor model, how many meters r is RadioRange disc until Link
 	// quality drops below 2 (10 dB margin).
 	radioRangeIndoorDistInMeters = 26.70
+
+	noiseFloorIndoorDbm = -95.0 // Indoor model ambient noise floor (dBm), RSSI equivalent
 )
 
 // RSSI parameter encodings
 const (
-	RssiInvalid             DbValue = 127.0
-	RssiMax                 DbValue = 126.0
-	RssiMin                 DbValue = -126.0
-	RssiMinusInfinity       DbValue = -127.0
-	RssiAmbientNoiseDefault DbValue = -95.0 // TODO check value. Some situations it can be -90, -80, etc.
+	RssiInvalid       DbValue = 127.0
+	RssiMax           DbValue = 126.0
+	RssiMin           DbValue = -126.0
+	RssiMinusInfinity DbValue = -127.0
 )
 
 // EventQueue is the abstraction of the queue where the radio model sends its outgoing (new) events to.
@@ -104,9 +105,10 @@ type RadioModel interface {
 
 // IndoorModelParams stores model parameters for the simple indoor path loss model.
 type IndoorModelParams struct {
-	ExponentDb    float64
-	FixedLossDb   float64
-	RangeInMeters float64
+	ExponentDb     DbValue // the exponent (dB) in the model
+	FixedLossDb    DbValue // the fixed loss (dB) term in the model
+	RangeInMeters  float64 // the range in meters represented by the "radio range" parameter of a node.
+	RssiNoiseFloor DbValue // the noise floor (ambient noise, in dBm)
 }
 
 // Create creates a new RadioModel with given name, or nil if model not found.
@@ -132,9 +134,10 @@ func Create(modelName string) RadioModel {
 		model = &RadioModelMutualInterference{
 			Name: "MutualInterference",
 			IndoorParams: &IndoorModelParams{
-				ExponentDb:    35.0,
-				FixedLossDb:   40.0,
-				RangeInMeters: radioRangeIndoorDistInMeters,
+				ExponentDb:     35.0,
+				FixedLossDb:    40.0,
+				RangeInMeters:  radioRangeIndoorDistInMeters,
+				RssiNoiseFloor: noiseFloorIndoorDbm,
 			},
 		}
 	case "MIDisc", "MID", "4":
@@ -142,9 +145,10 @@ func Create(modelName string) RadioModel {
 			Name:        "MIDisc",
 			IsDiscLimit: true,
 			IndoorParams: &IndoorModelParams{
-				ExponentDb:    15.0,
-				FixedLossDb:   40.0,
-				RangeInMeters: radioRangeIndoorDistInMeters,
+				ExponentDb:     30.0,
+				FixedLossDb:    40.0,
+				RangeInMeters:  radioRangeIndoorDistInMeters,
+				RssiNoiseFloor: noiseFloorIndoorDbm,
 			},
 		}
 	default:
@@ -157,6 +161,7 @@ func Create(modelName string) RadioModel {
 }
 
 // computeIndoorRssi computes the RSSI for a receiver at distance dist, using a simple indoor exponent loss model.
+// See https://en.wikipedia.org/wiki/ITU_model_for_indoor_attenuation
 func computeIndoorRssi(srcRadioRange float64, dist float64, txPower DbValue, modelParams *IndoorModelParams) DbValue {
 	pathloss := 0.0
 	distMeters := dist * modelParams.RangeInMeters / srcRadioRange
