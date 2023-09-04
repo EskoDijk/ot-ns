@@ -35,7 +35,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
-	"runtime/pprof"
 	"strconv"
 	"strings"
 	"syscall"
@@ -44,6 +43,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/simonlingoogle/go-simplelogger"
 
+	"github.com/openthread/ot-ns/dispatcher"
 	"github.com/openthread/ot-ns/otoutfilter"
 	. "github.com/openthread/ot-ns/types"
 )
@@ -644,14 +644,11 @@ func (node *Node) GetSingleton() bool {
 }
 
 func (node *Node) processUartData() {
-	//done := node.S.ctx.Done()
 	var deadline <-chan time.Time
 loop:
 	for {
 		select {
 		case data := <-node.uartReader:
-			simplelogger.Debugf("node.uartReader: %v", string(data)) // FIXME
-			deadline = time.After(time.Second * 5)
 			line := string(data)
 			if line == "> " { // filter out the prompt.
 				continue
@@ -667,11 +664,13 @@ loop:
 					IsWatch: true,
 				}
 			} else if idxNewLine == -1 { // if no newline, get more items until a line can be formed.
+				deadline = time.After(dispatcher.DefaultReadTimeout)
+				done := node.S.ctx.Done()
+				isExiting := false
 			loop2:
 				for {
 					select {
 					case nextData := <-node.uartReader:
-						simplelogger.Debugf("node.uartReader nextData: %v", string(nextData)) // FIXME
 						nextPart := string(nextData)
 						idxNewLinePart := strings.IndexByte(nextPart, '\n')
 						line += nextPart
@@ -679,12 +678,17 @@ loop:
 							node.pendingLines <- strings.TrimSpace(line)
 							break loop2
 						}
-						/*case <-done:
-						node.pendingLines <- strings.TrimSpace(line)
-						return*/
+					case <-done:
+						if !isExiting {
+							isExiting = true
+							deadline = time.After(time.Millisecond * 200)
+						}
+						time.Sleep(time.Millisecond * 10)
 					case <-deadline:
 						line = strings.TrimSpace(line)
-						simplelogger.Panicf("%s processUart deadline hit: line=%s", node, line)
+						if !isExiting {
+							simplelogger.Panicf("%s processUart deadline: line=%s", node, line)
+						}
 						node.pendingLines <- line
 						break loop2
 					}
@@ -707,7 +711,6 @@ func (node *Node) lineReaderStdErr(reader io.Reader) {
 	for scanner.Scan() {
 		line := scanner.Text()
 		stderrLine := fmt.Sprintf("StdErr: %s", line)
-		simplelogger.Errorf(stderrLine) // FIXME
 
 		// mark the first error output line of the node
 		if errProc == nil {
@@ -729,11 +732,11 @@ func (node *Node) expectLine(line interface{}, timeout time.Duration) ([]string,
 		return []string{"Done"}, node.err
 	}
 
-	deadline := time.After(timeout) // FIXME
+	deadline := time.After(timeout)
 	for {
 		select {
 		case <-deadline:
-			_ = pprof.Lookup("goroutine").WriteTo(os.Stdout, 2) // FIXME
+			//_ = pprof.Lookup("goroutine").WriteTo(os.Stdout, 2) // useful for debug
 			outputLines = append(outputLines, "Done")
 			err := fmt.Errorf("%v - expectLine timeout: %#v (%w)", node, line, nonResponsiveNodeError)
 			return outputLines, err
@@ -759,10 +762,11 @@ func (node *Node) expectLine(line interface{}, timeout time.Duration) ([]string,
 				}
 			}
 		default:
-			//simplelogger.AssertTrue(node.S.Dispatcher().IsAlive(node.Id)) FIXME
+			if !node.S.Dispatcher().IsAlive(node.Id) {
+				time.Sleep(time.Millisecond * 10) // in case of node connection error, this becomes busy-loop.
+			}
 			node.S.Dispatcher().RecvEvents() // keep virtual-UART events coming.
-			//simplelogger.Debugf("%v recvevents", cnt) FIXME
-			node.processUartData() // forge data from UART-events into lines (fills up node.pendingLines)
+			node.processUartData()           // forge data from UART-events into lines (fills up node.pendingLines)
 		}
 	}
 }
@@ -845,7 +849,7 @@ func (node *Node) log(level WatchLogLevel, msg string) {
 		NodeId:  node.Id,
 		Level:   level,
 		Msg:     msg,
-		IsWatch: true,
+		IsWatch: false,
 	}
 }
 

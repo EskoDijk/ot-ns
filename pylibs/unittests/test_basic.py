@@ -82,6 +82,8 @@ class BasicTests(OTNSTestCase):
             nid = ns.add("router", id=new_id)
             self.assertEqual(nid, new_id)
             self.go(1)
+        self.go(130)
+        self.assertFormPartitions(1)
 
     def testAddNodeWithExistingID(self):
         ns = self.ns
@@ -141,14 +143,14 @@ class BasicTests(OTNSTestCase):
         self.assertTrue(ns.nodes() == {})
 
     def testDelNodeAndImmediatelyRecreate(self):
-
+        # repeat multiple times to catch some goroutine race conditions that only happen sometimes.
         for i in range(100):
             ns = self.ns
             ns.loglevel = 'debug'
-            ns.watch_default('debug')
+            ns.watch_default('debug') # add extra detail in all node's logs
             id = ns.add("router")
             self.assertTrue(len(ns.nodes()) == 1 and 1 in ns.nodes() and id == 1)
-            self.go(1)
+            self.go(i/100)
             self.assertTrue(len(ns.nodes()) == 1 and 1 in ns.nodes())
 
             ns.delete(1)
@@ -163,7 +165,8 @@ class BasicTests(OTNSTestCase):
 
             ns.delete(1, 2, 3, 4)
             self.assertTrue(len(ns.nodes()) == 0)
-            #ns.go(0)
+            if i>90:
+                ns.go(0)
 
             ns.add("router")
             id = ns.add("router")

@@ -56,7 +56,7 @@ import (
 const (
 	Ever               uint64 = math.MaxUint64 / 2
 	MaxSimulateSpeed          = 1000000
-	DefaultReadTimeout        = time.Second * 5
+	DefaultReadTimeout        = time.Second * 10
 )
 
 type pcapFrameItem struct {
@@ -102,6 +102,9 @@ type CallbackHandler interface {
 
 	// OnNextEventTime Notifies that the Dispatcher simulation moves to the next event time.
 	OnNextEventTime(curTimeUs uint64, nextTimeUs uint64)
+
+	// OnStop Notifies the Dispatcher needs to stop the simulation and requests nodes to be closed.
+	OnStop()
 }
 
 // represents a particular duration of simulation at a given speed, or DefaultDispatcherSpeed. It can be
@@ -406,9 +409,7 @@ func (d *Dispatcher) handleRecvEvent(evt *Event) {
 	switch evt.Type {
 	case EventTypeAlarmFired:
 		d.Counters.AlarmEvents += 1
-		simplelogger.Debugf("setSleeping Alarm evt received for %v", node) // FIXME
 		if evt.MsgId == node.msgId {
-			simplelogger.Debugf("this is the latest, set node sleeping %v", node) // FIXME
 			d.setSleeping(node.Id)
 		}
 		d.alarmMgr.SetTimestamp(nodeid, d.CurTime+delay) // schedule future wake-up of node
@@ -435,7 +436,7 @@ func (d *Dispatcher) handleRecvEvent(evt *Event) {
 	case EventTypeNodeInfo:
 		break
 	case EventTypeNodeExit:
-		simplelogger.Debugf("EventTypeNodeExit evt received for %v", node) // FIXME
+		simplelogger.Debugf("%s exited.", node)
 		d.setSleeping(node.Id)
 		d.alarmMgr.SetTimestamp(node.Id, Ever)
 	default:
@@ -445,20 +446,29 @@ func (d *Dispatcher) handleRecvEvent(evt *Event) {
 
 // RecvEvents receives events from nodes, and handles these, until there is no more alive node.
 func (d *Dispatcher) RecvEvents() int {
-	blockTimeout := time.After(DefaultReadTimeout)
+	done := d.ctx.Done()
 	count := 0
+	isExiting := false
+	blockTimeout := time.After(DefaultReadTimeout)
 
 loop:
 	for {
 		shouldBlock := len(d.aliveNodes) > 0
 		if shouldBlock {
-			simplelogger.Debugf("RecvEvents(): d.aliveNodes = %d cnt=%d", len(d.aliveNodes), count) // FIXME
 			select {
 			case evt := <-d.eventChan: // new event
 				count += 1
 				d.handleRecvEvent(evt)
 			case <-blockTimeout: // timeout
 				break loop
+			case <-done:
+				if !isExiting {
+					d.cbHandler.OnStop()
+					blockTimeout = time.After(time.Millisecond * 200)
+					isExiting = true
+				}
+				time.Sleep(time.Millisecond * 10)
+				break
 			}
 		} else {
 			select {
@@ -598,7 +608,6 @@ func (d *Dispatcher) eventsReader() {
 	for {
 		// Wait for OT nodes to connect.
 		conn, err := d.udpln.Accept()
-		simplelogger.Debugf("Accept() returned, err=%v conn=%v", err, conn) // FIXME
 		if err != nil || d.IsStopped() {
 			if conn != nil {
 				_ = conn.Close()
@@ -610,32 +619,22 @@ func (d *Dispatcher) eventsReader() {
 		}
 
 		// Handle the new connection in a separate goroutine.
-		readTimeout := DefaultReadTimeout
 		d.waitGroupNodes.Add(1)
-
 		go func(myConn net.Conn) {
 			defer d.waitGroupNodes.Done()
-			defer simplelogger.Debugf(" eventsReader() node thread exited.") // FIXME
 			defer myConn.Close()
 
-			simplelogger.Debugf("New eventsReader() node thread started.") // FIXME
-			buf := make([]byte, 4096)
+			buf := make([]byte, 65536)
 			myNodeId := 0
 
 			for {
-				_ = myConn.SetReadDeadline(time.Now().Add(readTimeout))
+				_ = myConn.SetReadDeadline(time.Now().Add(DefaultReadTimeout)) // important to collect 'whole' events.
 				n, err := myConn.Read(buf)
-				simplelogger.Debugf("Read %d bytes. (err=%v)", n, err) // FIXME
 
-				if errors.Is(err, io.EOF) {
-					simplelogger.Debugf("EOF") // FIXME
+				if errors.Is(err, os.ErrDeadlineExceeded) {
+					continue // keep reading
+				} else if errors.Is(err, io.EOF) {
 					break
-				} else if errors.Is(err, os.ErrDeadlineExceeded) {
-					if n > 0 {
-						simplelogger.Panicf("Unexpected n > 0 after socket read timeout.")
-					}
-					simplelogger.Debugf("ErrDeadlineExceeded") // FIXME
-					continue
 				} else if err != nil {
 					simplelogger.Errorf("Node %d - Socket read error: %+v", myNodeId, err)
 					break
@@ -645,17 +644,25 @@ func (d *Dispatcher) eventsReader() {
 				for bufIdx < n {
 					evt := &Event{}
 					nextEventOffset := evt.Deserialize(buf[bufIdx:n])
+					if nextEventOffset == 0 { // a complete event wasn't found.
+						simplelogger.Panicf("Many events - increase 'buf' size in Dispatcher.eventsReader()")
+					}
 					bufIdx += nextEventOffset
 					// First event received should be NodeInfo type. From this, we learn nodeId.
 					if myNodeId == 0 && evt.Type == EventTypeNodeInfo {
 						myNodeId = evt.NodeInfoData.NodeId
 						simplelogger.AssertTrue(myNodeId > 0)
-						simplelogger.Debugf("Found myNodeId=%d", myNodeId) // FIXME
+						simplelogger.Debugf("Init event received from new Node %d", myNodeId)
 					}
 					evt.NodeId = myNodeId
 					evt.Conn = myConn
-					simplelogger.Debugf("THREAD eventsReader(): created evt=%+v", evt) // FIXME
 					d.eventChan <- evt
+				}
+
+				// increase buf size when needed
+				if n > len(buf)/2 {
+					buf = make([]byte, len(buf)*2)
+					simplelogger.Warnf("Increasing eventsReader() buf size for node %d to: %d KB", myNodeId, len(buf)/1024)
 				}
 			}
 
@@ -682,7 +689,6 @@ func (d *Dispatcher) advanceNodeTime(node *Node, timestamp uint64, force bool) {
 	}
 
 	oldTime := node.CurTime
-	simplelogger.Debugf("advanceNodeTime: ts=%d oldts=%d", timestamp, oldTime) // FIXME
 	if timestamp <= oldTime && !force {
 		// node time was already equal to or newer than the requested timestamp
 		return
@@ -880,7 +886,6 @@ func (d *Dispatcher) sendOneRadioFrame(evt *Event,
 }
 
 func (d *Dispatcher) setAlive(nodeid NodeId) {
-	simplelogger.Debugf("setAlive(%d)", nodeid)
 	simplelogger.AssertFalse(d.cfg.Real)
 	simplelogger.AssertFalse(d.isDeleted(nodeid))
 	d.aliveNodes[nodeid] = struct{}{}
@@ -1061,7 +1066,6 @@ func (d *Dispatcher) AddNode(nodeid NodeId, cfg *NodeConfig) *Node {
 	d.energyAnalyser.AddNode(nodeid, d.CurTime)
 	d.vis.AddNode(nodeid, cfg.X, cfg.Y, cfg.RadioRange)
 	d.radioModel.AddNode(nodeid, node.radioNode)
-	simplelogger.Debugf("d.AddNode calls setalive") // FIXME
 	d.setAlive(nodeid)
 
 	if d.cfg.DefaultWatchOn {
@@ -1420,7 +1424,6 @@ func (d *Dispatcher) SetVisualizationOptions(opts VisualizationOptions) {
 }
 
 func (d *Dispatcher) NotifyCommand(nodeid NodeId) {
-	simplelogger.Debugf("d.NotifyCommand calls setalive") // FIXME
 	d.setAlive(nodeid)
 }
 

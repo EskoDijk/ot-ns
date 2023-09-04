@@ -152,18 +152,22 @@ func (e *Event) Serialize() []byte {
 	return msg
 }
 
-// Deserialize deserializes []byte Event fields (as received from OpenThread node) into Event object e.
+// Deserialize deserializes []byte Event fields (as received from OpenThread node) into the Event object e.
+// It returns the number of bytes used from `data` for the Deserialize operation, or 0 if the data buffer
+// is incomplete i.e. does not contain one entire serialized Event.
 func (e *Event) Deserialize(data []byte) int {
 	n := len(data)
 	if n < EventMsgHeaderLen {
-		simplelogger.Panicf("event message length too short: %d", n)
+		return 0
 	}
 	e.Delay = binary.LittleEndian.Uint64(data[:8])
 	e.Type = data[8]
 	e.MsgId = binary.LittleEndian.Uint64(data[9:17])
 	datalen := binary.LittleEndian.Uint16(data[17:19])
 	var payloadOffset uint16 = 0
-	simplelogger.AssertTrue(datalen <= uint16(n-EventMsgHeaderLen))
+	if datalen > uint16(n-EventMsgHeaderLen) {
+		return 0
+	}
 	e.Data = data[EventMsgHeaderLen : EventMsgHeaderLen+datalen]
 
 	// Detect composite event types

@@ -137,7 +137,6 @@ func (node *Node) sendEvent(evt *Event) {
 
 	// time keeping - move node's time to the current send-event's time.
 	node.D.alarmMgr.SetNotified(node.Id)
-	simplelogger.Debugf("Node.sendEvent calls setAlive") // FIXME
 	node.D.setAlive(node.Id)
 	node.CurTime += evt.Delay
 	simplelogger.AssertTrue(node.CurTime == node.D.CurTime)
@@ -182,7 +181,7 @@ func (node *Node) log(level WatchLogLevel, msg string, args ...any) {
 		NodeId:  node.Id,
 		Level:   level,
 		Msg:     msg,
-		IsWatch: true,
+		IsWatch: level >= WatchTraceLevel,
 	}
 	node.D.cbHandler.OnLogMessage(logEntry)
 }

@@ -135,13 +135,12 @@ func (s *Simulation) AddNode(cfg *NodeConfig) (*Node, error) {
 	// init of the sim/dispatcher nodes
 	node.uartType = NodeUartTypeVirtualTime
 	simplelogger.AssertTrue(s.d.IsAlive(nodeid))
-	simplelogger.Debugf("receiving new node startup events")      // FIXME
-	evtCnt := s.d.RecvEvents()                                    // allow new node to connect, and to receive its startup events.
-	simplelogger.Debugf("receiving new node startup events Done") // FIXME
+	evtCnt := s.d.RecvEvents() // allow new node to connect, and to receive its startup events.
 	ts := s.d.CurTime
 	node.displayPendingLogEntries(ts)
 
 	if s.ctx.Err() != nil { // only proceed if we're not exiting the simulation.
+		simplelogger.Debugf("Simulation exiting, stopping AddNode operation.")
 		return node, nil
 	}
 
@@ -292,6 +291,10 @@ func (s *Simulation) OnNextEventTime(ts uint64, nextTs uint64) {
 	s.VisitNodesInOrder(func(node *Node) {
 		simplelogger.AssertEqual(0, len(node.logEntries))
 	})
+}
+
+func (s *Simulation) OnStop() {
+	//
 }
 
 func (s *Simulation) onNodeProcessFailure(node *Node, err error) {
