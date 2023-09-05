@@ -79,7 +79,7 @@ func (rm *RadioModelMutualInterference) CheckRadioReachable(src *RadioNode, dst 
 		return false
 	}
 	rssi := rm.GetTxRssi(src, dst)
-	return rssi >= RssiMin && rssi <= RssiMax && rssi >= dst.RxSensitivity
+	return rssi >= RssiMin && rssi <= RssiMax && rssi >= (dst.RxSensitivity+rm.IndoorParams.SnrMinThresholdDb)
 }
 
 func (rm *RadioModelMutualInterference) GetTxRssi(srcNode *RadioNode, dstNode *RadioNode) DbValue {
@@ -166,9 +166,7 @@ func (rm *RadioModelMutualInterference) getRssiOnChannel(node *RadioNode, channe
 		if rssi == RssiInvalid {
 			continue
 		}
-		if rssi > rssiMax {
-			rssiMax = rssi // TODO combine signal energies in more realistic way.
-		}
+		rssiMax = addSignalPowersDbm(rssi, rssiMax)
 	}
 	return rssiMax
 }
@@ -244,8 +242,8 @@ func (rm *RadioModelMutualInterference) txStop(node *RadioNode, evt *Event) {
 }
 
 func (rm *RadioModelMutualInterference) applyInterference(src *RadioNode, dst *RadioNode, evt *Event) {
-	// Apply interference. Loop all interferers that were active during Tx by 'src'. Find the strongest.
-	rssiInterfererMax := rm.getRssiAmbientNoise(dst, ChannelId(evt.RadioCommData.Channel))
+	// Apply interference. Loop all interferers that were active during Tx by 'src' and add their signal powers.
+	powIntfMax := rm.getRssiAmbientNoise(dst, ChannelId(evt.RadioCommData.Channel))
 	for _, interferer := range rm.interferedBy[src.Id] {
 		if interferer == dst { // if dst node was at some point transmitting itself, fail the Rx
 			rm.log(evt.Timestamp, dst.Id, "Detected self-transmission of Node, set Rx OT_ERROR_ABORT")
@@ -253,15 +251,13 @@ func (rm *RadioModelMutualInterference) applyInterference(src *RadioNode, dst *R
 			return
 		}
 		// calculate how strong the interferer was, as seen by dst
-		rssiInterferer := rm.GetTxRssi(interferer, dst)
-		if rssiInterferer > rssiInterfererMax { // TODO more accurate way of combining signal powers
-			rssiInterfererMax = rssiInterferer
-		}
+		powIntf := rm.GetTxRssi(interferer, dst)
+		powIntfMax = addSignalPowersDbm(powIntf, powIntfMax)
 	}
 
 	// probabilistic BER model
 	rssi := rm.GetTxRssi(src, dst)
-	sirDb := rssi - rssiInterfererMax // the Signal-to-Interferer (SIR/SINR) ratio
+	sirDb := rssi - powIntfMax // the Signal-to-Interferer (SIR/SINR) ratio
 	isLogMsg, logMsg := applyBerModel(sirDb, src.Id, evt)
 	if isLogMsg {
 		rm.log(evt.Timestamp, dst.Id, logMsg) // log it on dest node's log
@@ -271,10 +267,11 @@ func (rm *RadioModelMutualInterference) applyInterference(src *RadioNode, dst *R
 // update sample value for all channel-sampling nodes that may detect the new source src.
 func (rm *RadioModelMutualInterference) updateChannelSamplingNodes(src *RadioNode, evt *Event) {
 	simplelogger.AssertTrue(evt.Type == EventTypeRadioCommStart)
-	for _, samplingNode := range rm.activeChannelSamplers[int(evt.RadioCommData.Channel)] {
+	ch := int(evt.RadioCommData.Channel)
+	for _, samplingNode := range rm.activeChannelSamplers[ch] {
 		r := rm.GetTxRssi(src, samplingNode)
-		if r > samplingNode.rssiSampleMax && r != RssiInvalid {
-			samplingNode.rssiSampleMax = r // TODO accurate method of energy combining.
+		if r != RssiInvalid {
+			samplingNode.rssiSampleMax = addSignalPowersDbm(r, samplingNode.rssiSampleMax)
 		}
 	}
 }

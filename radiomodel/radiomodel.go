@@ -76,7 +76,7 @@ type RadioModel interface {
 	// DeleteNode removes a RadioNode from the model.
 	DeleteNode(nodeid NodeId)
 
-	// CheckRadioReachable checks if the srcNode radio can reach the dstNode radio, now.
+	// CheckRadioReachable checks if the srcNode radio can reach the dstNode radio, now, with a >0 probability.
 	CheckRadioReachable(srcNode *RadioNode, dstNode *RadioNode) bool
 
 	// GetTxRssi calculates at what RSSI level a radio frame Tx would be received by
@@ -87,8 +87,9 @@ type RadioModel interface {
 
 	// OnEventDispatch is called when the Dispatcher sends an Event to a particular dstNode. The method
 	// implementation may e.g. apply interference to a frame in transit, prior to delivery of the
-	// frame at a single receiving radio dstNode, or set additional info in the event.
-	// Returns true if event can be dispatched, false if not.
+	// frame at a single receiving radio dstNode, or apply loss of the frame, or set additional info
+	// in the event. Returns true if event can be dispatched, false if not (e.g. due to Rx radio not
+	// able to detect the frame).
 	OnEventDispatch(srcNode *RadioNode, dstNode *RadioNode, evt *Event) bool
 
 	// HandleEvent handles all radio-model events coming out of the simulator event queue.
@@ -105,10 +106,11 @@ type RadioModel interface {
 
 // IndoorModelParams stores model parameters for the simple indoor path loss model.
 type IndoorModelParams struct {
-	ExponentDb     DbValue // the exponent (dB) in the model
-	FixedLossDb    DbValue // the fixed loss (dB) term in the model
-	RangeInMeters  float64 // the range in meters represented by the "radio range" parameter of a node.
-	RssiNoiseFloor DbValue // the noise floor (ambient noise, in dBm)
+	ExponentDb        DbValue // the exponent (dB) in the model
+	FixedLossDb       DbValue // the fixed loss (dB) term in the model
+	RangeInMeters     float64 // the range in meters represented by the "radio range" parameter of a node.
+	RssiNoiseFloor    DbValue // the noise floor (ambient noise, in dBm)
+	SnrMinThresholdDb DbValue // the minimal value an SNR/SINR should be, to have a non-zero frame success probability.
 }
 
 // Create creates a new RadioModel with given name, or nil if model not found.
@@ -134,10 +136,11 @@ func Create(modelName string) RadioModel {
 		model = &RadioModelMutualInterference{
 			Name: "MutualInterference",
 			IndoorParams: &IndoorModelParams{
-				ExponentDb:     35.0,
-				FixedLossDb:    40.0,
-				RangeInMeters:  radioRangeIndoorDistInMeters,
-				RssiNoiseFloor: noiseFloorIndoorDbm,
+				ExponentDb:        35.0,
+				FixedLossDb:       40.0,
+				RangeInMeters:     radioRangeIndoorDistInMeters,
+				RssiNoiseFloor:    noiseFloorIndoorDbm,
+				SnrMinThresholdDb: -4.0, // see calcber.m Octave file
 			},
 		}
 	case "MIDisc", "MID", "4":
@@ -145,10 +148,11 @@ func Create(modelName string) RadioModel {
 			Name:        "MIDisc",
 			IsDiscLimit: true,
 			IndoorParams: &IndoorModelParams{
-				ExponentDb:     30.0,
-				FixedLossDb:    40.0,
-				RangeInMeters:  radioRangeIndoorDistInMeters,
-				RssiNoiseFloor: noiseFloorIndoorDbm,
+				ExponentDb:        30.0,
+				FixedLossDb:       40.0,
+				RangeInMeters:     radioRangeIndoorDistInMeters,
+				RssiNoiseFloor:    noiseFloorIndoorDbm,
+				SnrMinThresholdDb: -4.0, // see calcber.m Octave file
 			},
 		}
 	default:
@@ -177,4 +181,9 @@ func computeIndoorRssi(srcRadioRange float64, dist float64, txPower DbValue, mod
 		rssi = RssiMinusInfinity
 	}
 	return rssi
+}
+
+// addSignalPowersDbm calculates signal power in dBm of two added, uncorrelated, signals with powers p1 and p2 (dBm).
+func addSignalPowersDbm(p1 DbValue, p2 DbValue) DbValue {
+	return 10.0 * math.Log10(math.Pow(10, p1/10.0)+math.Pow(10, p2/10.0))
 }
