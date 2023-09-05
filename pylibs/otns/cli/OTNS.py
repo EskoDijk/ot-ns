@@ -33,6 +33,7 @@ import shutil
 import signal
 import subprocess
 import threading
+import time
 from typing import List, Union, Optional, Tuple, Dict, Any, Collection
 import yaml
 from .errors import OTNSCliError, OTNSExitedError
@@ -88,6 +89,11 @@ class OTNS(object):
             logging.info("OTNS simulation is to be closed - waiting for user CLI exit by the \'exit\' command.")
             self._cli_thread.join()
         logging.info("waiting for OTNS to close ...")
+        try:
+            self._do_command("exit", do_logging=False)
+        except OTNSExitedError:
+            pass
+        time.sleep(0.010)
         self._otns.send_signal(signal.SIGTERM)
         try:
             self._otns.__exit__(None, None, None)

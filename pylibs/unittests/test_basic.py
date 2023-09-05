@@ -55,7 +55,7 @@ class BasicTests(OTNSTestCase):
 
     def testOneNodex100(self):
         for i in range(100):
-            logging.info("testOneNode round %d", i + 1)
+            logging.info("testOneNodex100 round %d", i + 1)
             ns = self.ns
             ns.add("router")
             ns.go(10)
@@ -145,6 +145,8 @@ class BasicTests(OTNSTestCase):
     def testDelNodeAndImmediatelyRecreate(self):
         # repeat multiple times to catch some goroutine race conditions that only happen sometimes.
         for i in range(100):
+            logging.info("testDelNodeAndImmediatelyRecreate round %d", i + 1)
+
             ns = self.ns
             ns.loglevel = 'debug'
             ns.watch_default('debug') # add extra detail in all node's logs
