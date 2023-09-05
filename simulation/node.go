@@ -740,11 +740,7 @@ func (node *Node) expectLine(line interface{}, timeout time.Duration) ([]string,
 			outputLines = append(outputLines, "Done")
 			err := fmt.Errorf("%v - expectLine timeout: %#v (%w)", node, line, nonResponsiveNodeError)
 			return outputLines, err
-		case readLine, ok := <-node.pendingLines:
-			if !ok { //channel was closed - this may happen on node's exit.
-				outputLines = append(outputLines, "Done")
-				return outputLines, exitError
-			}
+		case readLine := <-node.pendingLines:
 			if len(readLine) > 0 {
 				node.log(WatchTraceLevel, "UART: "+readLine)
 			}
