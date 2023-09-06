@@ -50,7 +50,7 @@ import (
 
 const (
 	DefaultCommandTimeout = time.Second * 10
-	NodeExitTimeout       = time.Second * 3
+	NodeExitTimeout       = time.Second * 2
 )
 
 var (
@@ -192,7 +192,7 @@ func (node *Node) Exit() error {
 	_ = node.pipeErr.Close()
 	_ = node.pipeOut.Close()
 
-	processDone := make(chan bool, 0)
+	processDone := make(chan bool)
 	simplelogger.Debugf("%s Waiting for process to exit ...", node.String())
 	timeout := time.After(NodeExitTimeout)
 	go func() {
@@ -200,10 +200,9 @@ func (node *Node) Exit() error {
 		case processDone <- true:
 			break
 		case <-timeout:
-			if !node.cmd.ProcessState.Exited() {
-				simplelogger.Warnf("%s did not exit properly, sending SIGKILL.", node.String())
-				_ = node.cmd.Process.Kill()
-			}
+			simplelogger.Warnf("%s did not exit properly, sending SIGKILL.", node.String())
+			_ = node.cmd.Process.Kill()
+			processDone <- true
 		}
 	}()
 	err := node.cmd.Wait() // wait for process end
