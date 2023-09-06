@@ -56,7 +56,7 @@ import (
 const (
 	Ever               uint64 = math.MaxUint64 / 2
 	MaxSimulateSpeed          = 1000000
-	DefaultReadTimeout        = time.Second * 10
+	DefaultReadTimeout        = time.Second * 5
 )
 
 type pcapFrameItem struct {
@@ -413,8 +413,6 @@ func (d *Dispatcher) handleRecvEvent(evt *Event) {
 			d.setSleeping(node.Id)
 		}
 		d.alarmMgr.SetTimestamp(nodeid, d.CurTime+delay) // schedule future wake-up of node
-	case EventTypeRadioReceived:
-		simplelogger.Panicf("legacy EventTypeRadioReceived received - unsupported OT node executable version.")
 	case EventTypeRadioCommStart:
 		fallthrough
 	case EventTypeRadioChannelSample:
@@ -435,8 +433,8 @@ func (d *Dispatcher) handleRecvEvent(evt *Event) {
 		node.onStatusPushExtAddr(extaddr)
 	case EventTypeNodeInfo:
 		break
-	case EventTypeNodeExit:
-		simplelogger.Debugf("%s exited.", node)
+	case EventTypeNodeDisconnected:
+		simplelogger.Debugf("%s socket disconnected.", node)
 		d.setSleeping(node.Id)
 		d.alarmMgr.SetTimestamp(node.Id, Ever)
 	default:
@@ -464,7 +462,7 @@ loop:
 			case <-done:
 				if !isExiting {
 					d.cbHandler.OnStop()
-					blockTimeout = time.After(time.Millisecond * 200)
+					blockTimeout = time.After(time.Millisecond * 250)
 					isExiting = true
 				}
 				time.Sleep(time.Millisecond * 10)
@@ -628,15 +626,17 @@ func (d *Dispatcher) eventsReader() {
 			myNodeId := 0
 
 			for {
-				_ = myConn.SetReadDeadline(time.Now().Add(DefaultReadTimeout)) // important to collect 'whole' events.
+				//_ = myConn.SetReadDeadline(time.Now().Add(DefaultReadTimeout)) // FIXME remove line
 				n, err := myConn.Read(buf)
 
+				/* FIXME remove
 				if errors.Is(err, os.ErrDeadlineExceeded) {
 					continue // keep reading
-				} else if errors.Is(err, io.EOF) {
+				} else */
+				if errors.Is(err, io.EOF) {
 					break
 				} else if err != nil {
-					simplelogger.Errorf("Node %d - Socket read error: %+v", myNodeId, err)
+					simplelogger.Errorf("Node %d - Closing socket after read error: %+v", myNodeId, err)
 					break
 				}
 
@@ -645,7 +645,7 @@ func (d *Dispatcher) eventsReader() {
 					evt := &Event{}
 					nextEventOffset := evt.Deserialize(buf[bufIdx:n])
 					if nextEventOffset == 0 { // a complete event wasn't found.
-						simplelogger.Panicf("Many events - increase 'buf' size in Dispatcher.eventsReader()")
+						simplelogger.Panicf("Node %d - Too many events, or incorrect event data - may increase 'buf' size in Dispatcher.eventsReader()")
 					}
 					bufIdx += nextEventOffset
 					// First event received should be NodeInfo type. From this, we learn nodeId.
@@ -669,7 +669,7 @@ func (d *Dispatcher) eventsReader() {
 			// Once the socket is disconnected, signal one last event.
 			d.eventChan <- &Event{
 				Delay:  0,
-				Type:   EventTypeNodeExit,
+				Type:   EventTypeNodeDisconnected,
 				NodeId: myNodeId,
 				Conn:   nil,
 			}

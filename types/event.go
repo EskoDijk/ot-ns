@@ -54,7 +54,7 @@ const (
 	EventTypeRadioRxDone        EventType = 10
 	EventTypeExtAddr            EventType = 11
 	EventTypeNodeInfo           EventType = 12
-	EventTypeNodeExit           EventType = 14
+	EventTypeNodeDisconnected   EventType = 14
 	EventTypeRadioLog           EventType = 15
 )
 

@@ -50,6 +50,7 @@ import (
 
 const (
 	DefaultCommandTimeout = time.Second * 10
+	NodeExitTimeout       = time.Second * 3
 )
 
 var (
@@ -161,6 +162,9 @@ func (node *Node) runInitScript(cfg []string) error {
 		if node.err != nil {
 			return node.err
 		}
+		if node.S.ctx.Err() != nil {
+			return nil
+		}
 		node.Command(cmd, DefaultCommandTimeout)
 	}
 	return node.err
@@ -187,7 +191,24 @@ func (node *Node) Exit() error {
 	_ = node.pipeIn.Close()
 	_ = node.pipeErr.Close()
 	_ = node.pipeOut.Close()
+
+	processDone := make(chan bool, 0)
+	simplelogger.Debugf("%s Waiting for process to exit ...", node.String())
+	timeout := time.After(NodeExitTimeout)
+	go func() {
+		select {
+		case processDone <- true:
+			break
+		case <-timeout:
+			if !node.cmd.ProcessState.Exited() {
+				simplelogger.Warnf("%s did not exit properly, sending SIGKILL.", node.String())
+				_ = node.cmd.Process.Kill()
+			}
+		}
+	}()
 	err := node.cmd.Wait() // wait for process end
+	simplelogger.Debugf("%s process exited.", node.String())
+	<-processDone
 
 	return err
 }
@@ -659,6 +680,7 @@ loop:
 			if isLogLine {
 				lev := ParseWatchLogLevel(otLevelChar)
 				node.logEntries <- LogEntry{
+					NodeId:  node.Id,
 					Level:   lev,
 					Msg:     lineTrim,
 					IsWatch: true,
@@ -736,9 +758,9 @@ func (node *Node) expectLine(line interface{}, timeout time.Duration) ([]string,
 	for {
 		select {
 		case <-deadline:
-			//_ = pprof.Lookup("goroutine").WriteTo(os.Stdout, 2) // useful for debug
+			//_ = pprof.Lookup("goroutine").WriteTo(os.Stdout, 2) // useful for debug when node stuck
 			outputLines = append(outputLines, "Done")
-			err := fmt.Errorf("%v - expectLine timeout: %#v (%w)", node, line, nonResponsiveNodeError)
+			err := fmt.Errorf("%v - expectLine timeout: %#v", node, line)
 			return outputLines, err
 		case readLine := <-node.pendingLines:
 			if len(readLine) > 0 {
@@ -786,9 +808,7 @@ func (node *Node) Ping(addr string, payloadSize int, count int, interval int, ho
 	cmd := fmt.Sprintf("ping async %s %d %d %d %d", addr, payloadSize, count, interval, hopLimit)
 	node.inputCommand(cmd)
 	_, err := node.expectLine(cmd, DefaultCommandTimeout)
-	if err != nil {
-		node.logError(err)
-	}
+	node.logError(err)
 	node.AssurePrompt()
 }
 
@@ -842,15 +862,14 @@ func (node *Node) setupMode() {
 
 func (node *Node) log(level WatchLogLevel, msg string) {
 	node.logEntries <- LogEntry{
-		NodeId:  node.Id,
-		Level:   level,
-		Msg:     msg,
-		IsWatch: false,
+		NodeId: node.Id,
+		Level:  level,
+		Msg:    msg,
 	}
 }
 
 func (node *Node) logError(err error) {
-	if err == nil || errors.Is(err, exitError) {
+	if err == nil {
 		return
 	}
 	node.logEntries <- LogEntry{
@@ -862,6 +881,7 @@ func (node *Node) logError(err error) {
 }
 
 func (node *Node) displayPendingLogEntries(ts uint64) {
+	isExiting := node.S.ctx.Err() != nil
 	for {
 		select {
 		case e := <-node.logEntries:
@@ -869,6 +889,9 @@ func (node *Node) displayPendingLogEntries(ts uint64) {
 			_ = node.writeToLogFile(line)
 
 			s := node.S
+			if isExiting && e.Level <= WatchCritLevel {
+				e.Level = WatchInfoLevel // avoid error display while exiting - it's normal to lose connectivity to nodes.
+			}
 			if e.IsWatch {
 				// watch messages may get increased level/visibility
 				if e.Level <= s.Dispatcher().GetWatchLevel(node.Id) { // IF it must be shown

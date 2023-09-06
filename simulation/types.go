@@ -35,11 +35,6 @@ import (
 	. "github.com/openthread/ot-ns/types"
 )
 
-var (
-	exitError              = fmt.Errorf("operation aborted due to simulation exit")
-	nonResponsiveNodeError = fmt.Errorf("node did not respond within timeout")
-)
-
 type CmdRunner interface {
 	RunCommand(cmd string, output io.Writer) error
 

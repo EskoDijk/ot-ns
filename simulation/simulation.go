@@ -158,10 +158,17 @@ func (s *Simulation) AddNode(cfg *NodeConfig) (*Node, error) {
 		err = node.runInitScript(cfg.InitScript)
 	}
 
+	if s.ctx.Err() != nil { // only proceed if we're not exiting the simulation.
+		simplelogger.Debugf("Simulation exiting, stopping AddNode operation.")
+		node.displayPendingLogEntries(ts)
+		return node, nil
+	}
+
 	if err != nil {
 		node.logError(fmt.Errorf("simulation node init failed, deleting node - %v", err))
 		_ = s.DeleteNode(node.Id)
 		s.nodePlacer.ReuseNextNodePosition()
+		node.displayPendingLogEntries(ts)
 		return nil, err
 	}
 
