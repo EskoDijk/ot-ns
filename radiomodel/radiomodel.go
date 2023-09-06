@@ -106,11 +106,12 @@ type RadioModel interface {
 
 // IndoorModelParams stores model parameters for the simple indoor path loss model.
 type IndoorModelParams struct {
-	ExponentDb        DbValue // the exponent (dB) in the model
-	FixedLossDb       DbValue // the fixed loss (dB) term in the model
-	RangeInMeters     float64 // the range in meters represented by the "radio range" parameter of a node.
-	RssiNoiseFloor    DbValue // the noise floor (ambient noise, in dBm)
-	SnrMinThresholdDb DbValue // the minimal value an SNR/SINR should be, to have a non-zero frame success probability.
+	ExponentDb          DbValue // the exponent (dB) in the model
+	FixedLossDb         DbValue // the fixed loss (dB) term in the model
+	RangeInMeters       float64 // the range in meters represented by the "radio range" parameter of a node.
+	NoiseFloorDbm       DbValue // the noise floor (ambient noise, in dBm)
+	SnrMinThresholdDb   DbValue // the minimal value an SNR/SINR should be, to have a non-zero frame success probability.
+	ShadowFadingSigmaDb DbValue // sigma (stddev) parameter for Shadow Fading (SF), in dB
 }
 
 // Create creates a new RadioModel with given name, or nil if model not found.
@@ -136,24 +137,28 @@ func Create(modelName string) RadioModel {
 		model = &RadioModelMutualInterference{
 			Name: "MutualInterference",
 			IndoorParams: &IndoorModelParams{
-				ExponentDb:        35.0,
-				FixedLossDb:       40.0,
-				RangeInMeters:     radioRangeIndoorDistInMeters,
-				RssiNoiseFloor:    noiseFloorIndoorDbm,
-				SnrMinThresholdDb: -4.0, // see calcber.m Octave file
+				ExponentDb:          35.0,
+				FixedLossDb:         40.0,
+				RangeInMeters:       radioRangeIndoorDistInMeters,
+				NoiseFloorDbm:       noiseFloorIndoorDbm,
+				SnrMinThresholdDb:   -4.0, // see calcber.m Octave file
+				ShadowFadingSigmaDb: 6.0,
 			},
+			shadowFading: newShadowFading(),
 		}
 	case "MIDisc", "MID", "4":
 		model = &RadioModelMutualInterference{
 			Name:        "MIDisc",
 			IsDiscLimit: true,
 			IndoorParams: &IndoorModelParams{
-				ExponentDb:        30.0,
-				FixedLossDb:       40.0,
-				RangeInMeters:     radioRangeIndoorDistInMeters,
-				RssiNoiseFloor:    noiseFloorIndoorDbm,
-				SnrMinThresholdDb: -4.0, // see calcber.m Octave file
+				ExponentDb:          30.0,
+				FixedLossDb:         40.0,
+				RangeInMeters:       radioRangeIndoorDistInMeters,
+				NoiseFloorDbm:       noiseFloorIndoorDbm,
+				SnrMinThresholdDb:   -4.0, // see calcber.m Octave file
+				ShadowFadingSigmaDb: 6.0,
 			},
+			shadowFading: newShadowFading(),
 		}
 	default:
 		model = nil
@@ -185,5 +190,11 @@ func computeIndoorRssi(srcRadioRange float64, dist float64, txPower DbValue, mod
 
 // addSignalPowersDbm calculates signal power in dBm of two added, uncorrelated, signals with powers p1 and p2 (dBm).
 func addSignalPowersDbm(p1 DbValue, p2 DbValue) DbValue {
+	if p1 > p2+15.0 {
+		return p1
+	}
+	if p2 > p1+15.0 {
+		return p2
+	}
 	return 10.0 * math.Log10(math.Pow(10, p1/10.0)+math.Pow(10, p2/10.0))
 }

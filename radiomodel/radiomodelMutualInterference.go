@@ -49,6 +49,7 @@ type RadioModelMutualInterference struct {
 
 	// Parameters of an indoor propagation model
 	IndoorParams *IndoorModelParams
+	shadowFading *shadowFading
 
 	nodes                 map[NodeId]*RadioNode
 	activeTransmitters    map[ChannelId]map[NodeId]*RadioNode
@@ -88,6 +89,7 @@ func (rm *RadioModelMutualInterference) GetTxRssi(srcNode *RadioNode, dstNode *R
 		return RssiMinusInfinity
 	}
 	rssi := computeIndoorRssi(srcNode.RadioRange, dist, srcNode.TxPower, rm.IndoorParams)
+	rssi -= rm.shadowFading.computeShadowFading(srcNode, dstNode, dist, rm.IndoorParams)
 	return rssi
 }
 
@@ -155,7 +157,7 @@ func (rm *RadioModelMutualInterference) init() {
 }
 
 func (rm *RadioModelMutualInterference) getRssiAmbientNoise(node *RadioNode, channel ChannelId) DbValue {
-	return rm.IndoorParams.RssiNoiseFloor
+	return rm.IndoorParams.NoiseFloorDbm
 }
 
 func (rm *RadioModelMutualInterference) getRssiOnChannel(node *RadioNode, channel ChannelId) DbValue {

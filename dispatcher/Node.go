@@ -93,9 +93,9 @@ func newNode(d *Dispatcher, nodeid NodeId, cfg *NodeConfig) *Node {
 	simplelogger.AssertTrue(cfg.RadioRange >= 0)
 
 	radioCfg := &radiomodel.RadioNodeConfig{
-		X:          float64(cfg.X),
-		Y:          float64(cfg.Y),
-		RadioRange: float64(cfg.RadioRange),
+		X:          cfg.X,
+		Y:          cfg.Y,
+		RadioRange: cfg.RadioRange,
 	}
 
 	nc := &Node{

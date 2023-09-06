@@ -41,7 +41,7 @@ class BasicTests_MutualInterference(BasicTests):
         super().setUp()
         self.ns.radiomodel = 'MutualInterference'
 
-    # override: need to adjust for longer range of MutualInterference model.
+    # override: need to adjust this specific test for longer range of MutualInterference model.
     def testRadioNotInRange(self):
         ns = self.ns
         radio_range = 100
@@ -53,13 +53,20 @@ class BasicTests_MutualInterference(BasicTests):
         self.go(10)
         self.assertFormPartitions(2)
 
+    # additional test
     def testRadioModelSwitching(self):
         ns = self.ns
         ns.radiomodel = 'Ideal'
         radio_range = 100
+
         ns.add("router",0, 0, radio_range=radio_range)
         ns.add("router",0, radio_range+1, radio_range=radio_range)
         ns.add("router",radio_range+1, radio_range+1, radio_range=radio_range)
+        # Reason to raise TxPower is that near the range limit, in MI radio model, there may be a
+        # valid link but there also may be not (Shadow Fading effects).
+        ns.node_cmd(1,'txpower 15')
+        ns.node_cmd(2,'txpower 15')
+        ns.node_cmd(3,'txpower 15')
         ns.go(20)
         self.assertFormPartitions(3)
 
@@ -80,6 +87,16 @@ class BasicTests_MutualInterference(BasicTests):
 
         with self.assertRaises(errors.OTNSCliError):
             ns.radiomodel = 'NotExistingName'
+        self.assertEqual('MIDisc', ns.radiomodel)
+
+        ns.node_cmd(1,'txpower -15')
+        ns.node_cmd(2,'txpower -15')
+        ns.node_cmd(3,'txpower -15')
+        ns.radiomodel = 'MutualInterference'
+        self.assertEqual('MutualInterference', ns.radiomodel)
+        ns.go(200)
+        self.assertFormPartitions(3)
+
 
 
 class BasicTests_IdealRssi(BasicTests):

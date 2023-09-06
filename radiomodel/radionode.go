@@ -64,8 +64,8 @@ type RadioNode struct {
 }
 
 type RadioNodeConfig struct {
-	X, Y       float64
-	RadioRange float64
+	X, Y       int
+	RadioRange int
 }
 
 func NewRadioNode(nodeid NodeId, cfg *RadioNodeConfig) *RadioNode {
@@ -73,9 +73,9 @@ func NewRadioNode(nodeid NodeId, cfg *RadioNodeConfig) *RadioNode {
 		Id:            nodeid,
 		TxPower:       defaultTxPowerDbm,
 		RxSensitivity: receiveSensitivityDbm,
-		X:             cfg.X,
-		Y:             cfg.Y,
-		RadioRange:    cfg.RadioRange,
+		X:             float64(cfg.X),
+		Y:             float64(cfg.Y),
+		RadioRange:    float64(cfg.RadioRange),
 		RadioChannel:  uint8(DefaultChannelNumber),
 		rssiSampleMax: RssiMinusInfinity,
 	}
