@@ -707,7 +707,7 @@ func (rt *CmdRunner) executeRadioModel(cc *CommandContext, cmd *RadioModelCmd) {
 		if ok {
 			cc.outputf("%v\n", model.GetName())
 		} else {
-			cc.outputf("Error: Radiomodel '%v' is not defined.\n", name)
+			cc.errorf("radiomodel '%v' is not defined", name)
 		}
 	}
 }
