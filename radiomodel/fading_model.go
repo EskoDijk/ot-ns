@@ -27,7 +27,6 @@
 package radiomodel
 
 import (
-	"github.com/simonlingoogle/go-simplelogger"
 	"math"
 	"math/rand"
 )
@@ -50,7 +49,6 @@ func newShadowFading() *shadowFading {
 // Table 7.5-6 Part-2.
 // TODO: implement the autocorrelation of SF over a correlation length d_cor = 6 m (NLOS case)
 func (sf *shadowFading) computeShadowFading(src *RadioNode, dst *RadioNode, dist float64, params *IndoorModelParams) DbValue {
-	simplelogger.AssertTrue(src.RadioRange == dst.RadioRange)
 	if params.ShadowFadingSigmaDb <= 0 {
 		return 0.0
 	}
@@ -58,8 +56,8 @@ func (sf *shadowFading) computeShadowFading(src *RadioNode, dst *RadioNode, dist
 	// calc node positions in rounded grid units of 1 m
 	x1 := int64(math.Round(src.X / src.RadioRange * params.RangeInMeters))
 	y1 := int64(math.Round(src.Y / src.RadioRange * params.RangeInMeters))
-	x2 := int64(math.Round(dst.X / src.RadioRange * params.RangeInMeters))
-	y2 := int64(math.Round(dst.Y / src.RadioRange * params.RangeInMeters))
+	x2 := int64(math.Round(dst.X / dst.RadioRange * params.RangeInMeters))
+	y2 := int64(math.Round(dst.Y / dst.RadioRange * params.RangeInMeters))
 	xL := x2
 	yL := y2
 	xR := x1
