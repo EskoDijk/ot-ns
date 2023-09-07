@@ -50,7 +50,7 @@ import (
 
 const (
 	DefaultCommandTimeout = time.Second * 10
-	NodeExitTimeout       = time.Second * 2
+	NodeExitTimeout       = time.Second * 3
 )
 
 var (
@@ -193,6 +193,7 @@ func (node *Node) Exit() error {
 	_ = node.pipeOut.Close()
 
 	processDone := make(chan bool)
+	isKilled := false
 	simplelogger.Debugf("%s Waiting for process to exit ...", node.String())
 	timeout := time.After(NodeExitTimeout)
 	go func() {
@@ -200,14 +201,19 @@ func (node *Node) Exit() error {
 		case processDone <- true:
 			break
 		case <-timeout:
-			simplelogger.Warnf("%s did not exit properly, sending SIGKILL.", node.String())
+			simplelogger.Warnf("%s did not exit in time, sending SIGKILL.", node.String())
+			isKilled = true
 			_ = node.cmd.Process.Kill()
 			processDone <- true
 		}
 	}()
 	err := node.cmd.Wait() // wait for process end
-	simplelogger.Debugf("%s process exited.", node.String())
+	simplelogger.Debugf("%s process exited. Wait().err=%v", node.String(), err)
 	<-processDone
+
+	if isKilled { // when killed, a "signal: killed" error is always given by Wait(). Suppress this.
+		return nil
+	}
 
 	return err
 }
@@ -724,6 +730,16 @@ loop:
 	}
 }
 
+func (node *Node) onProcessFailure(err error) {
+	node.log(WatchCritLevel, "Node process failed.")
+	node.S.PostAsync(false, func() {
+		if node.S.ctx.Err() == nil {
+			simplelogger.Warnf("Deleting node %v due to process failure.", node.Id)
+			_ = node.S.DeleteNode(node.Id)
+		}
+	})
+}
+
 func (node *Node) lineReaderStdErr(reader io.Reader) {
 	scanner := bufio.NewScanner(bufio.NewReader(reader)) // no filter applied.
 	scanner.Split(bufio.ScanLines)
@@ -737,13 +753,12 @@ func (node *Node) lineReaderStdErr(reader io.Reader) {
 		if errProc == nil {
 			errProc = errors.New(stderrLine)
 		}
-
 		node.log(WatchCritLevel, stderrLine)
 	}
 
 	// when the stderr of the node closes and any error was raised, inform simulation of node's failure.
 	if errProc != nil {
-		node.S.onNodeProcessFailure(node, errProc)
+		node.onProcessFailure(errProc)
 	}
 }
 

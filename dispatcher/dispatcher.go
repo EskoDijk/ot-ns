@@ -107,13 +107,12 @@ type CallbackHandler interface {
 	OnStop()
 }
 
-// represents a particular duration of simulation at a given speed, or DefaultDispatcherSpeed. It can be
-// cancelled also by setting the cancel flag.
+// goDuration represents a particular duration of the simulation at a given speed.
 type goDuration struct {
 	duration time.Duration
-	done     chan struct{}
-	speed    float64
-	cancel   bool
+	done     chan error // signals end of the simulation duration and success (nil) or some error.
+	speed    float64    // a speedup value, or DefaultDispatcherSpeed.
+	cancel   bool       // if set to true, the simulation duration will be cancelled early.
 }
 
 type Dispatcher struct {
@@ -266,9 +265,9 @@ func (d *Dispatcher) Nodes() map[NodeId]*Node {
 	return d.nodes
 }
 
-func (d *Dispatcher) Go(duration time.Duration) <-chan struct{} {
+func (d *Dispatcher) Go(duration time.Duration) <-chan error {
 	simplelogger.AssertTrue(duration >= 0)
-	done := make(chan struct{})
+	done := make(chan error, 1)
 	d.goDurationChan <- goDuration{
 		duration: duration,
 		done:     done,
@@ -277,9 +276,9 @@ func (d *Dispatcher) Go(duration time.Duration) <-chan struct{} {
 	return done
 }
 
-func (d *Dispatcher) GoAtSpeed(duration time.Duration, speed float64) <-chan struct{} {
+func (d *Dispatcher) GoAtSpeed(duration time.Duration, speed float64) <-chan error {
 	simplelogger.AssertTrue(speed >= 0.0 && duration >= 0)
-	done := make(chan struct{})
+	done := make(chan error, 1)
 	d.goDurationChan <- goDuration{
 		duration: duration,
 		done:     done,
@@ -289,7 +288,7 @@ func (d *Dispatcher) GoAtSpeed(duration time.Duration, speed float64) <-chan str
 }
 
 // GoCancel cancels the current Go....() operation and pauses the simulation at d.CurTime.
-func (d *Dispatcher) GoCancel() <-chan struct{} {
+func (d *Dispatcher) GoCancel() <-chan error {
 	d.currentGoDuration.cancel = true
 	return d.currentGoDuration.done
 }

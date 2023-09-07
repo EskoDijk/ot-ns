@@ -46,7 +46,6 @@ import (
 type Simulation struct {
 	ctx            *progctx.ProgCtx
 	stopped        bool
-	err            error
 	cfg            *Config
 	nodes          map[NodeId]*Node
 	d              *dispatcher.Dispatcher
@@ -200,11 +199,6 @@ func (s *Simulation) Run() {
 	s.d.Stop() // stop dispatcher and close its threads.
 }
 
-// Returns the last error that occurred in the simulation run, or nil if none.
-func (s *Simulation) Error() error {
-	return s.err
-}
-
 func (s *Simulation) Nodes() map[NodeId]*Node {
 	return s.nodes
 }
@@ -304,20 +298,6 @@ func (s *Simulation) OnStop() {
 	//
 }
 
-func (s *Simulation) onNodeProcessFailure(node *Node, err error) {
-	if s.ctx.Err() != nil { // ignore any node errors when simulation is closing up.
-		return
-	}
-	s.err = err
-	node.log(WatchCritLevel, "Node process failed.")
-	s.PostAsync(false, func() {
-		if s.ctx.Err() == nil {
-			simplelogger.Infof("Deleting node %v due to process failure.", node.Id)
-			_ = s.DeleteNode(node.Id)
-		}
-	})
-}
-
 func (s *Simulation) PostAsync(trivial bool, f func()) {
 	s.d.PostAsync(trivial, f)
 }
@@ -385,14 +365,14 @@ func (s *Simulation) CountDown(duration time.Duration, text string) {
 }
 
 // Go runs the simulation for duration at Dispatcher's set speed.
-func (s *Simulation) Go(duration time.Duration) <-chan struct{} {
+func (s *Simulation) Go(duration time.Duration) <-chan error {
 	return s.d.Go(duration)
 }
 
 // GoAtSpeed stops any ongoing (previous) 'go' period and then runs simulation for duration at given speed.
-func (s *Simulation) GoAtSpeed(duration time.Duration, speed float64) <-chan struct{} {
+func (s *Simulation) GoAtSpeed(duration time.Duration, speed float64) <-chan error {
 	simplelogger.AssertTrue(speed > 0)
-	_ = s.d.GoCancel()
+	s.d.GoCancel()
 	return s.d.GoAtSpeed(duration, speed)
 }
 
