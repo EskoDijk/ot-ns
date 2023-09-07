@@ -27,14 +27,18 @@
 package radiomodel
 
 import (
+	"encoding/binary"
 	"fmt"
 	"math"
 	"math/rand"
 
-	. "github.com/openthread/ot-ns/types"
 	"github.com/simonlingoogle/go-simplelogger"
+
+	. "github.com/openthread/ot-ns/types"
 )
 
+// reference: IEEE 802.15.4-2006,E.4.1.8 Bit Error Rate (BER) calculations
+// see also NS-3 LR-WPAN error model where this is used.
 var (
 	binomialCoeff = []float64{120, -560, 1820, -4368, 8008, -11440, 12870, -11440, 8008, -4368, 1820, -560, 120, -16, 1}
 )
@@ -42,9 +46,9 @@ var (
 func applyBerModel(sirDb DbValue, srcNodeId NodeId, evt *Event) (bool, string) {
 	pSuccess := 1.0
 	var nbits int
-	// if sirDb >= 3.0, then ratio SIR=~2, and pSuccess for any regular 15.4 frame is =~ 1.0 always.
+	// if sirDb >= 6.0, then ratio SIR=~2, and pSuccess for any regular 15.4 frame is =~ 1.0 always.
 	// Save time (?) by not doing the calculation then.
-	if sirDb < 3.0 {
+	if sirDb < 6.0 {
 		pSuccess, nbits = computePacketSuccessRate(sirDb, evt.RadioCommData.Duration)
 	}
 	if pSuccess < 1.0 && rand.Float64() > pSuccess {
@@ -58,7 +62,6 @@ func applyBerModel(sirDb DbValue, srcNodeId NodeId, evt *Event) (bool, string) {
 }
 
 func computePacketSuccessRate(sirDb DbValue, frameDurationUs uint64) (float64, int) {
-	// see also NS-3 LR-WPAN error model
 	nbits := float64(frameDurationUs / TimeUsPerBit)
 	ber := 0.0
 	snr := math.Pow(10, sirDb/10.0)
@@ -78,10 +81,12 @@ func computePacketSuccessRate(sirDb DbValue, frameDurationUs uint64) (float64, i
 // interferePsduData simulates bit-error(s) on PSDU data
 func interferePsduData(data []byte) []byte {
 	simplelogger.AssertTrue(len(data) >= 2)
-	intfData := data
 
 	// modify MAC frame FCS, as a substitute for interfered frame.
-	intfData[len(data)-1]++
-
+	// a copy of the slice is made to avoid race conditions with other goroutines that may use the data frame.
+	dl := len(data)
+	fcs := binary.LittleEndian.Uint16(data[dl-2 : dl])
+	intfData := append([]byte(nil), data...)
+	binary.LittleEndian.PutUint16(intfData[dl-2:dl], fcs+42)
 	return intfData
 }
