@@ -583,8 +583,8 @@ func (d *Dispatcher) processNextEvent(simSpeed float64) bool {
 						}
 					}
 				}
-			} else {
-				simplelogger.Panicf("processNextEvent() with deleted/unknown node %v: %v", evt.NodeId, evt)
+			} else if evt.NodeId > 0 {
+				simplelogger.Warnf("processNextEvent() with deleted/unknown node %v: %v", evt.NodeId, evt)
 			}
 		}
 		nextAlarmTime = d.alarmMgr.NextTimestamp()
@@ -635,7 +635,11 @@ func (d *Dispatcher) eventsReader() {
 				if errors.Is(err, io.EOF) {
 					break
 				} else if err != nil {
-					simplelogger.Errorf("Node %d - Closing socket after read error: %+v", myNodeId, err)
+					d.cbHandler.OnLogMessage(LogEntry{
+						NodeId: myNodeId,
+						Level:  WatchCritLevel,
+						Msg:    fmt.Sprintf("closing socket after read error: %+v", err),
+					})
 					break
 				}
 
@@ -661,7 +665,11 @@ func (d *Dispatcher) eventsReader() {
 				// increase buf size when needed
 				if n > len(buf)/2 {
 					buf = make([]byte, len(buf)*2)
-					simplelogger.Warnf("Increasing eventsReader() buf size for node %d to: %d KB", myNodeId, len(buf)/1024)
+					d.cbHandler.OnLogMessage(LogEntry{
+						NodeId: myNodeId,
+						Level:  WatchWarnLevel,
+						Msg:    fmt.Sprintf("increasing eventsReader() buf size to: %d KB", len(buf)/1024),
+					})
 				}
 			}
 
@@ -1330,6 +1338,7 @@ func (d *Dispatcher) DeleteNode(id NodeId) {
 	d.energyAnalyser.DeleteNode(id)
 	d.vis.DeleteNode(id)
 	d.radioModel.DeleteNode(id)
+	d.eventQueue.DisableEventsForNode(id)
 }
 
 // SetNodeFailed sets the radio of the node to failed (true) or operational (false) state.

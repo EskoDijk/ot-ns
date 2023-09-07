@@ -130,17 +130,21 @@ class BasicTests(OTNSTestCase):
         self.assertTrue(len(ns.nodes()) == 1 and 1 not in ns.nodes())
 
     def testDelManyNodes(self):
-        ns = self.ns
-        many = 32
-        for i in range(many):
-            ns.add("router", x=(i % 6) * 100, y=(i // 6) * 150)
+        for j in range(4):
+            ns = self.ns
+            many = 32
 
-        ns.go(10)
-        for i in range(1, many + 1):
-            ns.delete(i)
-            ns.go(5)
+            for i in range(many):
+                ns.add("router", x=(i % 6) * 100, y=(i // 6) * 150)
 
-        self.assertTrue(ns.nodes() == {})
+            ns.go(10)
+            for i in range(1, many + 1):
+                ns.delete(i)
+                ns.go(5)
+
+            self.assertTrue(ns.nodes() == {})
+            self.tearDown()
+            self.setUp()
 
     def testDelNodeAndImmediatelyRecreate(self):
         # repeat multiple times to catch some goroutine race conditions that only happen sometimes.
