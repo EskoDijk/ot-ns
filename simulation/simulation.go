@@ -80,7 +80,7 @@ func NewSimulation(ctx *progctx.ProgCtx, cfg *Config, dispatcherCfg *dispatcher.
 	dispatcherCfg.DumpPackets = cfg.DumpPackets
 
 	s.d = dispatcher.NewDispatcher(s.ctx, dispatcherCfg, s)
-	s.d.SetRadioModel(radiomodel.Create(cfg.RadioModel))
+	s.d.SetRadioModel(radiomodel.NewRadioModel(cfg.RadioModel))
 	s.vis = s.d.GetVisualizer()
 	if err := s.createTmpDir(); err != nil {
 		simplelogger.Panicf("creating ./tmp/ directory failed: %+v", err)

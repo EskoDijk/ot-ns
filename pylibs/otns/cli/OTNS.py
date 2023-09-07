@@ -170,7 +170,7 @@ class OTNS(object):
         """
         Set radiomodel for simulation.
 
-        :param model: name of new radio model to use. Default is "Ideal".
+        :param model: name of new radio model to use. Default is "MutualInterference".
         """
         assert self._do_command(f'radiomodel {model}')[0] == model
 

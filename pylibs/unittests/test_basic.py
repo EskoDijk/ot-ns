@@ -123,7 +123,7 @@ class BasicTests(OTNSTestCase):
         ns = self.ns
         ns.add("router")
         ns.add("router")
-        self.go(12)
+        self.go(25)
         self.assertFormPartitions(1)
         ns.delete(1)
         self.go(10)
@@ -193,6 +193,7 @@ class BasicTests(OTNSTestCase):
 
     def testRadioInRange(self):
         ns = self.ns
+        ns.radiomodel = 'Ideal'
         radio_range = 100
         ns.add("router", 0, 0, radio_range=radio_range)
         ns.add("router", 0, radio_range - 1, radio_range=radio_range)
@@ -201,6 +202,7 @@ class BasicTests(OTNSTestCase):
 
     def testRadioNotInRange(self):
         ns = self.ns
+        ns.radiomodel = 'Ideal'
         radio_range = 100
         ns.add("router", 0, 0, radio_range=radio_range)
         ns.add("router", 0, radio_range + 1, radio_range=radio_range)
@@ -382,7 +384,7 @@ class BasicTests(OTNSTestCase):
         ns.add("router", 0, 50, radio_range=radio_range)
         ns.add("router", 50, 0, radio_range=radio_range)
         ns.add("router", 50, 50, radio_range=radio_range)
-        self.go(20)
+        self.go(130)
         self.assertFormPartitions(1)
 
         for n in [1,2]:

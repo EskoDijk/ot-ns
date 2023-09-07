@@ -103,9 +103,9 @@ class OtnsPerformanceStressTest(BaseStressTest):
         self.result.append_row('%ds' % PERF_SIMULATE_TIME, '%ds' % duration,
                                '%d' % (PERF_SIMULATE_TIME / duration), counter['AlarmEvents'], counter['RadioEvents'])
 
-        self.result.fail_if(duration > 30, f'Execution Time ({duration}) > 30s')
-        self.result.fail_if(counter['AlarmEvents'] > 450000, f"Too many AlarmEvents: {counter['AlarmEvents']} > 450000")
-        self.result.fail_if(counter['RadioEvents'] > 250000, f"Too many RadioEvents: {counter['RadioEvents']} > 250000")
+        self.result.fail_if(duration > 60, f'Execution Time ({duration}) > 60s')
+        self.result.fail_if(counter['AlarmEvents'] > 900000, f"Too many AlarmEvents: {counter['AlarmEvents']} > 900000")
+        self.result.fail_if(counter['RadioEvents'] > 500000, f"Too many RadioEvents: {counter['RadioEvents']} > 500000")
 
 
 if __name__ == '__main__':

@@ -696,7 +696,7 @@ func (rt *CmdRunner) executeRadioModel(cc *CommandContext, cmd *RadioModelCmd) {
 		ok := false
 		var model radiomodel.RadioModel = nil
 		rt.postAsyncWait(func(sim *simulation.Simulation) {
-			model = radiomodel.Create(name)
+			model = radiomodel.NewRadioModel(name)
 			ok = model != nil
 			if ok {
 				sim.Dispatcher().SetRadioModel(model)

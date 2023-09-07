@@ -27,6 +27,7 @@
 #
 import unittest
 
+from OTNSTestCase import OTNSTestCase
 from test_basic import BasicTests
 from test_commissioning import CommissioningTests
 from test_ping import PingTests
@@ -34,26 +35,13 @@ from test_csl import CslTests
 from otns.cli import errors, OTNS
 
 
-class BasicTests_MutualInterference(BasicTests):
+class RadioModelTests(OTNSTestCase):
 
     # override
     def setUp(self):
         super().setUp()
         self.ns.radiomodel = 'MutualInterference'
 
-    # override: need to adjust this specific test for longer range of MutualInterference model.
-    def testRadioNotInRange(self):
-        ns = self.ns
-        radio_range = 100
-        ns.add("router", 0, 0, radio_range=radio_range)
-        if self.ns.radiomodel  == 'MutualInterference':
-            ns.add("router", 0, radio_range + 50, radio_range=radio_range)
-        else:
-            ns.add("router", 0, radio_range + 1, radio_range=radio_range)
-        self.go(10)
-        self.assertFormPartitions(2)
-
-    # additional test
     def testRadioModelSwitching(self):
         ns = self.ns
         ns.radiomodel = 'Ideal'
@@ -98,6 +86,13 @@ class BasicTests_MutualInterference(BasicTests):
         self.assertFormPartitions(3)
 
 
+class BasicTests_Ideal(BasicTests):
+
+    # override
+    def setUp(self):
+        super().setUp()
+        self.ns.radiomodel = 'Ideal'
+
 
 class BasicTests_IdealRssi(BasicTests):
 
@@ -115,12 +110,12 @@ class BasicTests_MIDisc(BasicTests):
         self.ns.radiomodel = 'MIDisc'
 
 
-class CommissioningTests_MutualInterference(CommissioningTests):
+class CommissioningTests_Ideal(CommissioningTests):
 
     # override
     def setUp(self):
         super().setUp()
-        self.ns.radiomodel = 'MutualInterference'
+        self.ns.radiomodel = 'Ideal'
 
 
 class CommissioningTests_IdealRssi(CommissioningTests):
@@ -139,12 +134,12 @@ class CommissioningTests_MIDisc(CommissioningTests):
         self.ns.radiomodel = 'MIDisc'
 
 
-class PingTests_MutualInterference(PingTests):
+class PingTests_IdealRssi(PingTests):
 
     # override
     def setUp(self):
         super().setUp()
-        self.ns.radiomodel = 'MutualInterference'
+        self.ns.radiomodel = 'Ideal_Rssi'
 
 
 class PingTests_MIDisc(PingTests):
@@ -155,23 +150,24 @@ class PingTests_MIDisc(PingTests):
         self.ns.radiomodel = 'MIDisc'
 
 
-class CslTests_MutualInterference(CslTests):
+class CslTests_IdealRssi(CslTests):
 
     # override
     def setUp(self):
         super().setUp()
-        self.ns.radiomodel = 'MutualInterference'
+        self.ns.radiomodel = 'Ideal_Rssi'
 
 
 if __name__ == '__main__':
     loader = unittest.defaultTestLoader
-    suite = loader.loadTestsFromTestCase(BasicTests_MutualInterference)
+    suite = loader.loadTestsFromTestCase(RadioModelTests)
+    suite.addTest(loader.loadTestsFromTestCase(BasicTests_Ideal))
     suite.addTest(loader.loadTestsFromTestCase(BasicTests_IdealRssi))
     suite.addTest(loader.loadTestsFromTestCase(BasicTests_MIDisc))
-    suite.addTest(loader.loadTestsFromTestCase(CommissioningTests_MutualInterference))
+    suite.addTest(loader.loadTestsFromTestCase(CommissioningTests_Ideal))
     suite.addTest(loader.loadTestsFromTestCase(CommissioningTests_IdealRssi))
     suite.addTest(loader.loadTestsFromTestCase(CommissioningTests_MIDisc))
-    suite.addTest(loader.loadTestsFromTestCase(PingTests_MutualInterference))
+    suite.addTest(loader.loadTestsFromTestCase(PingTests_IdealRssi))
     suite.addTest(loader.loadTestsFromTestCase(PingTests_MIDisc))
-    suite.addTest(loader.loadTestsFromTestCase(CslTests_MutualInterference))
+    suite.addTest(loader.loadTestsFromTestCase(CslTests_IdealRssi))
     unittest.TextTestRunner().run(suite)

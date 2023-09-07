@@ -114,8 +114,8 @@ type IndoorModelParams struct {
 	ShadowFadingSigmaDb DbValue // sigma (stddev) parameter for Shadow Fading (SF), in dB
 }
 
-// Create creates a new RadioModel with given name, or nil if model not found.
-func Create(modelName string) RadioModel {
+// NewRadioModel creates a new RadioModel with given name, or nil if model not found.
+func NewRadioModel(modelName string) RadioModel {
 	var model RadioModel
 	switch modelName {
 	case "Ideal", "I", "1":

@@ -82,7 +82,7 @@ func DefaultConfig() *Config {
 		AutoGo:           true,
 		DispatcherHost:   "localhost",
 		DispatcherPort:   InitialDispatcherPort,
-		RadioModel:       "Ideal_Rssi",
+		RadioModel:       "MutualInterference",
 		Id:               0,
 		Channel:          DefaultChannel,
 	}
