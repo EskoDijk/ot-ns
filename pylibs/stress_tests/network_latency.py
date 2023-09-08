@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Copyright (c) 2020, The OTNS Authors.
+# Copyright (c) 2020-2023, The OTNS Authors.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -34,7 +34,7 @@
 # Fault Injections:
 #   None
 # Pass Criteria:
-#   Max ping latency < 300ms
+#   Max ping latency < (3 * ping-datasize) ms
 #
 import logging
 import math
@@ -59,6 +59,8 @@ class StressTest(BaseStressTest):
                                          ["Data Size", "Hop x1 Latency", "Hop x2 Latency", "Hop x3 Latency"])
 
         self._ping_latencys_by_datasize = {}
+        self.ns.loglevel = 'warn'
+        self.ns.radiomodel = 'MIDisc'
 
     def add_6_nodes(self, x, y, start_angle):
         for i in range(6):
@@ -152,7 +154,8 @@ class StressTest(BaseStressTest):
             row = ['%dB' % datasize]
             for n, s in latencys:
                 row.append('%dms' % (s / n) if n > 0 else 'NODATA')
-                self.result.fail_if(s / n > 600, "average ping latency > 600ms")
+                maxlatency = 3 * datasize
+                self.result.fail_if(s / n > maxlatency, f"average ping latency (for datasize={datasize}) > {maxlatency} ms")
 
             self.result.append_row(*row)
 
