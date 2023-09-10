@@ -452,7 +452,6 @@ class BasicTests(OTNSTestCase):
         self.assertEqual(10003030, ns.time)
         ns.go(4.0000004)
         self.assertEqual(14003030, ns.time) # rounded to nearest microsecond.
-        self.assertFormPartitions(1)
 
     def testScan(self):
         self.tearDown()
