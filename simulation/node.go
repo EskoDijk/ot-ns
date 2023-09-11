@@ -244,7 +244,7 @@ func (node *Node) AssurePrompt() {
 
 func (node *Node) inputCommand(cmd string) error {
 	simplelogger.AssertTrue(node.uartType != NodeUartTypeUndefined)
-	var err error = nil
+	var err error
 
 	if node.uartType == NodeUartTypeRealTime {
 		_, err = node.pipeIn.Write([]byte(cmd + "\n"))
