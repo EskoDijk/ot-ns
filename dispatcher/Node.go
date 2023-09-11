@@ -163,7 +163,9 @@ func (node *Node) sendEvent(evt *Event) {
 
 // sendRawData is INTERNAL to send bytes to socket of node
 func (node *Node) sendRawData(msg []byte) error {
-	simplelogger.AssertNotNil(node.conn)
+	if node.conn == nil {
+		return fmt.Errorf("sendRawData(): node connection is closed")
+	}
 	n, err := node.conn.Write(msg)
 	if err != nil {
 		return err

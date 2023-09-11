@@ -219,46 +219,67 @@ func (node *Node) Exit() error {
 }
 
 func (node *Node) AssurePrompt() {
-	node.inputCommand("")
-	if _, err := node.expectLine("", time.Second); err == nil {
-		return
+	err := node.inputCommand("")
+	if err == nil {
+		if _, err := node.expectLine("", time.Second); err == nil {
+			return
+		}
 	}
 
-	node.inputCommand("")
-	if _, err := node.expectLine("", time.Second); err == nil {
-		return
+	err = node.inputCommand("")
+	if err == nil {
+		if _, err := node.expectLine("", time.Second); err == nil {
+			return
+		}
 	}
 
-	node.inputCommand("")
-	_, _ = node.expectLine("", DefaultCommandTimeout)
-}
-
-func (node *Node) inputCommand(cmd string) {
-	simplelogger.AssertTrue(node.uartType != NodeUartTypeUndefined)
-
-	if node.uartType == NodeUartTypeRealTime {
-		_, _ = node.pipeIn.Write([]byte(cmd + "\n"))
-		node.S.Dispatcher().NotifyCommand(node.Id)
-	} else {
-		err := node.S.Dispatcher().SendToUART(node.Id, []byte(cmd+"\n"))
+	err = node.inputCommand("")
+	if err == nil {
+		_, err := node.expectLine("", DefaultCommandTimeout)
 		if err != nil {
-			node.displayPendingLogEntries(node.S.Dispatcher().CurTime) // display the error(s)
+			node.logError(err)
 		}
 	}
 }
 
+func (node *Node) inputCommand(cmd string) error {
+	simplelogger.AssertTrue(node.uartType != NodeUartTypeUndefined)
+	var err error = nil
+
+	if node.uartType == NodeUartTypeRealTime {
+		_, err = node.pipeIn.Write([]byte(cmd + "\n"))
+		node.S.Dispatcher().NotifyCommand(node.Id)
+	} else {
+		err = node.S.Dispatcher().SendToUART(node.Id, []byte(cmd+"\n"))
+	}
+	return err
+}
+
 func (node *Node) CommandExpectNone(cmd string, timeout time.Duration) {
-	node.inputCommand(cmd)
-	_, _ = node.expectLine(cmd, timeout)
+	err := node.inputCommand(cmd)
+	if err != nil {
+		node.logError(err)
+	} else {
+		_, err = node.expectLine(cmd, timeout)
+		if err != nil {
+			node.logError(err)
+		}
+	}
 }
 
 func (node *Node) Command(cmd string, timeout time.Duration) []string {
-	node.inputCommand(cmd)
-	_, err1 := node.expectLine(cmd, timeout)
-	if err1 != nil {
-		node.logError(err1)
+	err2 := node.inputCommand(cmd)
+	if err2 == nil {
+		_, err1 := node.expectLine(cmd, timeout)
+		if err1 != nil {
+			node.logError(err1)
+			return []string{}
+		}
+	} else {
+		node.logError(err2)
 		return []string{}
 	}
+
 	output, err := node.expectLine(DoneOrErrorRegexp, timeout)
 	if err != nil {
 		node.logError(err)
@@ -269,6 +290,7 @@ func (node *Node) Command(cmd string, timeout time.Duration) []string {
 		node.logError(err)
 		return []string{}
 	}
+
 	var result string
 	output, result = output[:len(output)-1], output[len(output)-1]
 	if result != "Done" {
@@ -563,14 +585,22 @@ func (node *Node) SetLeaderWeight(weight int) {
 
 func (node *Node) FactoryReset() {
 	node.log(WatchWarnLevel, "node factoryreset")
-	node.inputCommand("factoryreset")
+	err := node.inputCommand("factoryreset")
+	if err != nil {
+		node.logError(err)
+		return
+	}
 	node.AssurePrompt()
 	node.log(WatchInfoLevel, "factoryreset complete")
 }
 
 func (node *Node) Reset() {
 	node.log(WatchWarnLevel, "node reset")
-	node.inputCommand("reset")
+	err := node.inputCommand("reset")
+	if err != nil {
+		node.logError(err)
+		return
+	}
 	node.AssurePrompt()
 	node.log(WatchInfoLevel, "reset complete")
 }
@@ -764,9 +794,6 @@ func (node *Node) lineReaderStdErr(reader io.Reader) {
 
 func (node *Node) expectLine(line interface{}, timeout time.Duration) ([]string, error) {
 	var outputLines []string
-	if node.err != nil { // when a previous error happened, we likely can't read the line anymore.
-		return []string{"Done"}, node.err
-	}
 
 	deadline := time.After(timeout)
 	for {
@@ -820,8 +847,12 @@ func (node *Node) CommandExpectEnabledOrDisabled(cmd string, timeout time.Durati
 
 func (node *Node) Ping(addr string, payloadSize int, count int, interval int, hopLimit int) {
 	cmd := fmt.Sprintf("ping async %s %d %d %d %d", addr, payloadSize, count, interval, hopLimit)
-	node.inputCommand(cmd)
-	_, err := node.expectLine(cmd, DefaultCommandTimeout)
+	err := node.inputCommand(cmd)
+	if err != nil {
+		node.logError(err)
+		return
+	}
+	_, err = node.expectLine(cmd, DefaultCommandTimeout)
 	node.logError(err)
 	node.AssurePrompt()
 }
@@ -894,8 +925,9 @@ func (node *Node) logError(err error) {
 	node.err = err
 }
 
-func (node *Node) displayPendingLogEntries(ts uint64) {
+func (node *Node) DisplayPendingLogEntries(ts uint64) {
 	isExiting := node.S.ctx.Err() != nil
+loop:
 	for {
 		select {
 		case e := <-node.logEntries:
@@ -918,9 +950,12 @@ func (node *Node) displayPendingLogEntries(ts uint64) {
 				PrintLog(e.Level, node.String()+line)
 			}
 		default:
-			return
+			break loop
 		}
 	}
+
+	// clear the latest node error again to nil, so that next commands can start afresh.
+	node.err = nil
 }
 
 func (node *Node) writeToLogFile(line string) error {

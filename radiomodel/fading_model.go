@@ -29,15 +29,23 @@ package radiomodel
 import (
 	"math"
 	"math/rand"
+
+	"github.com/simonlingoogle/go-simplelogger"
+)
+
+const (
+	maxFadeMapSize = 5000000
 )
 
 type shadowFading struct {
 	rndSeed int64
+	fadeMap map[int64]DbValue
 }
 
 func newShadowFading() *shadowFading {
 	sf := &shadowFading{
 		rndSeed: rand.Int63(),
+		fadeMap: make(map[int64]DbValue, 1000),
 	}
 	return sf
 }
@@ -48,16 +56,16 @@ func newShadowFading() *shadowFading {
 // See https://en.wikipedia.org/wiki/Fading and 3GPP TR 38.901 V17.0.0, section 7.4.1 and 7.4.4, and
 // Table 7.5-6 Part-2.
 // TODO: implement the autocorrelation of SF over a correlation length d_cor = 6 m (NLOS case)
-func (sf *shadowFading) computeShadowFading(src *RadioNode, dst *RadioNode, dist float64, params *IndoorModelParams) DbValue {
+func (sf *shadowFading) computeShadowFading(src *RadioNode, dst *RadioNode, params *RadioModelParams) DbValue {
 	if params.ShadowFadingSigmaDb <= 0 {
 		return 0.0
 	}
 
-	// calc node positions in rounded grid units of 1 m
-	x1 := int64(math.Round(src.X / src.RadioRange * params.RangeInMeters))
-	y1 := int64(math.Round(src.Y / src.RadioRange * params.RangeInMeters))
-	x2 := int64(math.Round(dst.X / dst.RadioRange * params.RangeInMeters))
-	y2 := int64(math.Round(dst.Y / dst.RadioRange * params.RangeInMeters))
+	// calc node positions in grid units of 5 m, using only positive values (uint16 range)
+	x1 := uint16(math.Round(src.X*params.MeterPerUnit*0.2) + 32768)
+	y1 := uint16(math.Round(src.Y*params.MeterPerUnit*0.2) + 32768)
+	x2 := uint16(math.Round(dst.X*params.MeterPerUnit*0.2) + 32768)
+	y2 := uint16(math.Round(dst.Y*params.MeterPerUnit*0.2) + 32768)
 	xL := x2
 	yL := y2
 	xR := x1
@@ -71,11 +79,29 @@ func (sf *shadowFading) computeShadowFading(src *RadioNode, dst *RadioNode, dist
 		yR = y2
 	}
 
-	// give each (xL,yL) & (xR,yR) coordinate combination its own fixed seed-value.
-	seed := sf.rndSeed + xL + yL<<16 + xR<<32 + yR<<48
+	// give each (xL,yL) & (xR,yR) coordinate combination on each RF channel its own fixed int64 seed-value.
+	seed := sf.rndSeed + 424242*int64(src.RadioChannel) + int64(xL) + int64(yL)<<16 + int64(xR)<<32 + int64(yR)<<48
+
+	// look up if that value was already precomputed.
+	if v, ok := sf.fadeMap[seed]; ok {
+		return v
+	}
+
+	// if not, compute the value
 	rndSource := rand.NewSource(seed)
 	rnd := rand.New(rndSource)
 	// draw a single (reproducible) random number based on the position coordinates.
 	v := rnd.NormFloat64() * params.ShadowFadingSigmaDb
+
+	// and store it
+	sf.fadeMap[seed] = v
+
+	// if storage gets too big, purge it - will be recomputed (and thus slow down the simulation a bit)
+	// this normally would only happen with long simulations with moving nodes.
+	if len(sf.fadeMap) > maxFadeMapSize {
+		simplelogger.Debugf("shadowFading model: purging fadeMap cache")
+		sf.fadeMap = make(map[int64]DbValue, 10000)
+		sf.fadeMap[seed] = v
+	}
 	return v
 }

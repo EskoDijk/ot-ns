@@ -136,7 +136,7 @@ func (s *Simulation) AddNode(cfg *NodeConfig) (*Node, error) {
 	simplelogger.AssertTrue(s.d.IsAlive(nodeid))
 	evtCnt := s.d.RecvEvents() // allow new node to connect, and to receive its startup events.
 	ts := s.d.CurTime
-	node.displayPendingLogEntries(ts)
+	node.DisplayPendingLogEntries(ts)
 
 	if s.ctx.Err() != nil { // only proceed if we're not exiting the simulation.
 		simplelogger.Debugf("Simulation exiting, stopping AddNode operation.")
@@ -159,7 +159,7 @@ func (s *Simulation) AddNode(cfg *NodeConfig) (*Node, error) {
 
 	if s.ctx.Err() != nil { // only proceed if we're not exiting the simulation.
 		simplelogger.Debugf("Simulation exiting, stopping AddNode operation.")
-		node.displayPendingLogEntries(ts)
+		node.DisplayPendingLogEntries(ts)
 		return node, nil
 	}
 
@@ -167,12 +167,12 @@ func (s *Simulation) AddNode(cfg *NodeConfig) (*Node, error) {
 		node.logError(fmt.Errorf("simulation node init failed, deleting node - %v", err))
 		_ = s.DeleteNode(node.Id)
 		s.nodePlacer.ReuseNextNodePosition()
-		node.displayPendingLogEntries(ts)
+		node.DisplayPendingLogEntries(ts)
 		return nil, err
 	}
 
 	node.onStart()
-	node.displayPendingLogEntries(ts)
+	node.DisplayPendingLogEntries(ts)
 
 	return node, err
 }
@@ -287,7 +287,7 @@ func (s *Simulation) OnNextEventTime(ts uint64, nextTs uint64) {
 	// display the pending log messages of nodes. Nodes are sorted by id.
 	s.VisitNodesInOrder(func(node *Node) {
 		node.processUartData()
-		node.displayPendingLogEntries(ts)
+		node.DisplayPendingLogEntries(ts)
 	})
 	s.VisitNodesInOrder(func(node *Node) {
 		simplelogger.AssertEqual(0, len(node.logEntries))
@@ -339,7 +339,7 @@ func (s *Simulation) DeleteNode(nodeid NodeId) error {
 	err := node.Exit()
 	s.d.RecvEvents()
 	s.d.DeleteNode(nodeid)
-	node.displayPendingLogEntries(s.d.CurTime)
+	node.DisplayPendingLogEntries(s.d.CurTime)
 	delete(s.nodes, nodeid)
 	return err
 }

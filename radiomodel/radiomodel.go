@@ -46,15 +46,11 @@ const (
 const (
 	receiveSensitivityDbm DbValue = -100.0 // TODO for now MUST be manually kept equal to OT: SIM_RECEIVE_SENSITIVITY
 	defaultTxPowerDbm     DbValue = 0.0    // Default, RadioTxEvent msg will override it. OT: SIM_TX_POWER
-
-	// Handtuned - for indoor model, how many meters r is RadioRange disc until Link
-	// quality drops below 2 (10 dB margin).
-	radioRangeIndoorDistInMeters = 26.70
-
-	noiseFloorIndoorDbm = -95.0 // Indoor model ambient noise floor (dBm), RSSI equivalent
+	noiseFloorIndoorDbm   DbValue = -95.0  // Indoor model ambient noise floor (dBm)
+	defaultMeterPerUnit   float64 = 0.10   // Default distance equivalent in meters of one grid/pixel distance unit.
 )
 
-// RSSI parameter encodings
+// RSSI parameter encodings for communication with OT node (maps to int8)
 const (
 	RssiInvalid       DbValue = 127.0
 	RssiMax           DbValue = 126.0
@@ -104,11 +100,13 @@ type RadioModel interface {
 	init()
 }
 
-// IndoorModelParams stores model parameters for the simple indoor path loss model.
-type IndoorModelParams struct {
-	ExponentDb          DbValue // the exponent (dB) in the model
-	FixedLossDb         DbValue // the fixed loss (dB) term in the model
-	RangeInMeters       float64 // the range in meters represented by the "radio range" parameter of a node.
+// RadioModelParams stores model parameters for the radio model.
+type RadioModelParams struct {
+	MeterPerUnit        float64 // the distance in meters, equivalent to a single distance unit(pixel)
+	ExponentDb          DbValue // the exponent (dB) in the regular/LOS model
+	FixedLossDb         DbValue // the fixed loss (dB) term in the regular/LOS model
+	NlosExponentDb      DbValue // the exponent (dB) in the NLOS model
+	NlosFixedLossDb     DbValue // the fixed loss (dB) term in the NLOS model
 	NoiseFloorDbm       DbValue // the noise floor (ambient noise, in dBm)
 	SnrMinThresholdDb   DbValue // the minimal value an SNR/SINR should be, to have a non-zero frame success probability.
 	ShadowFadingSigmaDb DbValue // sigma (stddev) parameter for Shadow Fading (SF), in dB
@@ -122,42 +120,33 @@ func NewRadioModel(modelName string) RadioModel {
 		model = &RadioModelIdeal{
 			Name:      "Ideal",
 			FixedRssi: -60,
+			Params: &RadioModelParams{
+				MeterPerUnit: defaultMeterPerUnit,
+			},
 		}
 	case "Ideal_Rssi", "IR", "2", "default":
 		model = &RadioModelIdeal{
 			Name:            "Ideal_Rssi",
 			UseVariableRssi: true,
-			IndoorParams: &IndoorModelParams{
-				ExponentDb:    35.0,
-				FixedLossDb:   40.0,
-				RangeInMeters: radioRangeIndoorDistInMeters,
-			},
+			Params:          newIndoorModelParamsItu(),
 		}
 	case "MutualInterference", "MI", "M", "3":
 		model = &RadioModelMutualInterference{
-			Name: "MutualInterference",
-			IndoorParams: &IndoorModelParams{
-				ExponentDb:          35.0,
-				FixedLossDb:         40.0,
-				RangeInMeters:       radioRangeIndoorDistInMeters,
-				NoiseFloorDbm:       noiseFloorIndoorDbm,
-				SnrMinThresholdDb:   -4.0, // see calcber.m Octave file
-				ShadowFadingSigmaDb: 6.0,
-			},
+			Name:         "MutualInterference",
+			Params:       newIndoorModelParams3gpp(),
 			shadowFading: newShadowFading(),
 		}
 	case "MIDisc", "MID", "4":
 		model = &RadioModelMutualInterference{
-			Name:        "MIDisc",
-			IsDiscLimit: true,
-			IndoorParams: &IndoorModelParams{
-				ExponentDb:          30.0,
-				FixedLossDb:         40.0,
-				RangeInMeters:       radioRangeIndoorDistInMeters,
-				NoiseFloorDbm:       noiseFloorIndoorDbm,
-				SnrMinThresholdDb:   -4.0, // see calcber.m Octave file
-				ShadowFadingSigmaDb: 6.0,
-			},
+			Name:         "MIDisc",
+			IsDiscLimit:  true,
+			Params:       newIndoorModelParams3gpp(),
+			shadowFading: newShadowFading(),
+		}
+	case "Outdoor", "5":
+		model = &RadioModelMutualInterference{
+			Name:         "Outdoor",
+			Params:       newOutdoorModelParams(),
 			shadowFading: newShadowFading(),
 		}
 	default:
@@ -169,25 +158,6 @@ func NewRadioModel(modelName string) RadioModel {
 	return model
 }
 
-// computeIndoorRssi computes the RSSI for a receiver at distance dist, using a simple indoor exponent loss model.
-// See https://en.wikipedia.org/wiki/ITU_model_for_indoor_attenuation
-func computeIndoorRssi(srcRadioRange float64, dist float64, txPower DbValue, modelParams *IndoorModelParams) DbValue {
-	pathloss := 0.0
-	distMeters := dist * modelParams.RangeInMeters / srcRadioRange
-	if distMeters >= 0.072 {
-		pathloss = modelParams.ExponentDb*math.Log10(distMeters) + modelParams.FixedLossDb
-	}
-	rssi := txPower - pathloss
-
-	// constrain RSSI value to range and return it. If RSSI is lower, return RssiMinusInfinity.
-	if rssi > RssiMax {
-		rssi = RssiMax
-	} else if rssi < RssiMin {
-		rssi = RssiMinusInfinity
-	}
-	return rssi
-}
-
 // addSignalPowersDbm calculates signal power in dBm of two added, uncorrelated, signals with powers p1 and p2 (dBm).
 func addSignalPowersDbm(p1 DbValue, p2 DbValue) DbValue {
 	if p1 > p2+15.0 {
@@ -197,4 +167,14 @@ func addSignalPowersDbm(p1 DbValue, p2 DbValue) DbValue {
 		return p2
 	}
 	return 10.0 * math.Log10(math.Pow(10, p1/10.0)+math.Pow(10, p2/10.0))
+}
+
+// clipRssi clips the RSSI value (in dBm, as DbValue) to int8 range for return to OT nodes.
+func clipRssi(rssi DbValue) int8 {
+	if rssi > RssiMax {
+		rssi = RssiMax
+	} else if rssi < RssiMin {
+		rssi = RssiMinusInfinity
+	}
+	return int8(math.Round(rssi))
 }

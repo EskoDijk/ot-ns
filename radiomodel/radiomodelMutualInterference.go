@@ -48,7 +48,7 @@ type RadioModelMutualInterference struct {
 	IsDiscLimit bool
 
 	// Parameters of an indoor propagation model
-	IndoorParams *IndoorModelParams
+	Params       *RadioModelParams
 	shadowFading *shadowFading
 
 	nodes                 map[NodeId]*RadioNode
@@ -80,16 +80,17 @@ func (rm *RadioModelMutualInterference) CheckRadioReachable(src *RadioNode, dst 
 		return false
 	}
 	rssi := rm.GetTxRssi(src, dst)
-	return rssi >= RssiMin && rssi <= RssiMax && rssi >= (dst.RxSensitivity+rm.IndoorParams.SnrMinThresholdDb)
+	floorDbm := math.Max(dst.RxSensitivity, rm.Params.NoiseFloorDbm) + rm.Params.SnrMinThresholdDb
+	return rssi >= RssiMin && rssi <= RssiMax && rssi >= floorDbm
 }
 
-func (rm *RadioModelMutualInterference) GetTxRssi(srcNode *RadioNode, dstNode *RadioNode) DbValue {
-	dist := srcNode.GetDistanceTo(dstNode)
-	if rm.IsDiscLimit && dist > srcNode.RadioRange {
+func (rm *RadioModelMutualInterference) GetTxRssi(src *RadioNode, dst *RadioNode) DbValue {
+	dist := src.GetDistanceTo(dst)
+	if rm.IsDiscLimit && dist > src.RadioRange {
 		return RssiMinusInfinity
 	}
-	rssi := computeIndoorRssi(srcNode.RadioRange, dist, srcNode.TxPower, rm.IndoorParams)
-	rssi -= rm.shadowFading.computeShadowFading(srcNode, dstNode, dist, rm.IndoorParams)
+	rssi := computeIndoorRssi3gpp(dist, src.TxPower, rm.Params)
+	rssi -= rm.shadowFading.computeShadowFading(src, dst, rm.Params)
 	return rssi
 }
 
@@ -97,11 +98,11 @@ func (rm *RadioModelMutualInterference) OnEventDispatch(src *RadioNode, dst *Rad
 	switch evt.Type {
 	case EventTypeRadioCommStart:
 		// compute the RSSI and store in the event.
-		evt.RadioCommData.PowerDbm = int8(math.Round(rm.GetTxRssi(src, dst)))
+		evt.RadioCommData.PowerDbm = clipRssi(rm.GetTxRssi(src, dst))
 
 	case EventTypeRadioRxDone:
 		// compute the RSSI and store in the event
-		evt.RadioCommData.PowerDbm = int8(math.Round(rm.GetTxRssi(src, dst)))
+		evt.RadioCommData.PowerDbm = clipRssi(rm.GetTxRssi(src, dst))
 
 		// check for interference by other signals and apply to event.
 		rm.applyInterference(src, dst, evt)
@@ -157,7 +158,7 @@ func (rm *RadioModelMutualInterference) init() {
 }
 
 func (rm *RadioModelMutualInterference) getRssiAmbientNoise(node *RadioNode, channel ChannelId) DbValue {
-	return rm.IndoorParams.NoiseFloorDbm
+	return rm.Params.NoiseFloorDbm
 }
 
 func (rm *RadioModelMutualInterference) getRssiOnChannel(node *RadioNode, channel ChannelId) DbValue {

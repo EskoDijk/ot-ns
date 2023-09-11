@@ -719,12 +719,16 @@ func (d *Dispatcher) SendToUART(id NodeId, data []byte) error {
 	}
 	dstnode := d.nodes[id]
 	if dstnode != nil {
-		if dstnode.watchLogLevel >= WatchTraceLevel {
-			simplelogger.Debugf("%s UART-write: %s", GetNodeName(id), string(data))
-		}
-		dstnode.sendEvent(evt)
-		if dstnode.err != nil {
-			err = dstnode.err
+		if dstnode.conn == nil {
+			err = fmt.Errorf("SendToUart() cannot send to node %d: connection closed.", id)
+		} else {
+			if dstnode.watchLogLevel >= WatchTraceLevel {
+				simplelogger.Debugf("%s UART-write: %s", GetNodeName(id), string(data))
+			}
+			dstnode.sendEvent(evt)
+			if dstnode.err != nil {
+				err = dstnode.err
+			}
 		}
 	} else {
 		err = fmt.Errorf("SendToUART() cannot send to deleted/unknown Dispatcher node: %d", id)

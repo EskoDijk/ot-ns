@@ -38,9 +38,9 @@ import (
 // radioRange of the node i.e. ideal disc model.
 type RadioModelIdeal struct {
 	Name            string
-	UseVariableRssi bool // when true uses distance-dependent RSSI model, else FixedRssi.
+	UseVariableRssi bool // when true it uses distance-dependent RSSI model, else FixedRssi.
 	FixedRssi       DbValue
-	IndoorParams    *IndoorModelParams
+	Params          *RadioModelParams
 
 	nodes map[NodeId]*RadioNode
 }
@@ -66,7 +66,7 @@ func (rm *RadioModelIdeal) CheckRadioReachable(src *RadioNode, dst *RadioNode) b
 func (rm *RadioModelIdeal) GetTxRssi(srcNode *RadioNode, dstNode *RadioNode) DbValue {
 	rssi := rm.FixedRssi // in the most ideal case, always assume a good RSSI up until the max range.
 	if rm.UseVariableRssi {
-		rssi = computeIndoorRssi(srcNode.RadioRange, srcNode.GetDistanceTo(dstNode), srcNode.TxPower, rm.IndoorParams)
+		rssi = computeIndoorRssiItu(srcNode.GetDistanceTo(dstNode), srcNode.TxPower, rm.Params)
 	}
 	return rssi
 }
@@ -77,7 +77,7 @@ func (rm *RadioModelIdeal) OnEventDispatch(src *RadioNode, dst *RadioNode, evt *
 		fallthrough
 	case EventTypeRadioRxDone:
 		// compute the RSSI and store it in the event
-		evt.RadioCommData.PowerDbm = int8(math.Round(rm.GetTxRssi(src, dst)))
+		evt.RadioCommData.PowerDbm = clipRssi(rm.GetTxRssi(src, dst))
 	case EventTypeRadioChannelSample:
 		// store the final sampled RSSI in the event
 		evt.RadioCommData.PowerDbm = int8(math.Ceil(src.rssiSampleMax))

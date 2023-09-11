@@ -528,6 +528,7 @@ func (rt *CmdRunner) executeNode(cc *CommandContext, cmd *NodeCmd) {
 			for _, line := range output {
 				cc.outputf("%s\n", line)
 			}
+			node.DisplayPendingLogEntries(sim.Dispatcher().CurTime)
 		} else {
 			contextNodeId = node.Id
 		}
