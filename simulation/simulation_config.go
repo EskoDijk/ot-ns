@@ -60,9 +60,9 @@ type Config struct {
 	RawMode          bool
 	Real             bool
 	AutoGo           bool
+	DumpPackets      bool
 	DispatcherHost   string
 	DispatcherPort   int
-	DumpPackets      bool
 	RadioModel       string
 	Id               int
 	Channel          ChannelId
@@ -80,6 +80,7 @@ func DefaultConfig() *Config {
 		RawMode:          false,
 		Real:             false,
 		AutoGo:           true,
+		DumpPackets:      false,
 		DispatcherHost:   "localhost",
 		DispatcherPort:   InitialDispatcherPort,
 		RadioModel:       "MutualInterference",

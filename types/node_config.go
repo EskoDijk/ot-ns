@@ -36,6 +36,7 @@ type NodeConfig struct {
 	IsRouter       bool
 	IsBorderRouter bool
 	RxOffWhenIdle  bool
+	NodeLogFile    bool
 	RadioRange     int
 	ExecutablePath string
 	Restore        bool
@@ -52,6 +53,7 @@ func DefaultNodeConfig() NodeConfig {
 		IsMtd:          false,
 		IsBorderRouter: false,
 		RxOffWhenIdle:  false,
+		NodeLogFile:    true,
 		RadioRange:     220,
 		ExecutablePath: "",
 		Restore:        false,

@@ -70,6 +70,7 @@ type MainArgs struct {
 	DumpPackets    bool
 	NoPcap         bool
 	NoReplay       bool
+	NoLogFile      bool
 }
 
 var (
@@ -103,6 +104,7 @@ func parseArgs() {
 	flag.BoolVar(&args.DumpPackets, "dump-packets", false, "dump packets")
 	flag.BoolVar(&args.NoPcap, "no-pcap", false, "do not generate PCAP file (named \"current.pcap\")")
 	flag.BoolVar(&args.NoReplay, "no-replay", false, "do not generate Replay file (named \"otns_?.replay\")")
+	flag.BoolVar(&args.NoLogFile, "no-logfile", false, "do not generate node log files (named \"tmp/?_?.log\")")
 
 	flag.Parse()
 }
@@ -249,6 +251,7 @@ func createSimulation(ctx *progctx.ProgCtx) *simulation.Simulation {
 	simcfg.ExeConfig.Ftd = args.OtCliPath
 	simcfg.ExeConfig.Mtd = args.OtCliMtdPath
 	simcfg.NewNodeConfig.InitScript = simulation.DefaultNodeInitScript
+	simcfg.NewNodeConfig.NodeLogFile = !args.NoLogFile
 	args.Speed = strings.ToLower(args.Speed)
 	if args.Speed == "max" {
 		speed = dispatcher.MaxSimulateSpeed

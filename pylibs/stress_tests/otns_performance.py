@@ -40,9 +40,8 @@ import time
 
 from BaseStressTest import BaseStressTest
 
-XGAP = 100
-YGAP = 100
-RADIO_RANGE = int(XGAP * 1.5)
+XGAP = 200
+YGAP = 200
 
 ROWS, COLS = 4, 8
 assert ROWS * COLS <= 32
@@ -65,7 +64,7 @@ class OtnsPerformanceStressTest(BaseStressTest):
 
         for r in range(ROWS):
             for c in range(COLS):
-                nid = ns.add("router", 100 + XGAP * c, 100 + YGAP * r, radio_range=RADIO_RANGE)
+                nid = ns.add("router", 100 + XGAP * c, 100 + YGAP * r)
                 # make sure every node become Router
                 ns.node_cmd(nid, "routerupgradethreshold 32")
                 ns.node_cmd(nid, 'routerdowngradethreshold 33')

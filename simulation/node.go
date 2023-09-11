@@ -85,15 +85,19 @@ type Node struct {
 func newNode(s *Simulation, nodeid NodeId, cfg *NodeConfig) (*Node, error) {
 	var err error
 	logFileName := fmt.Sprintf("tmp/%d_%d.log", s.cfg.Id, nodeid)
+	var logFile *os.File
+
 	if !cfg.Restore {
 		flashFile := fmt.Sprintf("tmp/%d_%d.flash", s.cfg.Id, nodeid)
 		if err = os.RemoveAll(flashFile); err != nil {
 			simplelogger.Errorf("Remove flash file %s failed: %+v", flashFile, err)
 			return nil, err
 		}
-		if err = os.RemoveAll(logFileName); err != nil {
-			simplelogger.Errorf("Remove node log file %s failed: %+v", logFileName, err)
-			return nil, err
+		if cfg.NodeLogFile {
+			if err = os.RemoveAll(logFileName); err != nil {
+				simplelogger.Errorf("Remove node log file %s failed: %+v", logFileName, err)
+				return nil, err
+			}
 		}
 	}
 
@@ -126,19 +130,20 @@ func newNode(s *Simulation, nodeid NodeId, cfg *NodeConfig) (*Node, error) {
 	}
 
 	// open log file for node's OT output
-	logFile, err := os.OpenFile(logFileName, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0664)
-	if err != nil {
-		simplelogger.Errorf("Opening node log file %s failed: %+v", logFileName, err)
-		return nil, err
+	if cfg.NodeLogFile {
+		logFile, err = os.OpenFile(logFileName, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0664)
+		if err != nil {
+			simplelogger.Errorf("Opening node log file %s failed: %+v", logFileName, err)
+			return nil, err
+		}
+		node.logFile = logFile
+		header := fmt.Sprintf("# OpenThread node log for %s Created %s\n", GetNodeName(nodeid),
+			time.Now().Format(time.RFC3339)) +
+			fmt.Sprintf("# Executable: %s\n", cfg.ExecutablePath) +
+			"# SimTimeUs NodeTime     Lev LogModule       Message"
+		_ = node.writeToLogFile(header)
+		simplelogger.Debugf("Node log file '%s' opened.", logFileName)
 	}
-	node.logFile = logFile
-
-	header := fmt.Sprintf("# OpenThread node log for %s Created %s\n", GetNodeName(nodeid),
-		time.Now().Format(time.RFC3339)) +
-		fmt.Sprintf("# Executable: %s\n", cfg.ExecutablePath) +
-		"# SimTimeUs NodeTime     Lev LogModule       Message"
-	_ = node.writeToLogFile(header)
-	simplelogger.Debugf("Node log file '%s' opened.", logFileName)
 
 	if err = cmd.Start(); err != nil {
 		if logFile != nil {
