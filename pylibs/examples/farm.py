@@ -50,7 +50,7 @@ FARM_RECT = [10 * R, 10 * R, 210 * R, 110 * R]
 
 
 def main():
-    ns = OTNS(otns_args=['-log', 'debug'])
+    ns = OTNS(otns_args=['-log', 'info', '-no-logfile'])
     ns.speed = 4
     ns.radiomodel = 'Outdoor'
     ns.set_title("Farm Example")
