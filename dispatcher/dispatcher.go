@@ -851,8 +851,7 @@ func (d *Dispatcher) sendRadioCommRxDoneEvents(srcNode *Node, evt *Event) {
 	}
 }
 
-func (d *Dispatcher) checkRadioReachable(src *Node,
-	dst *Node) bool {
+func (d *Dispatcher) checkRadioReachable(src *Node, dst *Node) bool {
 	// the RadioModel will check distance and radio-state of receivers.
 	return src != dst && src != nil && dst != nil &&
 		d.radioModel.CheckRadioReachable(src.radioNode, dst.radioNode)
