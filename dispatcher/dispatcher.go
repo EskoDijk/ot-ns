@@ -625,13 +625,8 @@ func (d *Dispatcher) eventsReader() {
 			myNodeId := 0
 
 			for {
-				//_ = myConn.SetReadDeadline(time.Now().Add(DefaultReadTimeout)) // FIXME remove line
 				n, err := myConn.Read(buf)
 
-				/* FIXME remove
-				if errors.Is(err, os.ErrDeadlineExceeded) {
-					continue // keep reading
-				} else */
 				if errors.Is(err, io.EOF) {
 					break
 				} else if err != nil {
