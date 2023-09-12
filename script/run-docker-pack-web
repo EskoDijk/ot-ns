@@ -28,4 +28,4 @@
 # Runs the pack-web script via a Docker with the right tools environment.
 # Only used during OTNS-web development.
 
-docker run -t -v$PWD:/otns openthread/otns:environment -c "./script/pack-web"
+docker run -t -v"$PWD":/otns openthread/otns:environment -c "./script/pack-web"
