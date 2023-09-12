@@ -55,7 +55,7 @@ func newShadowFading() *shadowFading {
 // and static obstacles. In the dB domain it is modeled as a normal distribution (mu=0, sigma).
 // See https://en.wikipedia.org/wiki/Fading and 3GPP TR 38.901 V17.0.0, section 7.4.1 and 7.4.4, and
 // Table 7.5-6 Part-2.
-// TODO: implement the autocorrelation of SF over a correlation length d_cor = 6 m (NLOS case)
+// TODO: better implement the autocorrelation of SF over a correlation length d_cor = 6 m (NLOS case)
 func (sf *shadowFading) computeShadowFading(src *RadioNode, dst *RadioNode, params *RadioModelParams) DbValue {
 	if params.ShadowFadingSigmaDb <= 0 {
 		return 0.0

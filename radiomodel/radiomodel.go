@@ -44,7 +44,7 @@ const (
 
 // default radio & simulation parameters
 const (
-	receiveSensitivityDbm DbValue = -100.0 // TODO for now MUST be manually kept equal to OT: SIM_RECEIVE_SENSITIVITY
+	receiveSensitivityDbm DbValue = -100.0 // MUST be manually kept equal to OT: SIM_RECEIVE_SENSITIVITY
 	defaultTxPowerDbm     DbValue = 0.0    // Default, RadioTxEvent msg will override it. OT: SIM_TX_POWER
 	noiseFloorIndoorDbm   DbValue = -95.0  // Indoor model ambient noise floor (dBm)
 	defaultMeterPerUnit   float64 = 0.10   // Default distance equivalent in meters of one grid/pixel distance unit.
