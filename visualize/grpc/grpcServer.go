@@ -112,7 +112,7 @@ func (gs *grpcServer) EnergyReport(req *pb.VisualizeRequest, stream pb.Visualize
 	<-contextDone
 	err = stream.Context().Err()
 
-	simplelogger.Infof("energy report stream exit: %v", err)
+	simplelogger.Debugf("energy report stream exit: %v", err)
 	return err
 }
 
