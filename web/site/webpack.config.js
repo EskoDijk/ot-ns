@@ -9,7 +9,7 @@ module.exports = {
     resolve: {
         extensions: ['*', '.mjs', '.js', '.json']
     },
-    
+
     module: {
         rules: [
             {
