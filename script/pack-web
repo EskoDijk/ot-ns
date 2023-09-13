@@ -36,7 +36,6 @@ main()
     cd "$sitedir" || return 1
     npm install
     npm version
-    npm install chart.js@3.9.1
     npx webpack ./js/visualize.js -o ./static/js/visualize.js
     npx webpack ./js/energyViewer.js -o ./static/js/energyViewer.js
 
