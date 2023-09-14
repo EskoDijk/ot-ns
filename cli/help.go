@@ -27,9 +27,8 @@
 package cli
 
 import (
-	"fmt"
+	_ "embed"
 	"os"
-	"sort"
 	"strings"
 
 	"github.com/mitchellh/go-wordwrap"
@@ -40,7 +39,7 @@ import (
 type Help struct {
 	termWidth   uint
 	maxCmdWidth uint
-	commands    []string
+	commands    map[string]string
 }
 
 var commandHelp = map[string]string{
@@ -76,16 +75,18 @@ var commandHelp = map[string]string{
 	"web":        "Open a web browser for visualization.",
 }
 
+// Embed the CLI help file as a static resource.
+//go:embed README.md
+var cliHelpFile string
+
 // Creates new Help object. It is used to display CLI commands help to the user.
 func newHelp() Help {
-	h := Help{}
-	h.termWidth = 80
-	h.maxCmdWidth = 10
-	h.commands = make([]string, 0, len(commandHelp))
-	for k := range commandHelp {
-		h.commands = append(h.commands, k)
+	h := Help{
+		termWidth:   80,
+		maxCmdWidth: 10,
+		commands:    make(map[string]string),
 	}
-	sort.Strings(h.commands)
+	h.parseHelpFile()
 	h.update()
 	return h
 }
@@ -100,9 +101,11 @@ func (help *Help) update() {
 	}
 }
 
-// Output general help for all commands.
+// Output short help for all commands.
 func (help *Help) outputGeneralHelp() string {
-	return help.outputHelp(help.commands) +
+	cmdHelp := ""
+	//for
+	return cmdHelp +
 		wordwrap.WrapString("\nFor detailed CLI command reference go to:\n"+
 			"https://github.com/EskoDijk/ot-ns/blob/main/cli/README.md\n",
 			help.termWidth)
@@ -118,19 +121,67 @@ func (help *Help) outputHelp(commands []string) string {
 	help.update()
 	s := ""
 	for _, cmd := range commands {
-		explanation, ok := commandHelp[cmd]
+		explanation, ok := help.commands[cmd]
 		if !ok {
 			explanation = "(Non-existent command.)"
 		}
 		w := help.termWidth - help.maxCmdWidth - 1
 		explWrapped := strings.Split(wordwrap.WrapString(explanation, w), "\n")
 		for idx, line := range explWrapped {
-			if idx == 0 {
-				s += fmt.Sprintf("%-10s %s\n", cmd, line)
-				continue
+			if idx > 0 {
+				s += "  "
 			}
-			s += fmt.Sprintf("%-10s %s\n", "", line)
+			s += line + "\n"
 		}
 	}
 	return s
+}
+
+func (help *Help) parseHelpFile() {
+	indentString := "    "
+	lines := strings.Split(cliHelpFile, "\n")
+	activeCmd := ""
+	indent := 0
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+
+		if len(line) == 0 {
+			continue
+		}
+
+		if line == "```bash" {
+			line = "\nExample:"
+			indent = 2
+		} else if line == "```" {
+			line = ""
+			indent = 0
+		} else if strings.Index(line, "### ") == 0 && len(line) >= 5 {
+			cmdline := markdownUnquote(strings.TrimSpace(line[4:]))
+			cmdSingle := cmdline
+			idx := strings.Index(cmdline, " ")
+			if idx > 0 {
+				cmdSingle = cmdline[0:idx]
+			}
+			activeCmd = cmdSingle
+			if _, ok := help.commands[activeCmd]; !ok {
+				help.commands[activeCmd] = ""
+			}
+			line = cmdline
+			indent = 0
+		}
+
+		if len(activeCmd) > 0 {
+			help.commands[activeCmd] += indentString[0:indent] + line + "\n"
+		}
+	}
+}
+
+func markdownUnquote(md string) string {
+	md = strings.ReplaceAll(md, "\\[", "[")
+	md = strings.ReplaceAll(md, "\\]", "]")
+	md = strings.ReplaceAll(md, "\\(", "(")
+	md = strings.ReplaceAll(md, "\\)", ")")
+	md = strings.ReplaceAll(md, "\\>", ">")
+	md = strings.ReplaceAll(md, "\\<", "<")
+	return md
 }

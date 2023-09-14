@@ -27,6 +27,7 @@
 package runcli
 
 import (
+	"errors"
 	"io"
 	"os"
 	"strings"
@@ -54,11 +55,23 @@ func DefaultCliOptions() *CliOptions {
 }
 
 var (
-	readlineInstance *readline.Instance
+	readlineInstance  *readline.Instance
+	readlineInstReady chan bool = make(chan bool, 1)
 )
 
 func RestorePrompt() {
-	readlineInstance.Refresh()
+	if readlineInstance != nil {
+		readlineInstance.Refresh()
+	}
+}
+
+func StopCli() {
+	if <-readlineInstReady {
+		close(readlineInstReady)
+		//simplelogger.Debugf("CLI requesting to close.")
+		_ = readlineInstance.Close()
+		//simplelogger.Debugf("CLI requested to close.")
+	}
 }
 
 func RunCli(handler CliHandler, options *CliOptions) error {
@@ -82,7 +95,6 @@ func RunCli(handler CliHandler, options *CliOptions) error {
 		if err != nil {
 			return err
 		}
-
 		defer func() {
 			_ = readline.Restore(int(stdin.Fd()), stdinState)
 		}()
@@ -124,28 +136,29 @@ func RunCli(handler CliHandler, options *CliOptions) error {
 	}
 
 	l, err := readline.NewEx(readlineConfig)
-	readlineInstance = l
 
 	if err != nil {
 		return err
 	}
+
 	defer func() {
 		_ = l.Close()
 	}()
+	readlineInstance = l
+	//readlineInstReady <- true // signal that instance is ready
 
 	for {
-		// update the prompt
+		// update the prompt and read a line
 		l.SetPrompt(handler.GetPrompt())
-
 		line, err := l.Readline()
 
-		if err == readline.ErrInterrupt {
+		if errors.Is(err, readline.ErrInterrupt) {
 			if len(line) == 0 {
 				return nil
 			} else {
 				continue
 			}
-		} else if err == io.EOF {
+		} else if errors.Is(err, io.EOF) {
 			return nil
 		} else if err != nil {
 			return err

@@ -61,6 +61,10 @@ type CommandContext struct {
 }
 
 func (cc *CommandContext) outputf(format string, args ...interface{}) {
+	if len(args) == 0 {
+		fmt.Print(cc.output, format) // don't interpret % characters when no arguments.
+		return
+	}
 	_, _ = fmt.Fprintf(cc.output, format, args...)
 }
 
