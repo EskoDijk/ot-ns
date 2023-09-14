@@ -28,7 +28,10 @@ package cli
 
 import (
 	_ "embed"
+	"fmt"
 	"os"
+	"regexp"
+	"sort"
 	"strings"
 
 	"github.com/mitchellh/go-wordwrap"
@@ -41,6 +44,10 @@ type Help struct {
 	maxCmdWidth uint
 	commands    map[string]string
 }
+
+var (
+	cmdHeaderPattern = regexp.MustCompile("###+ .+")
+)
 
 var commandHelp = map[string]string{
 	"help":       "Show help for a specific command.",
@@ -76,6 +83,7 @@ var commandHelp = map[string]string{
 }
 
 // Embed the CLI help file as a static resource.
+//
 //go:embed README.md
 var cliHelpFile string
 
@@ -104,9 +112,20 @@ func (help *Help) update() {
 // Output short help for all commands.
 func (help *Help) outputGeneralHelp() string {
 	cmdHelp := ""
-	//for
+	// get a sorted list of commands
+	cmds := make([]string, 0, len(commandHelp))
+	for k := range commandHelp {
+		cmds = append(cmds, k)
+	}
+	sort.Strings(cmds)
+
+	for _, c := range cmds {
+		cmdHelp += fmt.Sprintf("%-15s %s\n", c, commandHelp[c])
+	}
 	return cmdHelp +
-		wordwrap.WrapString("\nFor detailed CLI command reference go to:\n"+
+		wordwrap.WrapString("\nFor detailed help per command, use: 'help <command>'\n",
+			help.termWidth) +
+		wordwrap.WrapString("\nFor detailed one-page CLI command reference go to:\n"+
 			"https://github.com/EskoDijk/ot-ns/blob/main/cli/README.md\n",
 			help.termWidth)
 }
@@ -127,11 +146,12 @@ func (help *Help) outputHelp(commands []string) string {
 		}
 		w := help.termWidth - help.maxCmdWidth - 1
 		explWrapped := strings.Split(wordwrap.WrapString(explanation, w), "\n")
-		for idx, line := range explWrapped {
-			if idx > 0 {
-				s += "  "
+		for _, line := range explWrapped {
+			if cmdHeaderPattern.MatchString(line) {
+				s += line[strings.Index(line, " ")+1:] + "\n"
+			} else {
+				s += "  " + line + "\n"
 			}
-			s += line + "\n"
 		}
 	}
 	return s
@@ -155,12 +175,12 @@ func (help *Help) parseHelpFile() {
 		} else if line == "```" {
 			line = ""
 			indent = 0
-		} else if strings.Index(line, "### ") == 0 && len(line) >= 5 {
-			cmdline := markdownUnquote(strings.TrimSpace(line[4:]))
-			cmdSingle := cmdline
-			idx := strings.Index(cmdline, " ")
+		} else if cmdHeaderPattern.MatchString(line) {
+			cmdline := markdownUnquote(strings.TrimSpace(line))
+			cmdSingle := cmdline[strings.Index(cmdline, " ")+1:]
+			idx := strings.Index(cmdSingle, " ")
 			if idx > 0 {
-				cmdSingle = cmdline[0:idx]
+				cmdSingle = cmdSingle[0:idx]
 			}
 			activeCmd = cmdSingle
 			if _, ok := help.commands[activeCmd]; !ok {
@@ -177,11 +197,8 @@ func (help *Help) parseHelpFile() {
 }
 
 func markdownUnquote(md string) string {
-	md = strings.ReplaceAll(md, "\\[", "[")
-	md = strings.ReplaceAll(md, "\\]", "]")
-	md = strings.ReplaceAll(md, "\\(", "(")
-	md = strings.ReplaceAll(md, "\\)", ")")
-	md = strings.ReplaceAll(md, "\\>", ">")
-	md = strings.ReplaceAll(md, "\\<", "<")
+	// TODO: consider that double backslash may be present in the future in the Markdown.
+	// TODO: change MD links to text
+	md = strings.ReplaceAll(md, "\\", "")
 	return md
 }
