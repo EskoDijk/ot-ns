@@ -29,8 +29,6 @@
 # DNS client example - the PCAP file created can be checked in Wireshark to
 # see the DNS messages.
 
-import logging
-
 from otns.cli import OTNS
 from otns.cli.errors import OTNSCliError, OTNSExitedError
 
