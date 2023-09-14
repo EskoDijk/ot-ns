@@ -430,6 +430,7 @@ class BasicTests(OTNSTestCase):
         ns._do_command("help")
         ns._do_command("help plr")
         ns._do_command("help radiomodel")
+        ns._do_command("help add")
 
     def testGoUnits(self):
         ns: OTNS = self.ns

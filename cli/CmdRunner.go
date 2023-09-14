@@ -60,11 +60,11 @@ type CommandContext struct {
 	output io.Writer
 }
 
+func (cc *CommandContext) outputStr(msg string) {
+	_, _ = fmt.Fprint(cc.output, msg)
+}
+
 func (cc *CommandContext) outputf(format string, args ...interface{}) {
-	if len(args) == 0 {
-		fmt.Print(cc.output, format) // don't interpret % characters when no arguments.
-		return
-	}
 	_, _ = fmt.Fprintf(cc.output, format, args...)
 }
 
@@ -1036,9 +1036,9 @@ func (rt *CmdRunner) executeExe(cc *CommandContext, cmd *ExeCmd) {
 
 func (rt *CmdRunner) executeHelp(cc *CommandContext, cmd *HelpCmd) {
 	if len(cmd.HelpTopic) > 0 {
-		cc.outputf(rt.help.outputCommandHelp(cmd.HelpTopic))
+		cc.outputStr(rt.help.outputCommandHelp(cmd.HelpTopic))
 	} else {
-		cc.outputf(rt.help.outputGeneralHelp())
+		cc.outputStr(rt.help.outputGeneralHelp())
 	}
 }
 

@@ -27,7 +27,6 @@
 package runcli
 
 import (
-	"errors"
 	"io"
 	"os"
 	"strings"
@@ -55,22 +54,12 @@ func DefaultCliOptions() *CliOptions {
 }
 
 var (
-	readlineInstance  *readline.Instance
-	readlineInstReady chan bool = make(chan bool, 1)
+	readlineInstance *readline.Instance
 )
 
 func RestorePrompt() {
 	if readlineInstance != nil {
 		readlineInstance.Refresh()
-	}
-}
-
-func StopCli() {
-	if <-readlineInstReady {
-		close(readlineInstReady)
-		//simplelogger.Debugf("CLI requesting to close.")
-		_ = readlineInstance.Close()
-		//simplelogger.Debugf("CLI requested to close.")
 	}
 }
 
@@ -152,13 +141,13 @@ func RunCli(handler CliHandler, options *CliOptions) error {
 		l.SetPrompt(handler.GetPrompt())
 		line, err := l.Readline()
 
-		if errors.Is(err, readline.ErrInterrupt) {
+		if err == readline.ErrInterrupt {
 			if len(line) == 0 {
 				return nil
 			} else {
 				continue
 			}
-		} else if errors.Is(err, io.EOF) {
+		} else if err == io.EOF {
 			return nil
 		} else if err != nil {
 			return err

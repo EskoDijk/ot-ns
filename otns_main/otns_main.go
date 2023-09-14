@@ -197,9 +197,9 @@ func Main(ctx *progctx.ProgCtx, visualizerCreator func(ctx *progctx.ProgCtx, arg
 		go autoGo(ctx, sim)
 	}
 
-	//ctx.WaitAdd("cli", 1)
+	ctx.WaitAdd("cli", 1)
 	go func() {
-		//defer ctx.WaitDone("cli")
+		defer ctx.WaitDone("cli")
 		err := cli.Run(rt, cliOptions)
 		ctx.Cancel(errors.Wrapf(err, "console-exit"))
 	}()
@@ -209,7 +209,6 @@ func Main(ctx *progctx.ProgCtx, visualizerCreator func(ctx *progctx.ProgCtx, arg
 
 	simplelogger.Debugf("waiting for OTNS to stop gracefully ...")
 	webSite.StopServe()
-	//runcli.StopCli()
 	ctx.Wait()
 }
 
