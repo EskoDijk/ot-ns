@@ -134,7 +134,6 @@ func RunCli(handler CliHandler, options *CliOptions) error {
 		_ = l.Close()
 	}()
 	readlineInstance = l
-	//readlineInstReady <- true // signal that instance is ready
 
 	for {
 		// update the prompt and read a line
