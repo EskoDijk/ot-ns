@@ -48,6 +48,7 @@ import (
 	visualizeMulti "github.com/openthread/ot-ns/visualize/multi"
 	"github.com/openthread/ot-ns/web"
 	webSite "github.com/openthread/ot-ns/web/site"
+
 	"github.com/pkg/errors"
 	"github.com/simonlingoogle/go-simplelogger"
 )
@@ -142,6 +143,7 @@ func Main(ctx *progctx.ProgCtx, visualizerCreator func(ctx *progctx.ProgCtx, arg
 
 	// run console in the main goroutine. Deferred funcs are called when context moves into 'Done' state
 	ctx.Defer(func() {
+		runcli.StopCli()
 		_ = os.Stdin.Close() // also needed for PyOTNS to exit ok.
 	})
 
@@ -185,7 +187,13 @@ func Main(ctx *progctx.ProgCtx, visualizerCreator func(ctx *progctx.ProgCtx, arg
 	sim := createSimulation(ctx)
 	rt := cli.NewCmdRunner(ctx, sim)
 	sim.SetVisualizer(vis)
-	go sim.Run()
+
+	ctx.WaitAdd("simulation", 1)
+	go func() {
+		defer ctx.WaitDone("simulation")
+		defer simplelogger.Debugf("simulation exit.")
+		sim.Run()
+	}()
 
 	web.ConfigWeb(args.DispatcherHost, args.DispatcherPort-2, args.DispatcherPort-1, args.DispatcherPort-3)
 	simplelogger.Debugf("open web: %v", args.OpenWeb)
@@ -201,7 +209,7 @@ func Main(ctx *progctx.ProgCtx, visualizerCreator func(ctx *progctx.ProgCtx, arg
 	go func() {
 		defer ctx.WaitDone("cli")
 		err := cli.Run(rt, cliOptions)
-		ctx.Cancel(errors.Wrapf(err, "console-exit"))
+		ctx.Cancel(errors.Wrapf(err, "cli-exit"))
 	}()
 
 	vis.Run() // visualize must run in the main thread

@@ -35,6 +35,10 @@ import (
 	. "github.com/openthread/ot-ns/types"
 )
 
+var (
+	CommandInterruptedError = fmt.Errorf("command interrupted due to simulation exit")
+)
+
 type CmdRunner interface {
 	RunCommand(cmd string, output io.Writer) error
 

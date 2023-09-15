@@ -77,6 +77,14 @@ def main():
     ns.node_cmd(id_br,'srp server host')
     ns.node_cmd(id_br,'srp server service')
 
+    # client: remove host and all services
+    ns.node_cmd(id_cl, 'srp client host remove')
+    ns.go(10)
+
+    # server: check status
+    ns.node_cmd(id_br,'srp server host')
+    ns.node_cmd(id_br,'srp server service')
+
     # allow some time for graphics to be displayed in web GUI.
     ns.speed=0.001
     ns.go(0.001)

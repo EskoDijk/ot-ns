@@ -76,13 +76,13 @@ class SignalsTest(OTNSTestCase):
 
     def testCommandHandleSignalOkx100(self):
         for i in range(100):
-            self._testCommandHandleSignalOk()
+            self._testCommandHandleSignalOk(duration=random.random() * 0.04)
 
             self.tearDown()
             self.setUp()
 
-    def _testCommandHandleSignalOk(self):
-        t = threading.Thread(target=self._send_signal, args=(0.02, signal.SIGTERM))
+    def _testCommandHandleSignalOk(self, duration: float = 1):
+        t = threading.Thread(target=self._send_signal, args=(duration, signal.SIGTERM))
         t.start()
         try:
             self.ns.speed = float('inf')

@@ -820,7 +820,6 @@ func (node *Node) expectLine(line interface{}, timeout time.Duration) ([]string,
 		select {
 		case <-deadline:
 			//_ = pprof.Lookup("goroutine").WriteTo(os.Stdout, 2) // @DEBUG: useful log info when node stuck
-			outputLines = append(outputLines, "Done")
 			err := fmt.Errorf("expectLine timeout: expected %v", line)
 			return outputLines, err
 		case readLine := <-node.pendingLines:
