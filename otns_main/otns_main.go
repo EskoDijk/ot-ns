@@ -143,7 +143,6 @@ func Main(ctx *progctx.ProgCtx, visualizerCreator func(ctx *progctx.ProgCtx, arg
 
 	// run console in the main goroutine. Deferred funcs are called when context moves into 'Done' state
 	ctx.Defer(func() {
-		runcli.StopCli()
 		_ = os.Stdin.Close() // also needed for PyOTNS to exit ok.
 	})
 
@@ -177,6 +176,7 @@ func Main(ctx *progctx.ProgCtx, visualizerCreator func(ctx *progctx.ProgCtx, arg
 	ctx.WaitAdd("webserver", 1)
 	go func() {
 		defer ctx.WaitDone("webserver")
+		defer simplelogger.Debugf("webserver exit.")
 		siteAddr := fmt.Sprintf("%s:%d", args.DispatcherHost, args.DispatcherPort-3)
 		err := webSite.Serve(siteAddr) // blocks until webSite.StopServe() called
 		if err != nil && ctx.Err() == nil {
@@ -216,6 +216,7 @@ func Main(ctx *progctx.ProgCtx, visualizerCreator func(ctx *progctx.ProgCtx, arg
 	ctx.Cancel("main")
 
 	simplelogger.Debugf("waiting for OTNS to stop gracefully ...")
+	runcli.StopCli()
 	webSite.StopServe()
 	ctx.Wait()
 }
@@ -229,13 +230,17 @@ func handleSignals(ctx *progctx.ProgCtx) {
 	ctx.WaitAdd("handleSignals", 1)
 	go func() {
 		defer ctx.WaitDone("handleSignals")
+		defer simplelogger.Debugf("handleSignals exit.")
+
 		close(sigHandlerReady)
+		done := ctx.Done()
 		for {
 			select {
 			case sig := <-c:
 				simplelogger.Infof("Unix signal received: %v", sig)
 				ctx.Cancel("signal-" + sig.String())
-			case <-ctx.Done():
+				return
+			case <-done:
 				return
 			}
 		}
