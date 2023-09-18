@@ -1,4 +1,4 @@
-// Copyright (c) 2020, The OTNS Authors.
+// Copyright (c) 2020-2023, The OTNS Authors.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -57,6 +57,11 @@ let app = new PIXI.Application({
 });
 
 document.body.appendChild(app.view);
+
+// ensure that double-click outside the nodeWindow does not select text in there.
+document.getElementById('nodeWindow').addEventListener("dblclick", function () {
+    return false;
+});
 
 let vis = null;
 let grpcServiceClient = null;

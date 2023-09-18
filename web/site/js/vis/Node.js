@@ -52,6 +52,9 @@ export default class Node extends VObject {
         this.childId = 0xffff;
         this.parentId = 0;
         this.role = OtDeviceRole.OT_DEVICE_ROLE_DISABLED;
+        this.rssiLast = [];
+        this.rssiLastNode = 0;
+        this.rssiLastValue = 0;
         this._failed = false;
         this._parent = 0;
         this._partition = 0;
@@ -321,4 +324,9 @@ export default class Node extends VObject {
         }
     }
 
+    onRssiSample(src, rssi) {
+        //this.rssiLast[src.id] = rssi;
+        this.rssiLastNode = src.id;
+        this.rssiLastValue = rssi;
+    }
 }

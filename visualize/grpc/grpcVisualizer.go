@@ -170,6 +170,7 @@ func (gv *grpcVisualizer) Send(srcid NodeId, dstid NodeId, mvinfo *visualize.Msg
 			DstAddrExtended: mvinfo.DstAddrExtended,
 			SendDurationUs:  mvinfo.SendDurationUs,
 			VisTrueDuration: gv.f.speed <= 0.01,
+			Rssi:            int32(mvinfo.Rssi),
 		},
 	}}}, false)
 }

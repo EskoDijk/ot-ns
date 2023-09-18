@@ -1177,6 +1177,7 @@ func (d *Dispatcher) visSendFrame(srcid NodeId, dstid NodeId, pktframe *wpan.Mac
 		DstAddrShort:    pktframe.DstAddrShort,
 		DstAddrExtended: pktframe.DstAddrExtended,
 		SendDurationUs:  uint32(commData.Duration),
+		Rssi:            commData.PowerDbm,
 	})
 }
 

@@ -48,7 +48,7 @@ export default class NodeWindow extends VObject {
         win.hidden = false;
 
         let txt        =
-            `Node ${node.id} properties\n` +
+            `Node ${node.id} properties\n\n` +
             `RLOC16    : ${fmt.formatRloc16(node.rloc16)}\n` ;
 
         let rid = `Router ID : --\n`;
@@ -71,6 +71,10 @@ export default class NodeWindow extends VObject {
 
             `Radio-fail: ${node.failed ? "FAILED (simulated)":"No"}\n` +
             `Position  : (${node.x}, ${node.y})\n` ;
+
+        if (node.rssiLastNode > 0) {
+            txt += `RSSI from ${node.rssiLastNode}: ${node.rssiLastValue}\n`;
+        }
 
         win.value = txt;
     }

@@ -76,6 +76,7 @@ message MsgVisualizeInfo {
     uint64 dst_addr_extended = 5;
     uint32 send_duration_us = 6;
     bool vis_true_duration = 7;
+    int32 rssi=8;
 }
 
 message AddRouterTableEvent {

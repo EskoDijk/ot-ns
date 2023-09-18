@@ -417,6 +417,9 @@ export default class PixiVisualizer extends VObject {
         } else {
             let dst = this.nodes[dstId];
             this.createUnicastMessage(src, dst, mvInfo);
+            if (dst) {
+                dst.onRssiSample(src, mvInfo.rssi);
+            }
         }
     }
 
