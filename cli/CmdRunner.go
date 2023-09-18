@@ -167,7 +167,7 @@ func (rt *CmdRunner) execute(cmd *Command, output io.Writer) {
 	defer func() {
 		if cc.Err() != nil {
 			cc.outputf("Error: %v\n", cc.Err())
-		} else if rt.ctx.Err() != nil {
+		} else if rt.ctx.Err() != nil && cc.Command.Exit == nil {
 			cc.outputf("Error: %s\n", simulation.CommandInterruptedError)
 		} else if !cc.isBackgroundCmd {
 			cc.outputf("Done\n")
