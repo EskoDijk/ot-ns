@@ -33,6 +33,8 @@ import (
 	"strings"
 
 	"github.com/chzyer/readline"
+	"github.com/simonlingoogle/go-simplelogger"
+	"syscall"
 )
 
 type CliHandler interface {
@@ -80,16 +82,21 @@ func getCliOptions(options *CliOptions) *CliOptions {
 
 func StopCli(options *CliOptions) {
 	options = getCliOptions(options)
+	_ = syscall.SetNonblock(int(options.Stdin.Fd()), true)
+	simplelogger.Debugf("StopCli(): set stdin to non-blocking.")
 	_ = options.Stdin.Close()
+	simplelogger.Debugf("StopCli(): closed stdin.")
 
-	// Don't call Close() as below - it may block waiting on on a stdin read operation
-	// in another goroutine, that never returns.
+	// Close() may block waiting on on a stdin read operation in another goroutine, that never returns.
+	// SetNonblock() is used to try to prevent the blocking.
 	// https://github.com/golang/go/issues/26439
-	/*
-		if readlineInstance != nil {
-			_ = readlineInstance.Close()
-		}
-	*/
+	// https://stackoverflow.com/questions/74886459/golang-why-does-setdeadline-setreaddeadline-setwritedeadline-not-work-on-a-file
+	if readlineInstance != nil {
+		_ = readlineInstance.Close()
+		simplelogger.Debugf("StopCli(): closed readlineInstance.")
+	} else {
+		simplelogger.Debugf("StopCli(): no readlineInstance present.")
+	}
 }
 
 func RunCli(handler CliHandler, options *CliOptions) error {
