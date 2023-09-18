@@ -29,7 +29,8 @@ import VObject from "./VObject";
 import {NodeMode, OtDeviceRole} from '../proto/visualize_grpc_pb'
 import {Visualizer} from "./PixiVisualizer";
 import {Resources} from "./resources";
-import {NODE_LABEL_FONT_FAMILY} from "./consts";
+import {NODE_LABEL_FONT_FAMILY, NODE_LABEL_FONT_SIZE} from "./consts";
+import {roleToString} from "./format_text";
 
 const NODE_SHAPE_SCALE = 64;
 const NODE_SELECTION_SCALE = 128;
@@ -47,6 +48,9 @@ export default class Node extends VObject {
         this.radioRange = radioRange;
         this.nodeMode = new NodeMode([true, true, true, true]);
         this.rloc16 = 0xfffe;
+        this.routerId = 0xffff;
+        this.childId = 0xffff;
+        this.parentId = 0;
         this.role = OtDeviceRole.OT_DEVICE_ROLE_DISABLED;
         this._failed = false;
         this._parent = 0;
@@ -94,7 +98,7 @@ export default class Node extends VObject {
 
         this._updateSize();
 
-        let label = new PIXI.Text("", {fontFamily: NODE_LABEL_FONT_FAMILY, fontSize: 13, align: 'left'});
+        let label = new PIXI.Text("", {fontFamily: NODE_LABEL_FONT_FAMILY, fontSize: NODE_LABEL_FONT_SIZE, align: 'left'});
         label.position.set(11, 11);
         this._root.addChild(label);
         this.label = label;
@@ -201,6 +205,8 @@ export default class Node extends VObject {
 
     setRloc16(rloc16) {
         this.rloc16 = rloc16;
+        this.routerId = rloc16 >> 10;
+        this.childId = rloc16 & 0x01ff;
         this._updateLabel()
     }
 
@@ -211,6 +217,10 @@ export default class Node extends VObject {
             this._statusSprite.texture = this._getStatusSpriteTexture();
             this._partitionSprite.texture = this._getPartitionSpriteTexture();
             this._updateSize()
+        }
+        if (role == OtDeviceRole.OT_DEVICE_ROLE_DISABLED || role == OtDeviceRole.OT_DEVICE_ROLE_DETACHED) {
+            this._parent = 0;
+            this.parentId = 0;
         }
     }
 

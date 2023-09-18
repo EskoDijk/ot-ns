@@ -24,24 +24,45 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-// simulation speed controls
-export const PAUSE_SPEED = 0;
-export const MAX_SPEED = 1000000;
-export const TUNE_SPEED_SETTINGS = [0.000001, 0.000005, 0.00001, 0.00005, 0.0001, 0.0005, 0.001, 0.005, 0.01,
-                                0.05, 0.1, 0.25, 0.5, 1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, MAX_SPEED];
+const {OtDeviceRole} = require("../proto/visualize_grpc_pb");
 
-// radio frame info
-export const FRAME_CONTROL_MASK_FRAME_TYPE = 0x7;
-export const FRAME_TYPE_ACK = 2;
+export function formatRloc16(rloc16) {
+    return ('0000' + rloc16.toString(16).toUpperCase()).slice(-4);
+}
 
-// colors and fonts
-export const COLOR_ACK_MESSAGE = 0xaee571;
-export const BUTTON_LABEL_FONT_FAMILY = 'verdana, helvetica, sans-serif';
-export const NODE_LABEL_FONT_FAMILY = 'helvetica, arial, monospace, sans-serif';
-export const NODE_LABEL_FONT_SIZE = 13;
-export const STATUS_MSG_FONT_FAMILY = 'consolas, monaco, monospace';
-export const STATUS_MSG_FONT_SIZE = 13;
+export function formatExtAddr(extAddr) {
+    return ('0000000000000000' + extAddr.toString(16).toUpperCase()).slice(-16);
+}
 
-export const LOG_WINDOW_FONT_FAMILY = 'verdana, helvetica, sans-serif';
-export const LOG_WINDOW_FONT_SIZE = 11.5;
-export const LOG_WINDOW_FONT_COLOR = "Blue";
+export function formatPartitionId(parid) {
+    return ('00000000' + parid.toString(16).toUpperCase()).slice(-8);
+}
+
+export function roleToString(role) {
+    switch (role) {
+        case OtDeviceRole.OT_DEVICE_ROLE_DISABLED:
+            return "Disabled";
+        case OtDeviceRole.OT_DEVICE_ROLE_DETACHED:
+            return "Detached";
+        case OtDeviceRole.OT_DEVICE_ROLE_CHILD:
+            return "Child";
+        case OtDeviceRole.OT_DEVICE_ROLE_ROUTER:
+            return "Router";
+        case OtDeviceRole.OT_DEVICE_ROLE_LEADER:
+            return "Leader";
+    }
+}
+
+export function modeToString(mode) {
+    let s = "";
+    if (mode.getRxOnWhenIdle()) {
+        s += "r";
+    }
+    if (mode.getFullThreadDevice()) {
+        s += "d";
+    }
+    if (mode.getFullNetworkData()) {
+        s += "n";
+    }
+    return s;
+}

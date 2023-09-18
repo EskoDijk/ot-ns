@@ -2,8 +2,13 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>OTNS - OpenThread Network Simulator</title>
+    <title>OTNS2 - OpenThread Network Simulator 2</title>
 
+    <style>
+        textarea {
+            resize: none;
+        }
+    </style>
 </head>
 <body>
 
@@ -11,5 +16,11 @@
     let server = "http://{{index . "addr"}}";
 </script>
 <script src="/static/js/visualize.js"></script>
+
+<div style="position: absolute; top: 0px; right: 0px;">
+    <textarea readonly id="nodeWindow" rows="14" cols="32">
+    </textarea>
+</div>
+
 </body>
 </html>
