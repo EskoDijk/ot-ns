@@ -65,6 +65,7 @@ func (gv *grpcVisualizer) SetNetworkInfo(networkInfo visualize.NetworkInfo) {
 }
 
 func (gv *grpcVisualizer) Run() {
+	defer simplelogger.Debugf("gRPC server exit.")
 	err := gv.server.Run()
 
 	gv.Lock()
@@ -79,8 +80,6 @@ func (gv *grpcVisualizer) Run() {
 			}
 		}
 		simplelogger.Errorf("gRPC server quit: %v", err)
-	} else {
-		simplelogger.Debugf("gRPC server exit.")
 	}
 }
 

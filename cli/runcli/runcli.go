@@ -64,27 +64,38 @@ func RestorePrompt() {
 	}
 }
 
-func StopCli() {
-	if readlineInstance != nil {
-		_ = readlineInstance.Close()
-	}
-}
-
-func RunCli(handler CliHandler, options *CliOptions) error {
+func getCliOptions(options *CliOptions) *CliOptions {
 	if options == nil {
 		options = DefaultCliOptions()
 	}
+	if options.Stdin == nil {
+		options.Stdin = os.Stdin
+	}
+	if options.Stdout == nil {
+		options.Stdout = os.Stdout
+	}
+
+	return options
+}
+
+func StopCli(options *CliOptions) {
+	options = getCliOptions(options)
+	_ = options.Stdin.Close()
+
+	// Don't call Close() as below - it may block waiting on on a stdin read operation
+	// in another goroutine, that never returns.
+	// https://github.com/golang/go/issues/26439
+	/*
+		if readlineInstance != nil {
+			_ = readlineInstance.Close()
+		}
+	*/
+}
+
+func RunCli(handler CliHandler, options *CliOptions) error {
+	options = getCliOptions(options)
 
 	stdin := options.Stdin
-	if stdin == nil {
-		stdin = os.Stdin
-	}
-
-	stdout := options.Stdout
-	if stdout == nil {
-		stdout = os.Stdout
-	}
-
 	stdinIsTerminal := readline.IsTerminal(int(stdin.Fd()))
 	if stdinIsTerminal {
 		stdinState, err := readline.GetState(int(stdin.Fd()))
@@ -96,6 +107,7 @@ func RunCli(handler CliHandler, options *CliOptions) error {
 		}()
 	}
 
+	stdout := options.Stdout
 	stdoutIsTerminal := readline.IsTerminal(int(stdout.Fd()))
 	if stdoutIsTerminal {
 		stdoutState, err := readline.GetState(int(stdout.Fd()))

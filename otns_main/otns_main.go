@@ -176,7 +176,6 @@ func Main(ctx *progctx.ProgCtx, visualizerCreator func(ctx *progctx.ProgCtx, arg
 	ctx.WaitAdd("webserver", 1)
 	go func() {
 		defer ctx.WaitDone("webserver")
-		defer simplelogger.Debugf("webserver exit.")
 		siteAddr := fmt.Sprintf("%s:%d", args.DispatcherHost, args.DispatcherPort-3)
 		err := webSite.Serve(siteAddr) // blocks until webSite.StopServe() called
 		if err != nil && ctx.Err() == nil {
@@ -191,7 +190,6 @@ func Main(ctx *progctx.ProgCtx, visualizerCreator func(ctx *progctx.ProgCtx, arg
 	ctx.WaitAdd("simulation", 1)
 	go func() {
 		defer ctx.WaitDone("simulation")
-		defer simplelogger.Debugf("simulation exit.")
 		sim.Run()
 	}()
 
@@ -216,7 +214,7 @@ func Main(ctx *progctx.ProgCtx, visualizerCreator func(ctx *progctx.ProgCtx, arg
 	ctx.Cancel("main")
 
 	simplelogger.Debugf("waiting for OTNS to stop gracefully ...")
-	runcli.StopCli()
+	runcli.StopCli(cliOptions)
 	webSite.StopServe()
 	ctx.Wait()
 }

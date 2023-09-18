@@ -184,6 +184,7 @@ func (s *Simulation) genNodeId() NodeId {
 }
 
 func (s *Simulation) Run() {
+	defer simplelogger.Debugf("simulation exit.")
 	defer s.d.Stop()
 	defer s.Stop()
 

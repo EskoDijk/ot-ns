@@ -231,7 +231,9 @@ func (d *Dispatcher) Stop() {
 	if d.stopped {
 		return
 	}
+
 	d.stopped = true
+	defer simplelogger.Debugf("dispatcher exit.")
 	simplelogger.Debugf("stopping dispatcher ...")
 	d.ctx.Cancel("dispatcher-stop")
 	d.GoCancel()        // cancel current simulation period
@@ -241,7 +243,6 @@ func (d *Dispatcher) Stop() {
 	close(d.pcapFrameChan)
 	simplelogger.Debugf("waiting for dispatcher threads to stop ...")
 	d.waitGroup.Wait()
-	simplelogger.Debugf("dispatcher exit.")
 }
 
 func (d *Dispatcher) IsStopped() bool {
