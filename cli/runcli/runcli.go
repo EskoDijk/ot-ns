@@ -31,10 +31,10 @@ import (
 	"io"
 	"os"
 	"strings"
+	"syscall"
 
 	"github.com/chzyer/readline"
 	"github.com/simonlingoogle/go-simplelogger"
-	"syscall"
 )
 
 type CliHandler interface {
