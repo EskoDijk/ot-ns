@@ -143,7 +143,7 @@ func Main(ctx *progctx.ProgCtx, visualizerCreator func(ctx *progctx.ProgCtx, arg
 
 	// run console in the main goroutine. Deferred funcs are called when context moves into 'Done' state
 	ctx.Defer(func() {
-		_ = os.Stdin.Close() // also needed for PyOTNS to exit ok.
+		runcli.StopCli(cliOptions)
 	})
 
 	parseArgs()
@@ -182,6 +182,7 @@ func Main(ctx *progctx.ProgCtx, visualizerCreator func(ctx *progctx.ProgCtx, arg
 			simplelogger.Errorf("webserver stopped unexpectedly: %+v, OTNS-Web won't be available!", err)
 		}
 	}()
+	<-webSite.HttpServerStarted
 
 	sim := createSimulation(ctx)
 	rt := cli.NewCmdRunner(ctx, sim)
@@ -192,6 +193,7 @@ func Main(ctx *progctx.ProgCtx, visualizerCreator func(ctx *progctx.ProgCtx, arg
 		defer ctx.WaitDone("simulation")
 		sim.Run()
 	}()
+	<-sim.Started
 
 	web.ConfigWeb(args.DispatcherHost, args.DispatcherPort-2, args.DispatcherPort-1, args.DispatcherPort-3)
 	simplelogger.Debugf("open web: %v", args.OpenWeb)
@@ -209,12 +211,12 @@ func Main(ctx *progctx.ProgCtx, visualizerCreator func(ctx *progctx.ProgCtx, arg
 		err := cli.Run(rt, cliOptions)
 		ctx.Cancel(errors.Wrapf(err, "cli-exit"))
 	}()
+	<-runcli.CliStarted
 
 	vis.Run() // visualize must run in the main thread
 	ctx.Cancel("main")
 
 	simplelogger.Debugf("waiting for OTNS to stop gracefully ...")
-	runcli.StopCli(cliOptions)
 	webSite.StopServe()
 	ctx.Wait()
 }

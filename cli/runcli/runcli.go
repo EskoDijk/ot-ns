@@ -31,10 +31,9 @@ import (
 	"io"
 	"os"
 	"strings"
-	"syscall"
+	"time"
 
 	"github.com/chzyer/readline"
-	"github.com/simonlingoogle/go-simplelogger"
 )
 
 type CliHandler interface {
@@ -56,8 +55,10 @@ func DefaultCliOptions() *CliOptions {
 	}
 }
 
+// TODO convert into a cli object
 var (
-	readlineInstance *readline.Instance
+	readlineInstance *readline.Instance = nil
+	CliStarted                          = make(chan struct{})
 )
 
 func RestorePrompt() {
@@ -81,22 +82,13 @@ func getCliOptions(options *CliOptions) *CliOptions {
 }
 
 func StopCli(options *CliOptions) {
+	// cannot call readlineInstance.Close() here, it can block
+	// (https://github.com/chzyer/readline/issues/217)
 	options = getCliOptions(options)
-	_ = syscall.SetNonblock(int(options.Stdin.Fd()), true)
-	simplelogger.Debugf("StopCli(): set stdin to non-blocking.")
+	_ = options.Stdin.SetReadDeadline(time.Now()) // try to avoid readline blocking.
+	//_, _ = options.Stdin.WriteString("\n") // trigger readline to return now
 	_ = options.Stdin.Close()
-	simplelogger.Debugf("StopCli(): closed stdin.")
-
-	// Close() may block waiting on on a stdin read operation in another goroutine, that never returns.
-	// SetNonblock() is used to try to prevent the blocking.
-	// https://github.com/golang/go/issues/26439
-	// https://stackoverflow.com/questions/74886459/golang-why-does-setdeadline-setreaddeadline-setwritedeadline-not-work-on-a-file
-	if readlineInstance != nil {
-		_ = readlineInstance.Close()
-		simplelogger.Debugf("StopCli(): closed readlineInstance.")
-	} else {
-		simplelogger.Debugf("StopCli(): no readlineInstance present.")
-	}
+	_ = options.Stdin.SetReadDeadline(time.Now()) // try to avoid readline blocking.
 }
 
 func RunCli(handler CliHandler, options *CliOptions) error {
@@ -107,6 +99,7 @@ func RunCli(handler CliHandler, options *CliOptions) error {
 	if stdinIsTerminal {
 		stdinState, err := readline.GetState(int(stdin.Fd()))
 		if err != nil {
+			close(CliStarted)
 			return err
 		}
 		defer func() {
@@ -119,6 +112,7 @@ func RunCli(handler CliHandler, options *CliOptions) error {
 	if stdoutIsTerminal {
 		stdoutState, err := readline.GetState(int(stdout.Fd()))
 		if err != nil {
+			close(CliStarted)
 			return err
 		}
 		defer func() {
@@ -153,6 +147,7 @@ func RunCli(handler CliHandler, options *CliOptions) error {
 	l, err := readline.NewEx(readlineConfig)
 
 	if err != nil {
+		close(CliStarted)
 		return err
 	}
 
@@ -160,6 +155,7 @@ func RunCli(handler CliHandler, options *CliOptions) error {
 		_ = l.Close()
 	}()
 	readlineInstance = l
+	close(CliStarted)
 
 	for {
 		// update the prompt and read a line

@@ -44,6 +44,7 @@ import (
 )
 
 type Simulation struct {
+	Started        chan struct{}
 	ctx            *progctx.ProgCtx
 	stopped        bool
 	cfg            *Config
@@ -60,6 +61,7 @@ type Simulation struct {
 
 func NewSimulation(ctx *progctx.ProgCtx, cfg *Config, dispatcherCfg *dispatcher.Config) (*Simulation, error) {
 	s := &Simulation{
+		Started:     make(chan struct{}),
 		ctx:         ctx,
 		cfg:         cfg,
 		nodes:       map[NodeId]*Node{},
@@ -190,6 +192,7 @@ func (s *Simulation) Run() {
 
 	// run dispatcher in current thread, until exit.
 	s.ctx.WaitAdd("dispatcher", 1)
+	close(s.Started)
 	s.d.Run()
 }
 
