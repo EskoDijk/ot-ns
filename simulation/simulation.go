@@ -140,8 +140,7 @@ func (s *Simulation) AddNode(cfg *NodeConfig) (*Node, error) {
 	ts := s.d.CurTime
 
 	node.DisplayPendingLogEntries(ts)
-	if s.ctx.Err() != nil { // only proceed if we're not exiting the simulation.
-		simplelogger.Debugf("getting out 3")
+	if s.ctx.Err() != nil { // stop early when exiting the simulation.
 		return nil, CommandInterruptedError
 	}
 
@@ -149,21 +148,19 @@ func (s *Simulation) AddNode(cfg *NodeConfig) (*Node, error) {
 	if !dnode.IsConnected() {
 		_ = s.DeleteNode(nodeid)
 		s.nodePlacer.ReuseNextNodePosition()
+		node.DisplayPendingLogEntries(ts)
 		return nil, errors.Errorf("simulation AddNode: new node %d did not respond (evtCnt=%d)", nodeid, evtCnt)
 	}
 	simplelogger.Debugf("start setup of new node (mode, init script)")
 	node.setupMode()
 	err = node.CommandResult()
-	simplelogger.Debugf("node.CommandResult = %v", err)
 
-	if !s.rawMode {
+	if !s.rawMode && err == nil {
 		err = node.runInitScript(cfg.InitScript)
 	}
-	simplelogger.Debugf("post runInitScript")
 
 	node.DisplayPendingLogEntries(ts)
-	if s.ctx.Err() != nil { // only proceed if we're not exiting the simulation.
-		simplelogger.Debugf("getting out 1")
+	if s.ctx.Err() != nil { // stop early when exiting the simulation.
 		return nil, CommandInterruptedError
 	}
 
@@ -177,8 +174,6 @@ func (s *Simulation) AddNode(cfg *NodeConfig) (*Node, error) {
 
 	node.onStart()
 	node.DisplayPendingLogEntries(ts)
-
-	simplelogger.Debugf("getting out 2")
 	return node, err
 }
 

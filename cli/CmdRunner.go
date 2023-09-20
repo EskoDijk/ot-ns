@@ -175,7 +175,6 @@ func (rt *CmdRunner) execute(cmd *Command, output io.Writer) {
 	}
 
 	defer func() {
-		simplelogger.Debugf("Defer func: cc.err=%v cc.bgcmd=%v", cc.Err(), cc.isBackgroundCmd)
 		if cc.Err() != nil {
 			cc.outputf("Error: %v\n", cc.Err())
 		} else if !cc.isBackgroundCmd {
