@@ -72,14 +72,11 @@ export default class NodeWindow extends VObject {
             `Radio-fail: ${node.failed ? "FAILED (simulated)":"No"}\n` +
             `Position  : (${node.x}, ${node.y})\n` ;
 
-        if (node.rssiLastNode > 0) {
-            txt += `RSSI from ${node.rssiLastNode}: ${node.rssiLastValue}\n`;
+        if (node.channelLast >= 0) {
+            txt += `Tx-Power  : ${node.txPowerLast} dBm  (last fr)\n`
+                +  `Tx-Channel: ${node.channelLast}     (last fr)\n`;
         }
 
         win.value = txt;
-    }
-
-    resetLayout(width, height) {
-        //this._root.resize({boxWidth: NODE_WINDOW_WIDTH, boxHeight: NODE_WINDOW_HEIGHT})
     }
 }

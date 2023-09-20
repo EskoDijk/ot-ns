@@ -29,7 +29,7 @@ import VObject from "./VObject";
 import {NodeMode, OtDeviceRole} from '../proto/visualize_grpc_pb'
 import {Visualizer} from "./PixiVisualizer";
 import {Resources} from "./resources";
-import {NODE_LABEL_FONT_FAMILY, NODE_LABEL_FONT_SIZE} from "./consts";
+import {NODE_LABEL_FONT_FAMILY, NODE_LABEL_FONT_SIZE, POWER_DBM_INVALID} from "./consts";
 import {roleToString} from "./format_text";
 
 const NODE_SHAPE_SCALE = 64;
@@ -52,9 +52,8 @@ export default class Node extends VObject {
         this.childId = 0xffff;
         this.parentId = 0;
         this.role = OtDeviceRole.OT_DEVICE_ROLE_DISABLED;
-        this.rssiLast = [];
-        this.rssiLastNode = 0;
-        this.rssiLastValue = 0;
+        this.txPowerLast = POWER_DBM_INVALID;
+        this.channelLast = -1;
         this._failed = false;
         this._parent = 0;
         this._partition = 0;
@@ -322,11 +321,5 @@ export default class Node extends VObject {
             this._rangeCircle.destroy();
             delete this._rangeCircle;
         }
-    }
-
-    onRssiSample(src, rssi) {
-        //this.rssiLast[src.id] = rssi;
-        this.rssiLastNode = src.id;
-        this.rssiLastValue = rssi;
     }
 }
