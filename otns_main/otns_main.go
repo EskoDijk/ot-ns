@@ -37,6 +37,9 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/pkg/errors"
+	"github.com/simonlingoogle/go-simplelogger"
+
 	"github.com/openthread/ot-ns/cli"
 	"github.com/openthread/ot-ns/cli/runcli"
 	"github.com/openthread/ot-ns/dispatcher"
@@ -48,9 +51,6 @@ import (
 	visualizeMulti "github.com/openthread/ot-ns/visualize/multi"
 	"github.com/openthread/ot-ns/web"
 	webSite "github.com/openthread/ot-ns/web/site"
-
-	"github.com/pkg/errors"
-	"github.com/simonlingoogle/go-simplelogger"
 )
 
 type MainArgs struct {
@@ -139,13 +139,11 @@ func parseListenAddr() {
 }
 
 func Main(ctx *progctx.ProgCtx, visualizerCreator func(ctx *progctx.ProgCtx, args *MainArgs) visualize.Visualizer, cliOptions *runcli.CliOptions) {
+	//ctx.Defer(func() { // Deferred funcs are called when context moves into 'Done' state
+	//	runcli.StopCli(cliOptions)
+	//})
+
 	handleSignals(ctx)
-
-	// run console in the main goroutine. Deferred funcs are called when context moves into 'Done' state
-	ctx.Defer(func() {
-		runcli.StopCli(cliOptions)
-	})
-
 	parseArgs()
 	//simplelogger.SetOutput([]string{"stdout", "otns.log"}) // for @DEBUG: generate a log output file.
 	simplelogger.SetLevel(GetSimpleloggerLevel(ParseWatchLogLevel(args.LogLevel)))
@@ -182,11 +180,19 @@ func Main(ctx *progctx.ProgCtx, visualizerCreator func(ctx *progctx.ProgCtx, arg
 			simplelogger.Errorf("webserver stopped unexpectedly: %+v, OTNS-Web won't be available!", err)
 		}
 	}()
-	<-webSite.HttpServerStarted
+	<-webSite.Started
 
 	sim := createSimulation(ctx)
 	rt := cli.NewCmdRunner(ctx, sim)
 	sim.SetVisualizer(vis)
+
+	ctx.WaitAdd("cli", 1)
+	go func() {
+		defer ctx.WaitDone("cli")
+		err := cli.Run(rt, cliOptions)
+		ctx.Cancel(errors.Wrapf(err, "cli-exit"))
+	}()
+	<-runcli.Started
 
 	ctx.WaitAdd("simulation", 1)
 	go func() {
@@ -205,18 +211,11 @@ func Main(ctx *progctx.ProgCtx, visualizerCreator func(ctx *progctx.ProgCtx, arg
 		go autoGo(ctx, sim)
 	}
 
-	ctx.WaitAdd("cli", 1)
-	go func() {
-		defer ctx.WaitDone("cli")
-		err := cli.Run(rt, cliOptions)
-		ctx.Cancel(errors.Wrapf(err, "cli-exit"))
-	}()
-	<-runcli.CliStarted
-
 	vis.Run() // visualize must run in the main thread
 	ctx.Cancel("main")
 
 	simplelogger.Debugf("waiting for OTNS to stop gracefully ...")
+	runcli.StopCli(cliOptions)
 	webSite.StopServe()
 	ctx.Wait()
 }
@@ -232,11 +231,12 @@ func handleSignals(ctx *progctx.ProgCtx) {
 		defer ctx.WaitDone("handleSignals")
 		defer simplelogger.Debugf("handleSignals exit.")
 
-		close(sigHandlerReady)
 		done := ctx.Done()
+		close(sigHandlerReady)
 		for {
 			select {
 			case sig := <-c:
+				signal.Reset()
 				simplelogger.Infof("Unix signal received: %v", sig)
 				ctx.Cancel("signal-" + sig.String())
 				return

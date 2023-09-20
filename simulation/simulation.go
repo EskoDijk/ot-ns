@@ -141,6 +141,7 @@ func (s *Simulation) AddNode(cfg *NodeConfig) (*Node, error) {
 
 	node.DisplayPendingLogEntries(ts)
 	if s.ctx.Err() != nil { // only proceed if we're not exiting the simulation.
+		simplelogger.Debugf("getting out 3")
 		return nil, CommandInterruptedError
 	}
 
@@ -153,13 +154,16 @@ func (s *Simulation) AddNode(cfg *NodeConfig) (*Node, error) {
 	simplelogger.Debugf("start setup of new node (mode, init script)")
 	node.setupMode()
 	err = node.CommandResult()
+	simplelogger.Debugf("node.CommandResult = %v", err)
 
 	if !s.rawMode {
 		err = node.runInitScript(cfg.InitScript)
 	}
+	simplelogger.Debugf("post runInitScript")
 
 	node.DisplayPendingLogEntries(ts)
 	if s.ctx.Err() != nil { // only proceed if we're not exiting the simulation.
+		simplelogger.Debugf("getting out 1")
 		return nil, CommandInterruptedError
 	}
 
@@ -174,6 +178,7 @@ func (s *Simulation) AddNode(cfg *NodeConfig) (*Node, error) {
 	node.onStart()
 	node.DisplayPendingLogEntries(ts)
 
+	simplelogger.Debugf("getting out 2")
 	return node, err
 }
 
@@ -287,10 +292,6 @@ func (s *Simulation) OnNextEventTime(ts uint64, nextTs uint64) {
 	s.VisitNodesInOrder(func(node *Node) {
 		simplelogger.AssertEqual(0, len(node.logEntries))
 	})
-}
-
-func (s *Simulation) OnStop() {
-	//
 }
 
 func (s *Simulation) PostAsync(trivial bool, f func()) {
