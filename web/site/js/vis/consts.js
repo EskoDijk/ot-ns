@@ -24,6 +24,10 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
+// nodes and numbering
+export const NODE_ID_INVALID = 0xffff;
+export const EXT_ADDR_INVALID = 0xFFFFFFFFFFFFFFFF;
+
 // simulation speed controls
 export const PAUSE_SPEED = 0;
 export const MAX_SPEED = 1000000;

@@ -29,8 +29,8 @@ import VObject from "./VObject";
 import {NodeMode, OtDeviceRole} from '../proto/visualize_grpc_pb'
 import {Visualizer} from "./PixiVisualizer";
 import {Resources} from "./resources";
-import {NODE_LABEL_FONT_FAMILY, NODE_LABEL_FONT_SIZE, POWER_DBM_INVALID} from "./consts";
-import {roleToString} from "./format_text";
+import {NODE_ID_INVALID, NODE_LABEL_FONT_FAMILY, NODE_LABEL_FONT_SIZE, POWER_DBM_INVALID,
+        EXT_ADDR_INVALID} from "./consts";
 
 const NODE_SHAPE_SCALE = 64;
 const NODE_SELECTION_SCALE = 128;
@@ -44,13 +44,13 @@ export default class Node extends VObject {
         super();
 
         this.id = nodeId;
-        this.extAddr = 0xFFFFFFFFFFFFFFFF;
+        this.extAddr = EXT_ADDR_INVALID;
         this.radioRange = radioRange;
         this.nodeMode = new NodeMode([true, true, true, true]);
         this.rloc16 = 0xfffe;
-        this.routerId = 0xffff;
-        this.childId = 0xffff;
-        this.parentId = 0;
+        this.routerId = NODE_ID_INVALID;
+        this.childId = NODE_ID_INVALID;
+        this.parentId = NODE_ID_INVALID;
         this.role = OtDeviceRole.OT_DEVICE_ROLE_DISABLED;
         this.txPowerLast = POWER_DBM_INVALID;
         this.channelLast = -1;
@@ -221,8 +221,10 @@ export default class Node extends VObject {
             this._updateSize()
         }
         if (role == OtDeviceRole.OT_DEVICE_ROLE_DISABLED || role == OtDeviceRole.OT_DEVICE_ROLE_DETACHED) {
-            this._parent = 0;
-            this.parentId = 0;
+            this._parent = NODE_ID_INVALID;
+            this.parentId = NODE_ID_INVALID;
+            this.childId = NODE_ID_INVALID;
+            this.routerId = NODE_ID_INVALID;
         }
     }
 

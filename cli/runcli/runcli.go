@@ -86,7 +86,7 @@ func StopCli(options *CliOptions) {
 	// cannot call readlineInstance.Close() here, it can block
 	// (https://github.com/chzyer/readline/issues/217)
 	options = getCliOptions(options)
-	// send ETX(Ctrl-C) and NUL chars to avoid readline internally blocking on Runes() select.
+	// send ETX(Ctrl-C, 0x03, readline.CharInterrupt) to avoid readline internally blocking on Runes() select.
 	_, _ = options.Stdin.WriteString("\003")
 	_ = options.Stdin.Close()
 	simplelogger.Debugf("Waiting for CLI to stop ...")

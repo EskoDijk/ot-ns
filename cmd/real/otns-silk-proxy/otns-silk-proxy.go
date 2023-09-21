@@ -36,10 +36,6 @@ import (
 
 type cliHandler struct{}
 
-var (
-	proxyDoneChan = make(chan struct{})
-)
-
 func (c cliHandler) GetPrompt() string {
 	return "> "
 }
@@ -54,10 +50,6 @@ func (c cliHandler) HandleCommand(cmd string, output io.Writer) error {
 	}
 
 	return nil
-}
-
-func (c cliHandler) Done() <-chan struct{} {
-	return proxyDoneChan
 }
 
 func main() {

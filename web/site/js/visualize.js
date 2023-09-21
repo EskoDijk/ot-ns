@@ -141,7 +141,7 @@ function loadOk() {
             case VisualizeEvent.TypeCase.SET_PARENT:
                 e = resp.getSetParent();
                 // TODO - currently OT does not emit this event. Workaround is used to call visSetParent().
-                //vis.visSetParent(e.getNodeId(), e.getExtAddr());
+                vis.visSetParent(e.getNodeId(), e.getExtAddr());
                 break;
             case VisualizeEvent.TypeCase.SET_NODE_PARTITION_ID:
                 e = resp.getSetNodePartitionId();

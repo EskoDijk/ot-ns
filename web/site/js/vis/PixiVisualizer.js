@@ -381,7 +381,7 @@ export default class PixiVisualizer extends VObject {
         if (parent) {
             this.nodes[nodeId].parentId = parent.id;
         }else {
-            this.nodes[nodeId].parentId = 0;
+            this.nodes[nodeId].parentId = NODE_ID_INVALID;
         }
         this.logNode(nodeId, `Parent set to ${this.formatExtAddrPretty(extAddr)}`)
         this.onNodeUpdate(nodeId);

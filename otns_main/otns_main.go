@@ -139,10 +139,6 @@ func parseListenAddr() {
 }
 
 func Main(ctx *progctx.ProgCtx, visualizerCreator func(ctx *progctx.ProgCtx, args *MainArgs) visualize.Visualizer, cliOptions *runcli.CliOptions) {
-	//ctx.Defer(func() { // Deferred funcs are called when context moves into 'Done' state
-	//	runcli.StopCli(cliOptions)
-	//})
-
 	handleSignals(ctx)
 	parseArgs()
 	//simplelogger.SetOutput([]string{"stdout", "otns.log"}) // for @DEBUG: generate a log output file.

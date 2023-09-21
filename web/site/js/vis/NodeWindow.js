@@ -28,6 +28,7 @@ import * as PIXI from "pixi.js-legacy";
 import VObject from "./VObject";
 import * as fmt from "./format_text"
 import {OtDeviceRole} from "../proto/visualize_grpc_pb";
+import {POWER_DBM_INVALID} from "./consts";
 
 export default class NodeWindow extends VObject {
     constructor() {
@@ -72,7 +73,7 @@ export default class NodeWindow extends VObject {
             `Radio-fail: ${node.failed ? "FAILED (simulated)":"No"}\n` +
             `Position  : (${node.x}, ${node.y})\n` ;
 
-        if (node.channelLast >= 0) {
+        if (node.txPowerLast != POWER_DBM_INVALID) {
             txt += `Tx-Power  : ${node.txPowerLast} dBm  (last fr)\n`
                 +  `Tx-Channel: ${node.channelLast}     (last fr)\n`;
         }
