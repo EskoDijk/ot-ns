@@ -37,12 +37,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/pkg/errors"
-	"github.com/simonlingoogle/go-simplelogger"
-
 	"github.com/openthread/ot-ns/cli"
 	"github.com/openthread/ot-ns/cli/runcli"
 	"github.com/openthread/ot-ns/dispatcher"
+	"github.com/openthread/ot-ns/logger"
 	"github.com/openthread/ot-ns/progctx"
 	"github.com/openthread/ot-ns/simulation"
 	. "github.com/openthread/ot-ns/types"
@@ -51,6 +49,7 @@ import (
 	visualizeMulti "github.com/openthread/ot-ns/visualize/multi"
 	"github.com/openthread/ot-ns/web"
 	webSite "github.com/openthread/ot-ns/web/site"
+	"github.com/pkg/errors"
 )
 
 type MainArgs struct {
@@ -114,7 +113,7 @@ func parseListenAddr() {
 	var err error
 
 	notifyInvalidListenAddr := func() {
-		simplelogger.Fatalf("invalid listen address: %s (port must be larger than or equal to 9000 and must be a multiple of 10.", args.ListenAddr)
+		logger.Fatalf("invalid listen address: %s (port must be larger than or equal to 9000 and must be a multiple of 10.", args.ListenAddr)
 	}
 
 	subs := strings.Split(args.ListenAddr, ":")
@@ -132,17 +131,17 @@ func parseListenAddr() {
 	}
 
 	portOffset := (args.DispatcherPort - InitialDispatcherPort) / 10
-	simplelogger.Infof("Using env PORT_OFFSET=%d", portOffset)
+	logger.Infof("Using env PORT_OFFSET=%d", portOffset)
 	if err = os.Setenv("PORT_OFFSET", strconv.Itoa(portOffset)); err != nil {
-		simplelogger.Panic(err)
+		logger.Panic(err)
 	}
 }
 
 func Main(ctx *progctx.ProgCtx, visualizerCreator func(ctx *progctx.ProgCtx, args *MainArgs) visualize.Visualizer, cliOptions *runcli.CliOptions) {
 	handleSignals(ctx)
 	parseArgs()
-	//simplelogger.SetOutput([]string{"stdout", "otns.log"}) // for @DEBUG: generate a log output file.
-	simplelogger.SetLevel(GetSimpleloggerLevel(ParseWatchLogLevel(args.LogLevel)))
+	//logger.SetOutput([]string{"stdout", "otns.log"}) // for @DEBUG: generate a log output file.
+	logger.SetLevelFromString(args.LogLevel)
 	parseListenAddr()
 
 	rand.Seed(time.Now().UnixNano())
@@ -173,7 +172,7 @@ func Main(ctx *progctx.ProgCtx, visualizerCreator func(ctx *progctx.ProgCtx, arg
 		siteAddr := fmt.Sprintf("%s:%d", args.DispatcherHost, args.DispatcherPort-3)
 		err := webSite.Serve(siteAddr) // blocks until webSite.StopServe() called
 		if err != nil && ctx.Err() == nil {
-			simplelogger.Errorf("webserver stopped unexpectedly: %+v, OTNS-Web won't be available!", err)
+			logger.Errorf("webserver stopped unexpectedly: %+v, OTNS-Web won't be available!", err)
 		}
 	}()
 	<-webSite.Started
@@ -198,7 +197,7 @@ func Main(ctx *progctx.ProgCtx, visualizerCreator func(ctx *progctx.ProgCtx, arg
 	<-sim.Started
 
 	web.ConfigWeb(args.DispatcherHost, args.DispatcherPort-2, args.DispatcherPort-1, args.DispatcherPort-3)
-	simplelogger.Debugf("open web: %v", args.OpenWeb)
+	logger.Debugf("open web: %v", args.OpenWeb)
 	if args.OpenWeb {
 		_ = web.OpenWeb(ctx)
 	}
@@ -210,7 +209,7 @@ func Main(ctx *progctx.ProgCtx, visualizerCreator func(ctx *progctx.ProgCtx, arg
 	vis.Run() // visualize must run in the main thread
 	ctx.Cancel("main")
 
-	simplelogger.Debugf("waiting for OTNS to stop gracefully ...")
+	logger.Debugf("waiting for OTNS to stop gracefully ...")
 	runcli.StopCli(cliOptions)
 	webSite.StopServe()
 	ctx.Wait()
@@ -225,7 +224,7 @@ func handleSignals(ctx *progctx.ProgCtx) {
 	ctx.WaitAdd("handleSignals", 1)
 	go func() {
 		defer ctx.WaitDone("handleSignals")
-		defer simplelogger.Debugf("handleSignals exit.")
+		defer logger.Debugf("handleSignals exit.")
 
 		done := ctx.Done()
 		close(sigHandlerReady)
@@ -233,7 +232,7 @@ func handleSignals(ctx *progctx.ProgCtx) {
 			select {
 			case sig := <-c:
 				signal.Reset()
-				simplelogger.Infof("Unix signal received: %v", sig)
+				logger.Infof("Unix signal received: %v", sig)
 				ctx.Cancel("signal-" + sig.String())
 				return
 			case <-done:
@@ -268,7 +267,7 @@ func createSimulation(ctx *progctx.ProgCtx) *simulation.Simulation {
 		speed = dispatcher.MaxSimulateSpeed
 	} else {
 		speed, err = strconv.ParseFloat(args.Speed, 64)
-		simplelogger.PanicIfError(err)
+		logger.PanicIfError(err)
 	}
 	simcfg.Speed = speed
 	simcfg.ReadOnly = args.ReadOnly
@@ -282,11 +281,11 @@ func createSimulation(ctx *progctx.ProgCtx) *simulation.Simulation {
 	if len(args.InitScriptName) > 0 {
 		simcfg.InitScript, err = simulation.ReadNodeScript(args.InitScriptName)
 		if err != nil {
-			simplelogger.Error(err)
+			logger.Error(err)
 			return nil
 		}
 	}
-	simcfg.LogLevel = ParseWatchLogLevel(args.LogLevel)
+	simcfg.LogLevel = logger.ParseWatchLogLevel(args.LogLevel)
 
 	dispatcherCfg := dispatcher.DefaultConfig()
 	dispatcherCfg.SimulationId = simcfg.Id
@@ -294,9 +293,9 @@ func createSimulation(ctx *progctx.ProgCtx) *simulation.Simulation {
 		dispatcherCfg.PcapChannels[simcfg.Channel] = struct{}{}
 	}
 	dispatcherCfg.DefaultWatchLevel = args.WatchLevel
-	dispatcherCfg.DefaultWatchOn = ParseWatchLogLevel(args.WatchLevel) != WatchOffLevel
+	dispatcherCfg.DefaultWatchOn = logger.ParseWatchLogLevel(args.WatchLevel) != logger.OffLevel
 
 	sim, err := simulation.NewSimulation(ctx, simcfg, dispatcherCfg)
-	simplelogger.FatalIfError(err)
+	logger.FatalIfError(err)
 	return sim
 }

@@ -30,7 +30,7 @@ import (
 	"regexp"
 
 	"github.com/openthread/ot-ns/cli/runcli"
-	"github.com/simonlingoogle/go-simplelogger"
+	"github.com/openthread/ot-ns/logger"
 )
 
 var (
@@ -39,7 +39,7 @@ var (
 )
 
 func Run(cr *CmdRunner, cliOptions *runcli.CliOptions) error {
-	defer simplelogger.Debugf("CLI exit.")
+	defer logger.Debugf("CLI exit.")
 
 	return runcli.RunCli(cr, cliOptions)
 }

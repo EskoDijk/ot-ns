@@ -30,8 +30,9 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/simonlingoogle/go-simplelogger"
+	"github.com/openthread/ot-ns/logger"
 
+	. "github.com/openthread/ot-ns/event"
 	"github.com/openthread/ot-ns/radiomodel"
 	"github.com/openthread/ot-ns/threadconst"
 	. "github.com/openthread/ot-ns/types"
@@ -86,11 +87,12 @@ type Node struct {
 	joinerState   OtJoinerState
 	joinerSession *joinerSession
 	joinResults   []*JoinResult
-	watchLogLevel WatchLogLevel
+	watchLogLevel logger.WatchLogLevel
+	logger        *logger.NodeLogger
 }
 
 func newNode(d *Dispatcher, nodeid NodeId, cfg *NodeConfig) *Node {
-	simplelogger.AssertTrue(cfg.RadioRange >= 0)
+	logger.AssertTrue(cfg.RadioRange >= 0)
 
 	radioCfg := &radiomodel.RadioNodeConfig{
 		X:          cfg.X,
@@ -112,7 +114,8 @@ func newNode(d *Dispatcher, nodeid NodeId, cfg *NodeConfig) *Node {
 		err:           nil, // keep track of connection errors.
 		radioNode:     radiomodel.NewRadioNode(nodeid, radioCfg),
 		joinerState:   OtJoinerStateIdle,
-		watchLogLevel: WatchCritLevel,
+		watchLogLevel: logger.ErrorLevel,
+		logger:        logger.GetNodeLogger(d.cfg.SimulationId, cfg),
 	}
 
 	nc.failureCtrl = newFailureCtrl(nc, NonFailTime)
@@ -132,14 +135,14 @@ func (node *Node) sendEvent(evt *Event) {
 	evt.NodeId = node.Id
 	evt.MsgId = node.msgId
 	oldTime := node.CurTime
-	simplelogger.AssertTrue(evt.Timestamp == node.D.CurTime)
+	logger.AssertTrue(evt.Timestamp == node.D.CurTime)
 	evt.Delay = evt.Timestamp - oldTime
 
 	// time keeping - move node's time to the current send-event's time.
 	node.D.alarmMgr.SetNotified(node.Id)
 	node.D.setAlive(node.Id)
 	node.CurTime += evt.Delay
-	simplelogger.AssertTrue(node.CurTime == node.D.CurTime)
+	logger.AssertTrue(node.CurTime == node.D.CurTime)
 
 	// re-evaluate the FailutreCtrl when node time advances.
 	if evt.Timestamp > oldTime {
@@ -156,7 +159,7 @@ func (node *Node) sendEvent(evt *Event) {
 
 	err := node.sendRawData(evt.Serialize())
 	if err != nil {
-		node.log(WatchCritLevel, err.Error())
+		node.logger.Error(err)
 		node.err = err
 	}
 }
@@ -175,19 +178,6 @@ func (node *Node) sendRawData(msg []byte) error {
 	return err
 }
 
-func (node *Node) log(level WatchLogLevel, msg string, args ...any) {
-	if len(args) > 0 {
-		msg = fmt.Sprintf(msg, args...)
-	}
-	logEntry := LogEntry{
-		NodeId:  node.Id,
-		Level:   level,
-		Msg:     msg,
-		IsWatch: level >= WatchTraceLevel,
-	}
-	node.D.cbHandler.OnLogMessage(logEntry)
-}
-
 func (node *Node) IsFailed() bool {
 	return node.isFailed
 }
@@ -201,7 +191,7 @@ func (node *Node) Fail() {
 		node.isFailed = true
 		node.D.cbHandler.OnNodeFail(node.Id)
 		node.D.vis.OnNodeFail(node.Id)
-		node.log(WatchDebugLevel, "radio set to scheduled failure")
+		node.logger.Debugf("radio set to scheduled failure")
 	}
 }
 
@@ -210,7 +200,7 @@ func (node *Node) Recover() {
 		node.isFailed = false
 		node.D.cbHandler.OnNodeRecover(node.Id)
 		node.D.vis.OnNodeRecover(node.Id)
-		node.log(WatchDebugLevel, "radio recovered from scheduled failure")
+		node.logger.Debugf("radio recovered from scheduled failure")
 	}
 }
 
@@ -225,7 +215,7 @@ func (node *Node) SetFailTime(failTime FailTime) {
 func (node *Node) onPingRequest(timestamp uint64, dstaddr string, datasize int) {
 	if datasize < 4 {
 		// if datasize < 4, timestamp is 0, these ping requests are ignored
-		node.log(WatchWarnLevel, fmt.Sprintf("onPingRequest(): ignoring ping request with datasize=%d < 4", datasize))
+		node.logger.Warnf("onPingRequest(): ignoring ping request with datasize=%d < 4", datasize)
 		return
 	}
 
@@ -239,7 +229,7 @@ func (node *Node) onPingRequest(timestamp uint64, dstaddr string, datasize int) 
 func (node *Node) onPingReply(timestamp uint64, dstaddr string, datasize int, hoplimit int) {
 	if datasize < 4 {
 		// if datasize < 4, timestamp is 0, these ping replies are ignored
-		node.log(WatchWarnLevel, fmt.Sprintf("onPingReply(): ignoring ping reply with datasize=%d < 4", datasize))
+		node.logger.Warnf("onPingReply(): ignoring ping reply with datasize=%d < 4", datasize)
 		return
 	}
 	const maxPingDelayUs uint64 = 10 * 1000000
@@ -284,7 +274,7 @@ func (node *Node) CollectJoins() []*JoinResult {
 }
 
 func (node *Node) onStatusPushExtAddr(extaddr uint64) {
-	simplelogger.AssertTrue(extaddr != InvalidExtAddr)
+	logger.AssertTrue(extaddr != InvalidExtAddr)
 	oldExtAddr := node.ExtAddr
 	if oldExtAddr == extaddr {
 		return

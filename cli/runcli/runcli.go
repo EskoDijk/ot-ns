@@ -33,7 +33,7 @@ import (
 	"strings"
 
 	"github.com/chzyer/readline"
-	"github.com/simonlingoogle/go-simplelogger"
+	"github.com/openthread/ot-ns/logger"
 )
 
 type CliHandler interface {
@@ -89,9 +89,9 @@ func StopCli(options *CliOptions) {
 	// send ETX(Ctrl-C, 0x03, readline.CharInterrupt) to avoid readline internally blocking on Runes() select.
 	_, _ = options.Stdin.WriteString("\003")
 	_ = options.Stdin.Close()
-	simplelogger.Debugf("Waiting for CLI to stop ...")
+	logger.Tracef("Waiting for CLI to stop ...")
 	<-waitCliClosed
-	simplelogger.Debugf("CLI wait-for-stop done.")
+	logger.Tracef("CLI wait-for-stop done.")
 }
 
 func RunCli(handler CliHandler, options *CliOptions) error {

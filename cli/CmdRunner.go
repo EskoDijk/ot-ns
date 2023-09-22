@@ -34,8 +34,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/openthread/ot-ns/logger"
 	"github.com/pkg/errors"
-	"github.com/simonlingoogle/go-simplelogger"
 	"gopkg.in/yaml.v3"
 
 	"github.com/openthread/ot-ns/dispatcher"
@@ -84,17 +84,17 @@ func (cc *CommandContext) outputItemsAsYaml(items interface{}) {
 	var itemsYaml yaml.Node
 
 	err := itemsYaml.Encode(items)
-	simplelogger.PanicIfError(err)
+	logger.PanicIfError(err)
 
 	for _, content := range itemsYaml.Content {
 		content.Style = yaml.FlowStyle
 	}
 
 	data, err := yaml.Marshal(&itemsYaml)
-	simplelogger.PanicIfError(err)
+	logger.PanicIfError(err)
 
 	_, err = cc.output.Write(data)
-	simplelogger.PanicIfError(err)
+	logger.PanicIfError(err)
 }
 
 type CmdRunner struct {
@@ -261,7 +261,7 @@ func (rt *CmdRunner) execute(cmd *Command, output io.Writer) {
 	} else if cmd.Exe != nil {
 		rt.executeExe(cc, cmd.Exe)
 	} else {
-		simplelogger.Panicf("unimplemented command: %#v", cmd)
+		logger.Panicf("unimplemented command: %#v", cmd)
 	}
 }
 
@@ -330,7 +330,7 @@ func (rt *CmdRunner) postAsyncWait(f func(sim *simulation.Simulation)) {
 }
 
 func (rt *CmdRunner) executeAddNode(cc *CommandContext, cmd *AddCmd) {
-	simplelogger.Debugf("Add: %#v", *cmd)
+	logger.Debugf("Add: %#v", *cmd)
 	simCfg := cc.rt.sim.GetConfig()
 	cfg := simCfg.NewNodeConfig // copy current new-node config for simulation, and modify it.
 
@@ -366,7 +366,7 @@ func (rt *CmdRunner) executeAddNode(cc *CommandContext, cmd *AddCmd) {
 		cfg.IsBorderRouter = true
 		cfg.RxOffWhenIdle = false
 	default:
-		simplelogger.Panicf("wrong node type: %s", cmd.Type.Val)
+		logger.Panicf("wrong node type: %s", cmd.Type.Val)
 	}
 
 	if cmd.Id != nil {
@@ -420,7 +420,7 @@ func (rt *CmdRunner) executeExit(cc *CommandContext, cmd *ExitCmd) {
 }
 
 func (rt *CmdRunner) executePing(cc *CommandContext, cmd *PingCmd) {
-	simplelogger.Debugf("ping %#v", cmd)
+	logger.Debugf("ping %#v", cmd)
 	rt.postAsyncWait(func(sim *simulation.Simulation) {
 		src, _ := rt.getNode(sim, cmd.Src)
 		if src == nil {
@@ -454,7 +454,7 @@ func (rt *CmdRunner) executePing(cc *CommandContext, cmd *PingCmd) {
 		if cmd.DataSize != nil {
 			datasize = cmd.DataSize.Val
 			if datasize < 4 {
-				simplelogger.Warnf("Ping with datasize < 4 is ignored by OT-NS statistics code.")
+				logger.Warnf("Ping with datasize < 4 is ignored by OT-NS statistics code.")
 			}
 		}
 
@@ -512,7 +512,7 @@ func (rt *CmdRunner) getAddrs(node *simulation.Node, addrType *AddrTypeFlag) []s
 }
 
 func (rt *CmdRunner) executeDebug(cc *CommandContext, cmd *DebugCmd) {
-	simplelogger.Infof("debug %#v", *cmd)
+	logger.Infof("debug %#v", *cmd)
 
 	if cmd.Echo != nil {
 		cc.outputf("%s\n", *cmd.Echo)
@@ -550,7 +550,7 @@ func (rt *CmdRunner) executeNode(cc *CommandContext, cmd *NodeCmd) {
 			} else {
 				output = node.Command(*cmd.Command, simulation.DefaultCommandTimeout)
 			}
-			node.DisplayPendingLogEntries(sim.Dispatcher().CurTime)
+			node.Logger.DisplayPendingLogEntries(sim.Dispatcher().CurTime)
 			for _, line := range output {
 				cc.outputf("%s\n", line)
 			}
@@ -742,19 +742,19 @@ func (rt *CmdRunner) executeRadioModel(cc *CommandContext, cmd *RadioModelCmd) {
 
 func (rt *CmdRunner) executeLogLevel(cc *CommandContext, cmd *LogLevelCmd) {
 	if cmd.Level == "" {
-		cc.outputf("%v\n", GetWatchLogLevelString(rt.sim.GetLogLevel()))
+		cc.outputf("%v\n", logger.GetWatchLogLevelString(rt.sim.GetLogLevel()))
 	} else {
-		rt.sim.SetLogLevel(ParseWatchLogLevel(cmd.Level))
+		rt.sim.SetLogLevel(logger.ParseWatchLogLevel(cmd.Level))
 	}
 }
 
 func (rt *CmdRunner) executeWatch(cc *CommandContext, cmd *WatchCmd) {
 	rt.postAsyncWait(func(sim *simulation.Simulation) {
 		watchLogLevelStr := ""
-		var watchLogLevel WatchLogLevel = WatchDefaultLevel
+		var watchLogLevel = logger.DefaultLevel
 		if len(cmd.Level) > 0 {
 			watchLogLevelStr = cmd.Level
-			watchLogLevel = ParseWatchLogLevel(watchLogLevelStr)
+			watchLogLevel = logger.ParseWatchLogLevel(watchLogLevelStr)
 		}
 		nodesToWatch := cmd.Nodes
 
@@ -765,12 +765,12 @@ func (rt *CmdRunner) executeWatch(cc *CommandContext, cmd *WatchCmd) {
 			return
 		} else if len(cmd.Nodes) == 0 && len(cmd.All) == 0 && len(cmd.Default) > 0 && len(cmd.Level) > 0 {
 			// variant: 'watch default <level>'
-			sim.Dispatcher().GetConfig().DefaultWatchOn = cmd.Level != WatchOffLevelString && cmd.Level != WatchNoneLevelString
+			sim.Dispatcher().GetConfig().DefaultWatchOn = cmd.Level != logger.WatchOffLevelString && cmd.Level != logger.WatchNoneLevelString
 			sim.Dispatcher().GetConfig().DefaultWatchLevel = cmd.Level
 			return
 		} else if len(cmd.Nodes) == 0 && len(cmd.All) == 0 && len(cmd.Default) > 0 && len(cmd.Level) == 0 {
 			// variant: 'watch default'
-			watchLevelDefault := WatchDefaultLevelString
+			watchLevelDefault := logger.WatchDefaultLevelString
 			if sim.Dispatcher().GetConfig().DefaultWatchOn {
 				watchLevelDefault = sim.Dispatcher().GetConfig().DefaultWatchLevel
 			}
@@ -799,12 +799,6 @@ func (rt *CmdRunner) executeWatch(cc *CommandContext, cmd *WatchCmd) {
 				continue
 			}
 			sim.Dispatcher().WatchNode(node.Id, watchLogLevel)
-		}
-
-		// adapt simulation's overall logLevel down to 'info', if needed to see watch items.
-		if watchLogLevel > sim.GetLogLevel() && sim.GetLogLevel() < WatchInfoLevel {
-			sim.SetLogLevel(WatchInfoLevel)
-			simplelogger.Infof("Simulation log level lowered to 'info'.")
 		}
 	})
 }
@@ -903,7 +897,7 @@ func (rt *CmdRunner) executeConfigVisualization(cc *CommandContext, cmd *ConfigV
 }
 
 func (rt *CmdRunner) enterNodeContext(nodeid NodeId) bool {
-	simplelogger.AssertTrue(nodeid == InvalidNodeId || nodeid > 0)
+	logger.AssertTrue(nodeid == InvalidNodeId || nodeid > 0)
 	if rt.contextNodeId == nodeid {
 		return false
 	}
