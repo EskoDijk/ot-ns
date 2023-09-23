@@ -67,7 +67,7 @@ type Config struct {
 	RadioModel       string
 	Id               int
 	Channel          ChannelId
-	LogLevel         logger.WatchLogLevel
+	LogLevel         logger.Level
 }
 
 func DefaultConfig() *Config {

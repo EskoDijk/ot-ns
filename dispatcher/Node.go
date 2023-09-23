@@ -87,7 +87,7 @@ type Node struct {
 	joinerState   OtJoinerState
 	joinerSession *joinerSession
 	joinResults   []*JoinResult
-	watchLogLevel logger.WatchLogLevel
+	watchLogLevel logger.Level
 	logger        *logger.NodeLogger
 }
 

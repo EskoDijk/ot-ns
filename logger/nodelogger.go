@@ -34,9 +34,10 @@ import (
 	. "github.com/openthread/ot-ns/types"
 )
 
+// NodeLogger is a node-specific log object. Level and output file can be set per individual node.
 type NodeLogger struct {
 	Id           NodeId
-	CurrentLevel WatchLogLevel
+	CurrentLevel Level
 
 	logFile       *os.File
 	logFileName   string
@@ -49,13 +50,15 @@ var (
 	nodeLogs = make(map[NodeId]*NodeLogger, 10)
 )
 
+// GetNodeLogger gets the NodeLogger instance for the given ( simulation ID, node config ) and configures it.
 func GetNodeLogger(simulationId int, cfg *NodeConfig) *NodeLogger {
 	var log *NodeLogger
 	nodeid := cfg.ID
-	if _, ok := nodeLogs[nodeid]; !ok {
+	log, ok := nodeLogs[nodeid]
+	if !ok {
 		log = &NodeLogger{
 			Id:            nodeid,
-			CurrentLevel:  ErrorLevel,
+			CurrentLevel:  ErrorLevel, // TODO use default watch level
 			entries:       make(chan logEntry, 1000),
 			logFileName:   getLogFileName(simulationId, nodeid),
 			isFileEnabled: cfg.NodeLogFile,
@@ -64,8 +67,15 @@ func GetNodeLogger(simulationId int, cfg *NodeConfig) *NodeLogger {
 		if log.isFileEnabled {
 			log.createLogFile()
 		}
+	} else {
+		// if logger already exists, adjust the configuration to latest.
+		log.isFileEnabled = cfg.NodeLogFile
+		log.CurrentLevel = ErrorLevel // TODO use default watch level
+		if log.isFileEnabled {
+			log.createLogFileHeader() // append new header into existing log file.
+		}
 	}
-	return nodeLogs[nodeid]
+	return log
 }
 
 func getLogFileName(simId int, nodeId NodeId) string {
@@ -87,14 +97,19 @@ func (nl *NodeLogger) createLogFile() {
 		return
 	}
 
+	nl.createLogFileHeader()
+	nl.Debugf("Node log file '%s' opened.", nl.logFileName)
+}
+
+func (nl *NodeLogger) createLogFileHeader() {
 	header := fmt.Sprintf("#\n# OpenThread node log for %s Created %s\n", GetNodeName(nl.Id),
 		time.Now().Format(time.RFC3339)) +
 		"# SimTimeUs NodeTime     Lev LogModule       Message"
 	_ = nl.writeToLogFile(header)
-	nl.Debugf("Node log file '%s' opened.", nl.logFileName)
 }
 
-func NodeLogf(nodeid NodeId, level WatchLogLevel, format string, args ...interface{}) {
+// NodeLogf logs a formatted log message for the specific nodeid; correct NodeLogger object will be auto-found.
+func NodeLogf(nodeid NodeId, level Level, format string, args ...interface{}) {
 	log := nodeLogs[nodeid]
 	if level > log.CurrentLevel && !log.isFileEnabled {
 		return
@@ -114,14 +129,14 @@ func NodeLogf(nodeid NodeId, level WatchLogLevel, format string, args ...interfa
 	}
 }
 
-func (nl *NodeLogger) Log(level WatchLogLevel, msg string) {
+func (nl *NodeLogger) Log(level Level, msg string) {
 	if level > nl.CurrentLevel && !nl.isFileEnabled {
 		return
 	}
 	NodeLogf(nl.Id, level, msg)
 }
 
-func (nl *NodeLogger) Logf(level WatchLogLevel, format string, args []interface{}) {
+func (nl *NodeLogger) Logf(level Level, format string, args []interface{}) {
 	if level > nl.CurrentLevel && !nl.isFileEnabled {
 		return
 	}
@@ -191,6 +206,7 @@ func (nl *NodeLogger) writeToLogFile(line string) error {
 	return err
 }
 
+// DisplayPendingLogEntries displays all pending log entries for the node, using given simulation time ts.
 func (nl *NodeLogger) DisplayPendingLogEntries(ts uint64) {
 	nl.timestampUs = ts
 	tsStr := fmt.Sprintf("%11d ", ts)

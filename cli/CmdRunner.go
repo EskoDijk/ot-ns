@@ -744,12 +744,12 @@ func (rt *CmdRunner) executeWatch(cc *CommandContext, cmd *WatchCmd) {
 			return
 		} else if len(cmd.Nodes) == 0 && len(cmd.All) == 0 && len(cmd.Default) > 0 && len(cmd.Level) > 0 {
 			// variant: 'watch default <level>'
-			sim.Dispatcher().GetConfig().DefaultWatchOn = cmd.Level != logger.WatchOffLevelString && cmd.Level != logger.WatchNoneLevelString
+			sim.Dispatcher().GetConfig().DefaultWatchOn = cmd.Level != logger.OffLevelString && cmd.Level != logger.NoneLevelString
 			sim.Dispatcher().GetConfig().DefaultWatchLevel = cmd.Level
 			return
 		} else if len(cmd.Nodes) == 0 && len(cmd.All) == 0 && len(cmd.Default) > 0 && len(cmd.Level) == 0 {
 			// variant: 'watch default'
-			watchLevelDefault := logger.WatchDefaultLevelString
+			watchLevelDefault := logger.DefaultLevelString
 			if sim.Dispatcher().GetConfig().DefaultWatchOn {
 				watchLevelDefault = sim.Dispatcher().GetConfig().DefaultWatchLevel
 			}

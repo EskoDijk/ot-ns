@@ -1,12 +1,12 @@
 package logger
 
 const (
-	WatchOffLevelString     = "off"
-	WatchNoneLevelString    = "none"
-	WatchDefaultLevelString = "default"
+	OffLevelString     = "off"
+	NoneLevelString    = "none"
+	DefaultLevelString = "default"
 )
 
-func ParseWatchLogLevel(level string) WatchLogLevel {
+func ParseWatchLogLevel(level string) Level {
 	switch level {
 	case "micro":
 		return MicroLevel
@@ -31,7 +31,7 @@ func ParseWatchLogLevel(level string) WatchLogLevel {
 	}
 }
 
-func GetWatchLogLevelString(level WatchLogLevel) string {
+func GetWatchLogLevelString(level Level) string {
 	switch level {
 	case MicroLevel:
 		return "micro"
@@ -50,7 +50,7 @@ func GetWatchLogLevelString(level WatchLogLevel) string {
 	case OffLevel:
 		return "off"
 	default:
-		Panicf("Unknown WatchLogLevel: %d", level)
+		Panicf("Unknown Level: %d", level)
 		return ""
 	}
 }

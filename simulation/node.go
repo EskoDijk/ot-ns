@@ -888,7 +888,7 @@ loop:
 	for {
 		select {
 		case line := <-node.pendingLines:
-			logger.PrintConsole(line)
+			logger.Println(line)
 		default:
 			break loop
 		}

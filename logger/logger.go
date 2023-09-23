@@ -40,28 +40,28 @@ import (
 	. "github.com/openthread/ot-ns/types"
 )
 
-// WatchLogLevel is the log-level for watching what happens in the simulation as a whole, or to watch an
+// Level is the log-level for logging what happens in the simulation as a whole, or to watch an
 // individual node. Values inherit OT logging.h values and extend these with OT-NS specific items.
-type WatchLogLevel int8
+type Level int8
 
 const (
-	MicroLevel   WatchLogLevel = 7
-	TraceLevel   WatchLogLevel = 6
-	DebugLevel   WatchLogLevel = 5
-	InfoLevel    WatchLogLevel = 4
-	NoteLevel    WatchLogLevel = 3
-	WarnLevel    WatchLogLevel = 2
-	ErrorLevel   WatchLogLevel = 1
-	PanicLevel   WatchLogLevel = 0
-	FatalLevel   WatchLogLevel = -1
-	OffLevel     WatchLogLevel = -2
-	MinLevel                   = OffLevel
-	DefaultLevel               = InfoLevel
+	MicroLevel   Level = 7
+	TraceLevel   Level = 6
+	DebugLevel   Level = 5
+	InfoLevel    Level = 4
+	NoteLevel    Level = 3
+	WarnLevel    Level = 2
+	ErrorLevel   Level = 1
+	PanicLevel   Level = 0
+	FatalLevel   Level = -1
+	OffLevel     Level = -2
+	MinLevel           = OffLevel
+	DefaultLevel       = InfoLevel
 )
 
 type logEntry struct {
 	NodeId NodeId
-	Level  WatchLogLevel
+	Level  Level
 	Msg    string
 }
 
@@ -72,7 +72,7 @@ type StdoutCallback interface {
 var (
 	cfg             zap.Config
 	zaplogger       *zap.Logger
-	currentLevel    WatchLogLevel
+	currentLevel    Level
 	isLogToTerminal bool
 	cbStdout        StdoutCallback
 	zapLevels       = []zapcore.Level{zapcore.FatalLevel + 1, zapcore.FatalLevel, zapcore.PanicLevel,
@@ -108,20 +108,22 @@ func init() {
 }
 
 // SetLevel sets the log level
-func SetLevel(lv WatchLogLevel) {
+func SetLevel(lv Level) {
 	currentLevel = lv
 }
 
-func SetLevelFromString(level string) WatchLogLevel {
+// SetLevelFromString sets the log level based on a string identifier of the level.
+func SetLevelFromString(level string) Level {
 	SetLevel(ParseWatchLogLevel(level))
 	return currentLevel
 }
 
 // GetLevel get the current log level
-func GetLevel() WatchLogLevel {
+func GetLevel() Level {
 	return currentLevel
 }
 
+// SetStdoutCallback sets a callback, that the logger will call when new log content was written to stdout/stderr.
 func SetStdoutCallback(cb StdoutCallback) {
 	cbStdout = cb
 }
@@ -150,7 +152,7 @@ func rebuildLoggerFromCfg() {
 	}
 }
 
-// getMessage format with Sprint, Sprintf, or neither.
+// getMessage formats a string efficiently with Sprint, Sprintf, or neither.
 func getMessage(template string, fmtArgs []interface{}) string {
 	if len(fmtArgs) == 0 {
 		return template
@@ -168,15 +170,16 @@ func getMessage(template string, fmtArgs []interface{}) string {
 	return fmt.Sprint(fmtArgs...)
 }
 
-// Log prints the log msg at specified level using logger.
-func Log(level WatchLogLevel, msg interface{}) {
+// Log outputs the log message/object at specified level using logger.
+func Log(level Level, msg interface{}) {
 	if level > currentLevel {
 		return
 	}
 	Logf(level, "", []interface{}{msg})
 }
 
-func Logf(level WatchLogLevel, format string, args []interface{}) {
+// Logf outputs formatted log message at specified level using logger.
+func Logf(level Level, format string, args []interface{}) {
 	if level > currentLevel {
 		return
 	}
@@ -190,7 +193,8 @@ func Logf(level WatchLogLevel, format string, args []interface{}) {
 	}
 }
 
-func logAlways(level WatchLogLevel, msg string) {
+// logAlways is a helper func that doesn't check level prior to logging to zaplogger.
+func logAlways(level Level, msg string) {
 	if isLogToTerminal {
 		_, _ = fmt.Fprint(os.Stdout, "\033[2K\r") // ANSI sequence to clear the CLI line
 	}
@@ -201,8 +205,8 @@ func logAlways(level WatchLogLevel, msg string) {
 	}
 }
 
-// PrintConsole prints a message for the user at the current console/CLI.
-func PrintConsole(msg string) {
+// Println prints a message for the user at the current console/CLI, to stdout, without logging fields.
+func Println(msg string) {
 	if isLogToTerminal {
 		_, _ = fmt.Fprint(os.Stdout, "\033[2K\r") // ANSI sequence to clear the CLI line
 	}

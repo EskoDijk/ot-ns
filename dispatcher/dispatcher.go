@@ -1233,7 +1233,7 @@ loop:
 	}
 }
 
-func (d *Dispatcher) WatchNode(nodeid NodeId, watchLogLevel logger.WatchLogLevel) {
+func (d *Dispatcher) WatchNode(nodeid NodeId, watchLogLevel logger.Level) {
 	d.watchingNodes[nodeid] = struct{}{}
 	node := d.nodes[nodeid]
 	if node != nil {
@@ -1250,7 +1250,7 @@ func (d *Dispatcher) UnwatchNode(nodeid NodeId) {
 	delete(d.watchingNodes, nodeid)
 }
 
-func (d *Dispatcher) GetWatchLevel(nodeid NodeId) logger.WatchLogLevel {
+func (d *Dispatcher) GetWatchLevel(nodeid NodeId) logger.Level {
 	node := d.nodes[nodeid]
 	if node != nil {
 		return node.watchLogLevel
@@ -1415,7 +1415,7 @@ func (d *Dispatcher) dumpPacket(item *Event) {
 		_, _ = fmt.Fprintf(&sb, "%02X", b)
 	}
 
-	logger.PrintConsole(sb.String())
+	logger.Println(sb.String())
 }
 
 func (d *Dispatcher) setNodeRole(node *Node, role OtDeviceRole) {

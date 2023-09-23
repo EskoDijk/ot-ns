@@ -425,10 +425,10 @@ func (s *Simulation) GetConfig() *Config {
 	return s.cfg
 }
 
-func (s *Simulation) GetLogLevel() logger.WatchLogLevel {
+func (s *Simulation) GetLogLevel() logger.Level {
 	return logger.GetLevel()
 }
 
-func (s *Simulation) SetLogLevel(level logger.WatchLogLevel) {
+func (s *Simulation) SetLogLevel(level logger.Level) {
 	logger.SetLevel(level)
 }
