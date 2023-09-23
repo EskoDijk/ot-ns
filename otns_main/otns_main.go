@@ -38,7 +38,6 @@ import (
 	"time"
 
 	"github.com/openthread/ot-ns/cli"
-	"github.com/openthread/ot-ns/cli/runcli"
 	"github.com/openthread/ot-ns/dispatcher"
 	"github.com/openthread/ot-ns/logger"
 	"github.com/openthread/ot-ns/progctx"
@@ -137,10 +136,9 @@ func parseListenAddr() {
 	}
 }
 
-func Main(ctx *progctx.ProgCtx, visualizerCreator func(ctx *progctx.ProgCtx, args *MainArgs) visualize.Visualizer, cliOptions *runcli.CliOptions) {
+func Main(ctx *progctx.ProgCtx, visualizerCreator func(ctx *progctx.ProgCtx, args *MainArgs) visualize.Visualizer, cliOptions *cli.CliOptions) {
 	handleSignals(ctx)
 	parseArgs()
-	//logger.SetOutput([]string{"stdout", "otns.log"}) // for @DEBUG: generate a log output file.
 	logger.SetLevelFromString(args.LogLevel)
 	parseListenAddr()
 
@@ -184,10 +182,11 @@ func Main(ctx *progctx.ProgCtx, visualizerCreator func(ctx *progctx.ProgCtx, arg
 	ctx.WaitAdd("cli", 1)
 	go func() {
 		defer ctx.WaitDone("cli")
-		err := cli.Run(rt, cliOptions)
+		err := cli.Cli.Run(rt, cliOptions)
 		ctx.Cancel(errors.Wrapf(err, "cli-exit"))
 	}()
-	<-runcli.Started
+	<-cli.Cli.Started
+	logger.SetStdoutCallback(cli.Cli)
 
 	ctx.WaitAdd("simulation", 1)
 	go func() {
@@ -203,6 +202,7 @@ func Main(ctx *progctx.ProgCtx, visualizerCreator func(ctx *progctx.ProgCtx, arg
 	}
 
 	if args.AutoGo {
+		ctx.WaitAdd("autogo", 1)
 		go autoGo(ctx, sim)
 	}
 
@@ -210,7 +210,7 @@ func Main(ctx *progctx.ProgCtx, visualizerCreator func(ctx *progctx.ProgCtx, arg
 	ctx.Cancel("main")
 
 	logger.Debugf("waiting for OTNS to stop gracefully ...")
-	runcli.StopCli(cliOptions)
+	cli.Cli.Stop()
 	webSite.StopServe()
 	ctx.Wait()
 }
@@ -244,6 +244,7 @@ func handleSignals(ctx *progctx.ProgCtx) {
 }
 
 func autoGo(ctx *progctx.ProgCtx, sim *simulation.Simulation) {
+	defer ctx.WaitDone("autogo")
 	for {
 		<-sim.Go(time.Second * 5)
 		if ctx.Err() != nil { // exit when context is Done.

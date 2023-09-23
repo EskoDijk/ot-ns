@@ -45,7 +45,7 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/chzyer/readline"
-	"github.com/openthread/ot-ns/cli/runcli"
+	"github.com/openthread/ot-ns/cli"
 	"github.com/openthread/ot-ns/dispatcher"
 	"github.com/openthread/ot-ns/logger"
 	"github.com/openthread/ot-ns/otns_main"
@@ -398,7 +398,7 @@ func NewOtnsTest(t *testing.T) *OtnsTest {
 
 		otns_main.Main(ot.ctx, func(ctx *progctx.ProgCtx, args *otns_main.MainArgs) visualize.Visualizer {
 			return nil
-		}, &runcli.CliOptions{
+		}, &cli.CliOptions{
 			EchoInput: false,
 			Stdin:     ot.stdin,
 			Stdout:    ot.stdout,

@@ -30,7 +30,7 @@ import (
 	"io"
 	"os"
 
-	"github.com/openthread/ot-ns/cli/runcli"
+	"github.com/openthread/ot-ns/cli"
 	"github.com/openthread/ot-ns/logger"
 )
 
@@ -53,7 +53,7 @@ func (c cliHandler) HandleCommand(cmd string, output io.Writer) error {
 }
 
 func main() {
-	err := runcli.RunCli(&cliHandler{}, &runcli.CliOptions{
+	err := cli.Cli.Run(&cliHandler{}, &cli.CliOptions{
 		EchoInput: true,
 	})
 

@@ -40,10 +40,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/openthread/ot-ns/logger"
 	"github.com/pkg/errors"
 
 	"github.com/openthread/ot-ns/dispatcher"
+	"github.com/openthread/ot-ns/logger"
 	"github.com/openthread/ot-ns/otoutfilter"
 	. "github.com/openthread/ot-ns/types"
 )
@@ -742,8 +742,8 @@ loop:
 }
 
 func (node *Node) onProcessFailure(err error) {
-	node.Logger.Errorf("Node process failed.")
-	node.S.PostAsync(false, func() {
+	node.Logger.Errorf("node process failed")
+	node.S.PostAsync(func() {
 		if node.S.ctx.Err() == nil {
 			logger.Warnf("Deleting node %v due to process failure.", node.Id)
 			_ = node.S.DeleteNode(node.Id)

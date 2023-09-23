@@ -238,9 +238,13 @@ func (d *Dispatcher) Stop() {
 	close(d.pcapFrameChan)
 	logger.Tracef("waiting for dispatcher threads to stop ...")
 	d.waitGroup.Wait()
+
+	// after threads stopped, handle any remaining tasks - other goroutines may block on task execution.
+	logger.Tracef("dispatcher emptying tasks queue ...")
+	d.handleTasks()
 }
 
-func (d *Dispatcher) IsStopped() bool {
+func (d *Dispatcher) isStopping() bool {
 	select {
 	case <-d.ctx.Done():
 		return true
@@ -319,17 +323,6 @@ loop:
 			break loop
 		}
 	}
-
-	// complete any remaining tasks: other goroutines may be waiting on completion.
-loop2:
-	for {
-		select {
-		case f := <-d.taskChan:
-			f()
-		default:
-			break loop2
-		}
-	}
 }
 
 func (d *Dispatcher) goSimulateForDuration(duration goDuration) {
@@ -355,7 +348,7 @@ func (d *Dispatcher) goSimulateForDuration(duration goDuration) {
 	for d.CurTime <= d.pauseTime {
 		d.handleTasks()
 
-		if d.currentGoDuration.cancel || d.IsStopped() {
+		if d.currentGoDuration.cancel || d.isStopping() {
 			break
 		}
 
@@ -609,11 +602,11 @@ func (d *Dispatcher) eventsReader() {
 	for {
 		// Wait for OT nodes to connect.
 		conn, err := d.udpln.Accept()
-		if err != nil || d.IsStopped() {
+		if err != nil || d.isStopping() {
 			if conn != nil {
 				_ = conn.Close()
 			}
-			if !d.IsStopped() {
+			if !d.isStopping() {
 				logger.Panicf("connection Accept() failed: %v", err)
 			}
 			break
@@ -911,7 +904,7 @@ func (d *Dispatcher) setSleeping(nodeid NodeId) {
 
 // syncAliveNodes advances the node's time of alive nodes only to current dispatcher time.
 func (d *Dispatcher) syncAliveNodes() {
-	if len(d.aliveNodes) == 0 || d.IsStopped() {
+	if len(d.aliveNodes) == 0 || d.isStopping() {
 		return
 	}
 
@@ -1217,24 +1210,15 @@ func (d *Dispatcher) advanceTime(ts uint64) {
 	}
 }
 
-func (d *Dispatcher) PostAsync(trivial bool, task func()) {
-	if trivial {
-		select {
-		case d.taskChan <- task:
-			break
-		default:
-			break
-		}
-	} else {
-		d.taskChan <- task
-	}
+func (d *Dispatcher) PostAsync(task func()) {
+	d.taskChan <- task
 }
 
 func (d *Dispatcher) handleTasks() {
 	defer func() {
 		err := recover()
 		if err != nil {
-			logger.Errorf("dispatcher handle task failed: %+v", err)
+			logger.TraceError("dispatcher handle task failed: %+v", err)
 		}
 	}()
 

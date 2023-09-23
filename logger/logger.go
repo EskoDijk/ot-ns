@@ -37,7 +37,7 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
-	_ "github.com/openthread/ot-ns/types"
+	. "github.com/openthread/ot-ns/types"
 )
 
 // WatchLogLevel is the log-level for watching what happens in the simulation as a whole, or to watch an
@@ -60,13 +60,13 @@ const (
 )
 
 type logEntry struct {
-	NodeId int
+	NodeId NodeId
 	Level  WatchLogLevel
 	Msg    string
 }
 
 type StdoutCallback interface {
-	OnStdout() // FIXME implement handler
+	OnStdout()
 }
 
 var (
@@ -133,6 +133,7 @@ func TraceError(format string, args ...interface{}) {
 }
 
 // SetOutput sets the output writer
+// e.g. logger.SetOutput([]string{"stderr", "otns.log"}) // for @DEBUG: generate a log output file.
 func SetOutput(outputs []string) {
 	cfg.OutputPaths = outputs
 	rebuildLoggerFromCfg()

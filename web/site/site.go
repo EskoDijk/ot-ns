@@ -112,7 +112,7 @@ func Serve(listenAddr string) error {
 	}
 	httpServer = &http.Server{Addr: listenAddr, Handler: nil}
 	logger.Infof("OTNS webserver now serving on %s ...", listenAddr)
-	defer logger.Debugf("webserver: httpServer.ListenAndServe() done")
+	defer logger.Tracef("webserver: httpServer.ListenAndServe() done")
 	httpServerMutex.Unlock()
 	close(Started)
 	return httpServer.ListenAndServe()

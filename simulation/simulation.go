@@ -33,6 +33,8 @@ import (
 	"sort"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"github.com/openthread/ot-ns/dispatcher"
 	"github.com/openthread/ot-ns/energy"
 	"github.com/openthread/ot-ns/logger"
@@ -40,11 +42,11 @@ import (
 	"github.com/openthread/ot-ns/radiomodel"
 	. "github.com/openthread/ot-ns/types"
 	"github.com/openthread/ot-ns/visualize"
-	"github.com/pkg/errors"
 )
 
 type Simulation struct {
 	Started        chan struct{}
+	Exited         chan struct{}
 	ctx            *progctx.ProgCtx
 	stopped        bool
 	cfg            *Config
@@ -61,6 +63,7 @@ type Simulation struct {
 func NewSimulation(ctx *progctx.ProgCtx, cfg *Config, dispatcherCfg *dispatcher.Config) (*Simulation, error) {
 	s := &Simulation{
 		Started:     make(chan struct{}),
+		Exited:      make(chan struct{}),
 		ctx:         ctx,
 		cfg:         cfg,
 		nodes:       map[NodeId]*Node{},
@@ -140,7 +143,7 @@ func (s *Simulation) AddNode(cfg *NodeConfig) (*Node, error) {
 	ts := s.d.CurTime
 
 	node.Logger.DisplayPendingLogEntries(ts)
-	if s.ctx.Err() != nil { // stop early when exiting the simulation.
+	if s.IsStopping() { // stop early when exiting the simulation.
 		return nil, CommandInterruptedError
 	}
 
@@ -160,7 +163,7 @@ func (s *Simulation) AddNode(cfg *NodeConfig) (*Node, error) {
 	}
 
 	node.Logger.DisplayPendingLogEntries(ts)
-	if s.ctx.Err() != nil { // stop early when exiting the simulation.
+	if s.IsStopping() { // stop early when exiting the simulation.
 		return nil, CommandInterruptedError
 	}
 
@@ -187,13 +190,16 @@ func (s *Simulation) genNodeId() NodeId {
 
 func (s *Simulation) Run() {
 	defer logger.Debugf("simulation exit.")
-	defer s.d.Stop()
-	defer s.Stop()
 
 	// run dispatcher in current thread, until exit.
 	s.ctx.WaitAdd("dispatcher", 1)
 	close(s.Started)
 	s.d.Run()
+	s.ctx.Cancel("simulation-run")
+	s.Stop()
+	close(s.Exited)
+	s.d.Stop()
+
 }
 
 func (s *Simulation) Nodes() map[NodeId]*Node {
@@ -214,6 +220,15 @@ func (s *Simulation) GetNodes() []NodeId {
 
 func (s *Simulation) AutoGo() bool {
 	return s.cfg.AutoGo
+}
+
+func (s *Simulation) IsStopping() bool {
+	select {
+	case <-s.ctx.Done():
+		return true
+	default:
+		return false
+	}
 }
 
 func (s *Simulation) Stop() {
@@ -276,8 +291,16 @@ func (s *Simulation) OnNextEventTime(ts uint64, nextTs uint64) {
 	})
 }
 
-func (s *Simulation) PostAsync(trivial bool, f func()) {
-	s.d.PostAsync(trivial, f)
+// PostAsync will post an asynchronous simulation task in the queue for execution
+// @return true when post was successful, false if not (e.g. when sim exited)
+func (s *Simulation) PostAsync(f func()) bool {
+	select {
+	case <-s.Exited:
+		return false
+	default:
+		s.d.PostAsync(f)
+		return true
+	}
 }
 
 func (s *Simulation) Dispatcher() *dispatcher.Dispatcher {
