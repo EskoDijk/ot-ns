@@ -297,6 +297,8 @@ func (s *Simulation) PostAsync(f func()) bool {
 	select {
 	case <-s.Exited:
 		return false
+	case <-s.ctx.Done():
+		return false
 	default:
 		s.d.PostAsync(f)
 		return true

@@ -197,11 +197,17 @@ func TestCliStartStop(t *testing.T) {
 	opt := DefaultCliOptions()
 	r, w, _ := os.Pipe()
 	opt.Stdin = r
-	go Cli.Run(&handler, opt)
-	time.Sleep(time.Second)
+	err := make(chan error, 1)
+	go func() {
+		err <- Cli.Run(&handler, opt)
+	}()
+	<-Cli.Started
 	fmt.Fprint(w, "help\n")
+	time.Sleep(time.Millisecond * 500)
+	_ = w.Close()
 	Cli.Stop()
 
+	assert.Nil(t, <-err)
 	assert.Equal(t, 1, handler.handleCount)
 }
 
@@ -216,14 +222,15 @@ func TestCliCommandNotDefined(t *testing.T) {
 	opt := DefaultCliOptions()
 	r, w, _ := os.Pipe()
 	opt.Stdin = r
-	var err error = nil
+	err := make(chan error, 1)
 	go func() {
-		err = Cli.Run(&handler, opt)
+		err <- Cli.Run(&handler, opt)
 	}()
-	time.Sleep(time.Second)
+	<-Cli.Started
 	fmt.Fprint(w, "xyz\n") // unknown command triggers handle-error, which causes CLI exit.
-	<-Cli.waitCliClosed
 
+	assert.NotNil(t, <-err)
 	assert.Equal(t, 1, handler.handleCount)
-	assert.NotNil(t, err)
+
+	Cli.Stop() // calling Stop() after CLI has already exited.
 }

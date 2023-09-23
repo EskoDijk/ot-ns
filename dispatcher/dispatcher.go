@@ -238,10 +238,6 @@ func (d *Dispatcher) Stop() {
 	close(d.pcapFrameChan)
 	logger.Tracef("waiting for dispatcher threads to stop ...")
 	d.waitGroup.Wait()
-
-	// after threads stopped, handle any remaining tasks - other goroutines may block on task execution.
-	logger.Tracef("dispatcher emptying tasks queue ...")
-	d.handleTasks()
 }
 
 func (d *Dispatcher) isStopping() bool {
@@ -300,8 +296,8 @@ func (d *Dispatcher) Run() {
 loop:
 	for {
 		select {
-		case f := <-d.taskChan:
-			f()
+		case t := <-d.taskChan:
+			t()
 		case duration := <-d.goDurationChan:
 			d.currentGoDuration = duration
 			if len(d.nodes) == 0 || duration.duration < 0 {
@@ -323,6 +319,9 @@ loop:
 			break loop
 		}
 	}
+
+	// handle all remaining tasks - other goroutines may be blocking on task completion.
+	d.handleTasks()
 }
 
 func (d *Dispatcher) goSimulateForDuration(duration goDuration) {

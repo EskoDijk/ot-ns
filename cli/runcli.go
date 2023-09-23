@@ -98,7 +98,7 @@ func (cli *CliInstance) Stop() {
 	// cannot call readlineInstance.Close() from here, as it can block (RunCli() will call it)
 	// (https://github.com/chzyer/readline/issues/217)
 	// send ETX(Ctrl-C, 0x03, readline.CharInterrupt) to avoid readline internally blocking on Runes() select.
-	_, _ = cli.Options.Stdin.WriteString("\003")
+	_, _ = cli.Options.Stdin.WriteString("\003\n")
 	_ = cli.Options.Stdin.Close() // trigger RunCli() readline call to stop
 	logger.Tracef("Waiting for CLI to stop ...")
 	<-cli.waitCliClosed
