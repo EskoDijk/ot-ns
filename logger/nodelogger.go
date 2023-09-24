@@ -29,6 +29,7 @@ package logger
 import (
 	"fmt"
 	"os"
+	"sync"
 	"time"
 
 	. "github.com/openthread/ot-ns/types"
@@ -48,17 +49,21 @@ type NodeLogger struct {
 
 var (
 	nodeLogs = make(map[NodeId]*NodeLogger, 10)
+	mutex    = sync.Mutex{}
 )
 
 // GetNodeLogger gets the NodeLogger instance for the given ( simulation ID, node config ) and configures it.
 func GetNodeLogger(simulationId int, cfg *NodeConfig) *NodeLogger {
+	mutex.Lock()
+	defer mutex.Unlock()
+
 	var log *NodeLogger
 	nodeid := cfg.ID
 	log, ok := nodeLogs[nodeid]
 	if !ok {
 		log = &NodeLogger{
 			Id:            nodeid,
-			CurrentLevel:  ErrorLevel, // TODO use default watch level
+			CurrentLevel:  ErrorLevel,
 			entries:       make(chan logEntry, 1000),
 			logFileName:   getLogFileName(simulationId, nodeid),
 			isFileEnabled: cfg.NodeLogFile,
@@ -68,12 +73,12 @@ func GetNodeLogger(simulationId int, cfg *NodeConfig) *NodeLogger {
 			log.createLogFile()
 		}
 	} else {
-		// if logger already exists, adjust the configuration to latest.
+		// if logger already exists, adjust the configuration to latest provided and open file if needed.
 		log.isFileEnabled = cfg.NodeLogFile
-		log.CurrentLevel = ErrorLevel // TODO use default watch level
-		if log.isFileEnabled {
-			log.createLogFileHeader() // append new header into existing log file.
+		if log.isFileEnabled && log.logFile == nil {
+			log.openLogFile()
 		}
+		log.CurrentLevel = ErrorLevel
 	}
 	return log
 }
@@ -84,24 +89,33 @@ func getLogFileName(simId int, nodeId NodeId) string {
 
 func (nl *NodeLogger) createLogFile() {
 	var err error
-	if err = os.RemoveAll(nl.logFileName); err != nil {
-		nl.Errorf("remove existing node log file %s failed, file logging disabled (%+v)", nl.logFileName, err)
+	nl.logFile, err = os.OpenFile(nl.logFileName, os.O_CREATE|os.O_WRONLY, 0664)
+	if err != nil {
+		nl.Errorf("creating node log file %s failed: %+v", nl.logFileName, err)
 		nl.isFileEnabled = false
 		return
 	}
 
-	nl.logFile, err = os.OpenFile(nl.logFileName, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0664)
+	nl.writeLogFileHeader()
+	nl.Debugf("Node log file '%s' created.", nl.logFileName)
+}
+
+func (nl *NodeLogger) openLogFile() {
+	AssertTrue(nl.logFile == nil)
+
+	var err error
+	nl.logFile, err = os.OpenFile(nl.logFileName, os.O_APPEND|os.O_WRONLY, 0664)
 	if err != nil {
 		nl.Errorf("opening node log file %s failed: %+v", nl.logFileName, err)
 		nl.isFileEnabled = false
 		return
 	}
 
-	nl.createLogFileHeader()
+	nl.writeLogFileHeader()
 	nl.Debugf("Node log file '%s' opened.", nl.logFileName)
 }
 
-func (nl *NodeLogger) createLogFileHeader() {
+func (nl *NodeLogger) writeLogFileHeader() {
 	header := fmt.Sprintf("#\n# OpenThread node log for %s Created %s\n", GetNodeName(nl.Id),
 		time.Now().Format(time.RFC3339)) +
 		"# SimTimeUs NodeTime     Lev LogModule       Message"
@@ -198,8 +212,7 @@ func (nl *NodeLogger) writeToLogFile(line string) error {
 	}
 	_, err := nl.logFile.WriteString(line + "\n")
 	if err != nil {
-		_ = nl.logFile.Close()
-		nl.logFile = nil
+		nl.Close()
 		nl.isFileEnabled = false
 		nl.Errorf("couldn't write to node log file (%s), closing it", nl.logFileName)
 	}
@@ -226,5 +239,13 @@ func (nl *NodeLogger) DisplayPendingLogEntries(ts uint64) {
 		default:
 			return
 		}
+	}
+}
+
+func (nl *NodeLogger) Close() {
+	if nl.logFile != nil {
+		_ = nl.logFile.Sync()
+		_ = nl.logFile.Close()
+		nl.logFile = nil
 	}
 }

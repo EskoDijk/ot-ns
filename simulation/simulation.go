@@ -342,6 +342,7 @@ func (s *Simulation) DeleteNode(nodeid NodeId) error {
 	s.d.RecvEvents()
 	s.d.DeleteNode(nodeid)
 	node.Logger.DisplayPendingLogEntries(s.d.CurTime)
+	node.Logger.Close()
 	delete(s.nodes, nodeid)
 	return err
 }
