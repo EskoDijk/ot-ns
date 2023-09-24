@@ -730,19 +730,19 @@ func (rt *CmdRunner) executeRadioModel(cc *CommandContext, cmd *RadioModelCmd) {
 
 func (rt *CmdRunner) executeLogLevel(cc *CommandContext, cmd *LogLevelCmd) {
 	if cmd.Level == "" {
-		cc.outputf("%v\n", logger.GetWatchLogLevelString(rt.sim.GetLogLevel()))
+		cc.outputf("%v\n", logger.GetLevelString(rt.sim.GetLogLevel()))
 	} else {
-		rt.sim.SetLogLevel(logger.ParseWatchLogLevel(cmd.Level))
+		rt.sim.SetLogLevel(logger.ParseLevelString(cmd.Level))
 	}
 }
 
 func (rt *CmdRunner) executeWatch(cc *CommandContext, cmd *WatchCmd) {
 	rt.postAsyncWait(cc, func(sim *simulation.Simulation) {
-		watchLogLevelStr := ""
-		var watchLogLevel = logger.DefaultLevel
+		levelStr := ""
+		var level = logger.DefaultLevel
 		if len(cmd.Level) > 0 {
-			watchLogLevelStr = cmd.Level
-			watchLogLevel = logger.ParseWatchLogLevel(watchLogLevelStr)
+			levelStr = cmd.Level
+			level = logger.ParseLevelString(levelStr)
 		}
 		nodesToWatch := cmd.Nodes
 
@@ -774,7 +774,7 @@ func (rt *CmdRunner) executeWatch(cc *CommandContext, cmd *WatchCmd) {
 			// Do nothing here. Will iterate over nodes below.
 		} else if len(cmd.Nodes) == 0 && len(cmd.All) == 0 && len(cmd.Default) == 0 && len(cmd.Level) > 0 {
 			// variant: 'watch <level>'
-			// Do nothing here. <level> was processed above as 'watchLogLevel'.
+			// Do nothing here. <level> was processed above already.
 		} else {
 			cc.errorf("watch: unsupported combination of command options")
 			return
@@ -786,7 +786,7 @@ func (rt *CmdRunner) executeWatch(cc *CommandContext, cmd *WatchCmd) {
 				cc.errorf("node %d not found", sel.Id)
 				continue
 			}
-			sim.Dispatcher().WatchNode(node.Id, watchLogLevel)
+			sim.Dispatcher().WatchNode(node.Id, level)
 		}
 	})
 }

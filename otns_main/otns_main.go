@@ -286,7 +286,7 @@ func createSimulation(ctx *progctx.ProgCtx) *simulation.Simulation {
 			return nil
 		}
 	}
-	simcfg.LogLevel = logger.ParseWatchLogLevel(args.LogLevel)
+	simcfg.LogLevel = logger.ParseLevelString(args.LogLevel)
 
 	dispatcherCfg := dispatcher.DefaultConfig()
 	dispatcherCfg.SimulationId = simcfg.Id
@@ -294,7 +294,7 @@ func createSimulation(ctx *progctx.ProgCtx) *simulation.Simulation {
 		dispatcherCfg.PcapChannels[simcfg.Channel] = struct{}{}
 	}
 	dispatcherCfg.DefaultWatchLevel = args.WatchLevel
-	dispatcherCfg.DefaultWatchOn = logger.ParseWatchLogLevel(args.WatchLevel) != logger.OffLevel
+	dispatcherCfg.DefaultWatchOn = logger.ParseLevelString(args.WatchLevel) != logger.OffLevel
 
 	sim, err := simulation.NewSimulation(ctx, simcfg, dispatcherCfg)
 	logger.FatalIfError(err)

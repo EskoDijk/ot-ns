@@ -87,7 +87,6 @@ type Node struct {
 	joinerState   OtJoinerState
 	joinerSession *joinerSession
 	joinResults   []*JoinResult
-	watchLogLevel logger.Level
 	logger        *logger.NodeLogger
 }
 
@@ -101,24 +100,24 @@ func newNode(d *Dispatcher, nodeid NodeId, cfg *NodeConfig) *Node {
 	}
 
 	nc := &Node{
-		D:             d,
-		Id:            nodeid,
-		CurTime:       d.CurTime,
-		CreateTime:    d.CurTime,
-		X:             cfg.X,
-		Y:             cfg.Y,
-		ExtAddr:       InvalidExtAddr,
-		Rloc16:        threadconst.InvalidRloc16,
-		Role:          OtDeviceRoleDisabled,
-		conn:          nil, // connection will be set when first event is received from node.
-		err:           nil, // keep track of connection errors.
-		radioNode:     radiomodel.NewRadioNode(nodeid, radioCfg),
-		joinerState:   OtJoinerStateIdle,
-		watchLogLevel: logger.ErrorLevel,
-		logger:        logger.GetNodeLogger(d.cfg.SimulationId, cfg),
+		D:           d,
+		Id:          nodeid,
+		CurTime:     d.CurTime,
+		CreateTime:  d.CurTime,
+		X:           cfg.X,
+		Y:           cfg.Y,
+		ExtAddr:     InvalidExtAddr,
+		Rloc16:      threadconst.InvalidRloc16,
+		Role:        OtDeviceRoleDisabled,
+		conn:        nil, // connection will be set when first event is received from node.
+		err:         nil, // keep track of connection errors.
+		radioNode:   radiomodel.NewRadioNode(nodeid, radioCfg),
+		joinerState: OtJoinerStateIdle,
+		logger:      logger.GetNodeLogger(d.cfg.SimulationId, cfg),
 	}
 
 	nc.failureCtrl = newFailureCtrl(nc, NonFailTime)
+	nc.logger.CurrentLevel = logger.ErrorLevel
 	return nc
 }
 

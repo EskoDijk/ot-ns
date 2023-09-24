@@ -707,7 +707,7 @@ loop:
 			lineTrim := strings.TrimSpace(line)
 			isLogLine, otLevelChar := otoutfilter.DetectLogLine(line)
 			if isLogLine {
-				lev := logger.ParseWatchLogLevel(otLevelChar)
+				lev := logger.ParseLevelString(otLevelChar)
 				node.Logger.Log(lev, lineTrim)
 			} else if idxNewLine == -1 { // if no newline, get more items until a line can be formed.
 				deadline = time.After(dispatcher.DefaultReadTimeout)

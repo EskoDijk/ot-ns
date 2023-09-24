@@ -1056,7 +1056,7 @@ func (d *Dispatcher) AddNode(nodeid NodeId, cfg *NodeConfig) *Node {
 	d.setAlive(nodeid)
 
 	if d.cfg.DefaultWatchOn {
-		d.WatchNode(nodeid, logger.ParseWatchLogLevel(d.cfg.DefaultWatchLevel))
+		d.WatchNode(nodeid, logger.ParseLevelString(d.cfg.DefaultWatchLevel))
 	}
 	return node
 }
@@ -1233,29 +1233,20 @@ loop:
 	}
 }
 
-func (d *Dispatcher) WatchNode(nodeid NodeId, watchLogLevel logger.Level) {
+func (d *Dispatcher) WatchNode(nodeid NodeId, watchLevel logger.Level) {
 	d.watchingNodes[nodeid] = struct{}{}
 	node := d.nodes[nodeid]
 	if node != nil {
-		node.watchLogLevel = watchLogLevel
-		node.logger.CurrentLevel = watchLogLevel
+		node.logger.CurrentLevel = watchLevel
 	}
 }
 
 func (d *Dispatcher) UnwatchNode(nodeid NodeId) {
 	node := d.nodes[nodeid]
 	if node != nil {
-		node.watchLogLevel = logger.ErrorLevel
+		node.logger.CurrentLevel = logger.ErrorLevel
 	}
 	delete(d.watchingNodes, nodeid)
-}
-
-func (d *Dispatcher) GetWatchLevel(nodeid NodeId) logger.Level {
-	node := d.nodes[nodeid]
-	if node != nil {
-		return node.watchLogLevel
-	}
-	return logger.ErrorLevel
 }
 
 func (d *Dispatcher) GetWatchingNodes() []NodeId {
