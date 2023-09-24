@@ -199,7 +199,6 @@ func (s *Simulation) Run() {
 	s.Stop()
 	close(s.Exited)
 	s.d.Stop()
-
 }
 
 func (s *Simulation) Nodes() map[NodeId]*Node {
