@@ -322,7 +322,7 @@ func (s *Simulation) VisitNodesInOrder(cb func(node *Node)) {
 func (s *Simulation) MoveNodeTo(nodeid NodeId, x, y int) error {
 	dn := s.d.GetNode(nodeid)
 	if dn == nil {
-		err := fmt.Errorf("node not found: %d", nodeid)
+		err := fmt.Errorf("node %d not found", nodeid)
 		return err
 	}
 	s.d.SetNodePos(nodeid, x, y)
@@ -333,7 +333,7 @@ func (s *Simulation) MoveNodeTo(nodeid NodeId, x, y int) error {
 func (s *Simulation) DeleteNode(nodeid NodeId) error {
 	node := s.nodes[nodeid]
 	if node == nil {
-		err := fmt.Errorf("node not found: %d", nodeid)
+		err := fmt.Errorf("node %d not found", nodeid)
 		return err
 	}
 	logger.AssertFalse(s.Dispatcher().IsAlive(nodeid))

@@ -69,13 +69,19 @@ func (cc *CommandContext) outputf(format string, args ...interface{}) {
 }
 
 func (cc *CommandContext) errorf(format string, args ...interface{}) {
-	cc.err = errors.Errorf(format, args...)
+	cc.error(errors.Errorf(format, args...))
 }
 
 func (cc *CommandContext) error(err error) {
-	cc.err = err
+	if err != nil {
+		if cc.err != nil { // if previous error, print it now and keep the last.
+			cc.outputf("Error: %s\n", cc.err)
+		}
+		cc.err = err
+	}
 }
 
+// Err returns the last error that occurred during command execution.
 func (cc *CommandContext) Err() error {
 	return cc.err
 }
@@ -380,11 +386,14 @@ func (rt *CmdRunner) executeDelNode(cc *CommandContext, cmd *DelCmd) {
 		for _, sel := range cmd.Nodes {
 			node, _ := rt.getNode(sim, sel)
 			if node == nil {
-				cc.errorf("node %v not found", sel)
+				cc.outputf("Warn: node %d not found, skipping\n", sel.Id)
 				continue
 			}
 
-			cc.error(sim.DeleteNode(node.Id))
+			err := sim.DeleteNode(node.Id)
+			if err != nil {
+				cc.errorf("node %d, %+v", sel.Id, err)
+			}
 		}
 	})
 }
@@ -511,7 +520,7 @@ func (rt *CmdRunner) executeNode(cc *CommandContext, cmd *NodeCmd) {
 				// the 'node 0' command will exit node context, only when inside a node-context.
 				return
 			}
-			cc.errorf("node not found")
+			cc.errorf("node %d not found", cmd.Node.Id)
 			return
 		}
 
@@ -774,7 +783,7 @@ func (rt *CmdRunner) executeWatch(cc *CommandContext, cmd *WatchCmd) {
 		for _, sel := range nodesToWatch {
 			node, _ := rt.getNode(sim, sel)
 			if node == nil {
-				cc.errorf("node %v not found", sel)
+				cc.errorf("node %d not found", sel.Id)
 				continue
 			}
 			sim.Dispatcher().WatchNode(node.Id, watchLogLevel)
@@ -793,7 +802,7 @@ func (rt *CmdRunner) executeUnwatch(cc *CommandContext, cmd *UnwatchCmd) {
 			for _, sel := range cmd.Nodes {
 				node, _ := rt.getNode(sim, sel)
 				if node == nil {
-					cc.errorf("node %v not found", sel)
+					cc.outputf("Warn: node %d not found, skipping\n", sel.Id)
 					continue
 				}
 				sim.Dispatcher().UnwatchNode(node.Id)
@@ -826,7 +835,7 @@ func (rt *CmdRunner) executeScan(cc *CommandContext, cmd *ScanCmd) {
 	rt.postAsyncWait(cc, func(sim *simulation.Simulation) {
 		node, _ := rt.getNode(sim, cmd.Node)
 		if node == nil {
-			cc.errorf("node not found")
+			cc.errorf("node %d not found", cmd.Node.Id)
 			return
 		}
 		node.CommandExpectNone("scan", simulation.DefaultCommandTimeout)
