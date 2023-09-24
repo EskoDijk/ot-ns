@@ -104,7 +104,10 @@ func newNode(s *Simulation, nodeid NodeId, cfg *NodeConfig) (*Node, error) {
 		uartType:     NodeUartTypeUndefined,
 		uartReader:   make(chan []byte, 10000),
 	}
-	node.Logger.Debugf("node exe path: %s", cfg.ExecutablePath)
+	node.Logger.Debugf("Node config: IsMtd=%t IsRouter=%t IsBR=%t RxOffWhenIdle=%t", cfg.IsMtd, cfg.IsRouter,
+		cfg.IsBorderRouter, cfg.RxOffWhenIdle)
+	node.Logger.Debugf("  exe path: %s", cfg.ExecutablePath)
+	node.Logger.Debugf("  position: (%d,%d)", cfg.X, cfg.Y)
 
 	if node.pipeIn, err = cmd.StdinPipe(); err != nil {
 		return nil, err
