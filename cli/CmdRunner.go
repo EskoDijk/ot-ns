@@ -746,7 +746,6 @@ func displayRadioParam(val *reflect.Value) (string, bool) {
 
 func (rt *CmdRunner) executeRadioParam(cc *CommandContext, cmd *RadioParamCmd) {
 	rt.postAsyncWait(cc, func(sim *simulation.Simulation) {
-
 		rp := sim.Dispatcher().GetRadioModel().GetParameters()
 		rpVal := reflect.ValueOf(rp).Elem()
 		rpTyp := reflect.TypeOf(rp).Elem()
@@ -791,7 +790,6 @@ func (rt *CmdRunner) executeRadioParam(cc *CommandContext, cmd *RadioParamCmd) {
 		} else {
 			fval.SetFloat(newVal)
 		}
-
 	})
 }
 
