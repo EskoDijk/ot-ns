@@ -45,6 +45,7 @@ import (
 	"github.com/openthread/ot-ns/dispatcher"
 	"github.com/openthread/ot-ns/logger"
 	"github.com/openthread/ot-ns/otoutfilter"
+	"github.com/openthread/ot-ns/radiomodel"
 	. "github.com/openthread/ot-ns/types"
 )
 
@@ -66,13 +67,14 @@ const (
 )
 
 type Node struct {
-	S      *Simulation
-	Id     int
-	Logger *logger.NodeLogger
-	cfg    *NodeConfig
-	cmd    *exec.Cmd
-	cmdErr error // store the last CLI command error; nil if none.
+	S     *Simulation
+	Id    int
+	DNode *dispatcher.Node
 
+	Logger       *logger.NodeLogger
+	cfg          *NodeConfig
+	cmd          *exec.Cmd
+	cmdErr       error       // store the last CLI command error; nil if none.
 	pendingLines chan string // OT node CLI output lines, pending processing.
 	pipeIn       io.WriteCloser
 	pipeOut      io.ReadCloser
@@ -81,7 +83,7 @@ type Node struct {
 	uartType     NodeUartType
 }
 
-func newNode(s *Simulation, nodeid NodeId, cfg *NodeConfig) (*Node, error) {
+func newNode(s *Simulation, nodeid NodeId, cfg *NodeConfig, dnode *dispatcher.Node) (*Node, error) {
 	var err error
 
 	if !cfg.Restore {
@@ -98,6 +100,7 @@ func newNode(s *Simulation, nodeid NodeId, cfg *NodeConfig) (*Node, error) {
 		S:            s,
 		Id:           nodeid,
 		Logger:       logger.GetNodeLogger(s.cfg.Id, cfg),
+		DNode:        dnode,
 		cfg:          cfg,
 		cmd:          cmd,
 		pendingLines: make(chan string, 10000),
@@ -229,7 +232,7 @@ func (node *Node) inputCommand(cmd string) error {
 		_, err = node.pipeIn.Write([]byte(cmd + "\n"))
 		node.S.Dispatcher().NotifyCommand(node.Id)
 	} else {
-		err = node.S.Dispatcher().SendToUART(node.Id, []byte(cmd+"\n"))
+		err = node.DNode.SendToUART([]byte(cmd + "\n"))
 	}
 	return err
 }
@@ -335,6 +338,20 @@ func (node *Node) CommandExpectHex(cmd string, timeout time.Duration) int {
 
 func (node *Node) SetChannel(ch int) {
 	node.Command(fmt.Sprintf("channel %d", ch), DefaultCommandTimeout)
+}
+
+func (node *Node) GetRxSensitivity() int {
+	err := node.DNode.SendRxSensitivityEvent(false, 0)
+	if err != nil {
+		return int(radiomodel.RssiInvalid)
+	}
+	node.AssurePrompt()
+	return int(node.DNode.RadioNode.RxSensitivity)
+}
+
+func (node *Node) SetRxSensitivity(rxSens int) {
+	logger.AssertTrue(rxSens >= int(radiomodel.RssiMin) && rxSens <= int(radiomodel.RssiMax))
+	node.DNode.SendRxSensitivityEvent(true, int8(rxSens))
 }
 
 func (node *Node) GetChannel() int {
@@ -886,7 +903,7 @@ func (node *Node) setupMode() {
 	}
 }
 
-func (node *Node) DisplayPendingLines(ts uint64) {
+func (node *Node) DisplayPendingLines() {
 loop:
 	for {
 		select {
@@ -896,4 +913,8 @@ loop:
 			break loop
 		}
 	}
+}
+
+func (node *Node) DisplayPendingLogEntries() {
+	node.Logger.DisplayPendingLogEntries(node.S.Dispatcher().CurTime)
 }
