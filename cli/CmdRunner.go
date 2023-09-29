@@ -815,7 +815,7 @@ func (rt *CmdRunner) executeRxSens(cc *CommandContext, cmd *RxSensCmd) {
 		}
 
 		// variant: rxsens <node-id> <sensitivity-value>
-		rxSens := int(*cmd.Val)
+		rxSens := *cmd.Val
 		if cmd.Sign == "-" {
 			rxSens = -rxSens
 		}
@@ -824,6 +824,9 @@ func (rt *CmdRunner) executeRxSens(cc *CommandContext, cmd *RxSensCmd) {
 			return
 		}
 		node.SetRxSensitivity(rxSens)
+		if node.CommandResult() != nil {
+			cc.error(node.CommandResult())
+		}
 	})
 }
 

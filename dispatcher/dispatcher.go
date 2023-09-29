@@ -433,7 +433,6 @@ func (d *Dispatcher) handleRecvEvent(evt *Event) {
 		node.onStatusPushExtAddr(extaddr)
 	case EventTypeNodeInfo:
 		d.Counters.OtherEvents += 1
-		break
 	case EventTypeNodeDisconnected:
 		d.Counters.OtherEvents += 1
 		logger.Debugf("%s socket disconnected.", node)
