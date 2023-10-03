@@ -70,5 +70,7 @@ def create_otns_cli_error(error_line: str):
     if error_line.startswith("Error: command interrupted"):
         return OTNSCommandInterruptedError()
     if error_line.startswith("Error: "):
-        return OTNSCliError(error_line[7:])
+        return OTNSCliError(error_line)
+    if error_line.startswith("Error "):
+        return OTNSCliError(error_line)
     return OTNSCliError("Error: " + error_line)
