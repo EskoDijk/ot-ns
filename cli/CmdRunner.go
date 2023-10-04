@@ -197,7 +197,7 @@ func (rt *CmdRunner) execute(cmd *Command, output io.Writer) {
 	}
 
 	defer func() {
-		if cc.Err() != nil {
+		if cc.Err() != nil && rt.ctx.Err() == nil { // don't display cc error if we're exiting
 			cc.outputErr(cc.Err())
 		} else if !cc.isBackgroundCmd {
 			cc.outputf("Done\n")
