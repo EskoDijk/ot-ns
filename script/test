@@ -28,8 +28,6 @@
 # shellcheck source=script/common.sh
 . "$(dirname "$0")"/common.sh
 
-OT_DIR=${OT_DIR:-}
-
 show_help()
 {
     set +x
@@ -57,7 +55,6 @@ go_tests()
 {
     install_deps
     install_otns
-    build_openthread
 
     echo "" >coverage.txt
 
@@ -88,7 +85,6 @@ py_unittests()
     install_deps
     python3 -m pip install --user -r "$OTNSDIR"/pylibs/unittests/requirements.txt
     install_otns
-    build_openthread_versions
 
     python3 "$OTNSDIR"/pylibs/unittests/test_basic.py
     python3 "$OTNSDIR"/pylibs/unittests/test_ping.py
@@ -118,7 +114,7 @@ py_examples()
 {
     install_deps
     install_otns
-    build_openthread
+
     check_py_example "$OTNSDIR"/pylibs/examples/simple.py
     check_py_example "$OTNSDIR"/pylibs/examples/form_partition.py
     check_py_example "$OTNSDIR"/pylibs/examples/ping.py
@@ -135,7 +131,7 @@ stress_tests()
 {
     install_deps
     install_otns
-    build_openthread
+
     python3 "$OTNSDIR"/pylibs/stress_tests/run_stress_suite.py "$@"
 }
 
@@ -169,7 +165,7 @@ main()
                 shift 2
                 ;;
             build-openthread)
-                build_openthread
+                rebuild_openthread
                 shift 1
                 ;;
             build-openthread-versions)

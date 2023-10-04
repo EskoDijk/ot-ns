@@ -62,28 +62,26 @@ go_install()
 
 get_openthread()
 {
-    if [[ -z $OT_DIR ]]; then
-        OT_DIR=$PWD/ot-rfsim
+    if [[ ! -f ./ot-rfsim/script/build ]]; then
         git submodule update --init --recursive --depth 1
     fi
 }
 
 get_openthread_versions()
 {
-    if [[ -z $OT_DIR ]]; then
-        OT_DIR=$PWD/ot-rfsim
+    if [[ ! -f ./ot-rfsim/script/build ]]; then
         git submodule update --init --recursive
     fi
 }
 
-build_openthread()
+rebuild_openthread()
 {
     get_openthread
     install_openthread_buildtools
 
     (
-        # Note that OT_DIR points to the ot-rfsim submodule.
-        cd "$OT_DIR"
+        cd ot-rfsim
+        rm -rf ./build
 
         # TODO: MacOS CI build fails for empty options. So we give one option here that is anyway set.
         local options=("-DOT_OTNS=ON")
@@ -106,8 +104,8 @@ build_openthread_versions()
     install_openthread_buildtools
 
     (
-        # Note that OT_DIR points to the ot-rfsim submodule.
-        cd "$OT_DIR"
+        cd ot-rfsim
+
         ./script/build_all
     )
 }
