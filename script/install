@@ -47,6 +47,8 @@ install_pyotns()
 install_node_versions()
 {
     cd ot-rfsim
+    pwd
+    ls -al
     ./script/build_all
     cd -
 }
