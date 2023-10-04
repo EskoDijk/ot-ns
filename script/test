@@ -131,19 +131,7 @@ build_openthread_versions()
     (
         # Note that OT_DIR points to the ot-rfsim submodule.
         cd "$OT_DIR"
-
-        if [[ ! -f ./ot-versions/ot-cli-ftd_v11 ]]; then
-            ./script/build_v11
-        fi
-        if [[ ! -f ./ot-versions/ot-cli-ftd_v12 ]]; then
-            ./script/build_v12
-        fi
-        if [[ ! -f ./ot-versions/ot-cli-ftd_v13 ]]; then
-            ./script/build_v13
-        fi
-        if [[ ! -f ./ot-versions/ot-cli-ftd ]]; then
-            ./script/build_latest
-        fi
+        ./script/build_all
     )
 }
 
@@ -192,6 +180,7 @@ py_examples()
     check_py_example "$OTNSDIR"/pylibs/examples/srp.py
     check_py_example "$OTNSDIR"/pylibs/examples/multiple_channels.py
     check_py_example "$OTNSDIR"/pylibs/examples/rekey.py
+    check_py_example "$OTNSDIR"/pylibs/examples/diagnostics.py
 }
 
 stress_tests()

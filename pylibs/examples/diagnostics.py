@@ -50,7 +50,7 @@ def main():
 
     nid_cl=ns.add("router", x=600, y=300) #Leader
     ns.go(10)
-    nid_srv=ns.add("router", x=600, y=500) # Router
+    nid_srv=ns.add("router", x=600, y=500, version="v131") # Router DUT
     ns.go(10)
     # Add Children to the Router
     ns.add("med")
@@ -68,9 +68,9 @@ def main():
     display(ns.node_cmd(nid_cl,f'networkdiagnostic get {a_rloc} 19 23 24 25 26 27 28'))
     display(ns.go(60)) # command runs in the background - this collects the output
 
-    # send DIAG_GET.qry requesting Child TLV to RLOC
-    display(["","Send DIAG_GET.req to RLOC"])
-    display(ns.node_cmd(nid_cl,f'networkdiagnostic get {a_rloc} 19 23 24 25 26 27 28'))
+    display(["","Send DIAG_GET.req to ML-EID (from Node 8)"])
+    a_mleid = ns.get_ipaddrs(nid_srv,'mleid')[0]
+    display(ns.node_cmd(8,f'networkdiagnostic get {a_mleid} 5 19 23 24 25 26 27 28 34'))
     display(ns.go(60))
 
     # allow some time for graphics to be displayed in web GUI.
