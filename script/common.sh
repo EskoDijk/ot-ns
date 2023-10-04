@@ -59,3 +59,55 @@ go_install()
     local pkg=$1
     go install "${pkg}" || go get "${pkg}"
 }
+
+get_openthread()
+{
+    if [[ -z $OT_DIR ]]; then
+        OT_DIR=$PWD/ot-rfsim
+        git submodule update --init --recursive --depth 1
+    fi
+}
+
+get_openthread_versions()
+{
+    if [[ -z $OT_DIR ]]; then
+        OT_DIR=$PWD/ot-rfsim
+        git submodule update --init --recursive
+    fi
+}
+
+build_openthread()
+{
+    get_openthread
+    install_openthread_buildtools
+
+    (
+        # Note that OT_DIR points to the ot-rfsim submodule.
+        cd "$OT_DIR"
+
+        # TODO: MacOS CI build fails for empty options. So we give one option here that is anyway set.
+        local options=("-DOT_OTNS=ON")
+
+        local COVERAGE=${COVERAGE:-0}
+        if [[ $COVERAGE == 1 ]]; then
+            options+=(
+                "-DOT_COVERAGE=ON"
+            )
+        fi
+
+        ./script/build "${options[@]}"
+        cp ./build/bin/ot-cli-ftd ./ot-versions
+    )
+}
+
+build_openthread_versions()
+{
+    get_openthread_versions
+    install_openthread_buildtools
+
+    (
+        # Note that OT_DIR points to the ot-rfsim submodule.
+        cd "$OT_DIR"
+        ./script/build_all
+    )
+}
