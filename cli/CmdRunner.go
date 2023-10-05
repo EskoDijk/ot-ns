@@ -197,7 +197,9 @@ func (rt *CmdRunner) execute(cmd *Command, output io.Writer) {
 	}
 
 	defer func() {
-		if cc.Err() != nil && rt.ctx.Err() == nil { // don't display cc error if we're exiting
+		if rt.ctx.Err() != nil {
+			cc.outputErr(simulation.CommandInterruptedError)
+		} else if cc.Err() != nil {
 			cc.outputErr(cc.Err())
 		} else if !cc.isBackgroundCmd {
 			cc.outputf("Done\n")
