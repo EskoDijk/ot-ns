@@ -346,7 +346,6 @@ func (rt *CmdRunner) executeAutoGo(cc *CommandContext, cmd *AutoGoCmd) {
 		} else {
 			sim.SetAutoGo(cmd.Val.Yes != nil)
 		}
-
 	})
 }
 

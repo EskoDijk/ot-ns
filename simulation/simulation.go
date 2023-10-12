@@ -240,7 +240,6 @@ func (s *Simulation) AutoGoRoutine(ctx *progctx.ProgCtx, sim *Simulation) {
 	defer ctx.WaitDone("autogo")
 
 	for {
-
 	loop2:
 		// First for waits until autogo is enabled.
 		for {
@@ -268,7 +267,6 @@ func (s *Simulation) AutoGoRoutine(ctx *progctx.ProgCtx, sim *Simulation) {
 				<-sim.Go(time.Second)
 			}
 		}
-
 	}
 }
 
