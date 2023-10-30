@@ -31,6 +31,7 @@ import (
 	"time"
 
 	"fmt"
+
 	"github.com/openthread/ot-ns/energy"
 	"github.com/openthread/ot-ns/logger"
 	. "github.com/openthread/ot-ns/types"
@@ -208,7 +209,7 @@ func (sv *statslogVisualizer) createLogFile() {
 
 func (sv *statslogVisualizer) writeLogFileHeader() {
 	// RFC 4180 CSV file: no leading or trailing spaces in header field names
-	header := fmt.Sprintf("timeSec,nNodes,nPartitions,nLeaders,nRouters,nChildren,nDetached,nDisabled,nSleepy,nFailed")
+	header := "timeSec,nNodes,nPartitions,nLeaders,nRouters,nChildren,nDetached,nDisabled,nSleepy,nFailed"
 	_ = sv.writeToLogFile(header)
 }
 
@@ -229,10 +230,7 @@ func (sv *statslogVisualizer) calcStats() nodeStats {
 
 func (sv *statslogVisualizer) checkLogEntryChange() bool {
 	sv.stats = sv.calcStats()
-	if sv.stats != sv.oldStats {
-		return true
-	}
-	return false
+	return sv.stats != sv.oldStats
 }
 
 func (sv *statslogVisualizer) writeLogEntry(ts uint64, stats nodeStats) {
