@@ -202,7 +202,7 @@ func Main(ctx *progctx.ProgCtx, visualizerCreator func(ctx *progctx.ProgCtx, arg
 	web.ConfigWeb(args.DispatcherHost, args.DispatcherPort-2, args.DispatcherPort-1, args.DispatcherPort-3)
 	logger.Debugf("open web: %v", args.OpenWeb)
 	if args.OpenWeb {
-		_ = web.OpenWeb(ctx)
+		_ = web.OpenWeb(ctx, web.MainTab)
 	}
 
 	ctx.WaitAdd("autogo", 1)

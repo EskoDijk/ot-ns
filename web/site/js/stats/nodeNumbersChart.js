@@ -51,7 +51,7 @@ export default class NodeNumbersChart {
                 plugins: {
                     title: {
                         display: true,
-                        text: 'Node status'
+                        text: 'Node statistics viewer - click legend to toggle graphs; hover data points for details.'
                     },
                 },
                 responsive: true,
