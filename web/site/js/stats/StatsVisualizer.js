@@ -31,7 +31,7 @@ const {
 } = require('../proto/visualize_grpc_pb.js');
 import * as fmt from "../vis/format_text"
 
-class NodeStats {
+export class NodeStats {
 
     constructor() {
         this.numNodes      =0;
@@ -45,40 +45,46 @@ class NodeStats {
         this.numFailed     =0;
     }
 
+    static getFields() {
+        return ['numNodes', 'numLeaders', 'numPartitions', 'numRouters', 'numEndDevices', 'numDetached', 'numDisabled', 'numSleepy', 'numFailed'];
+    }
+
     equals(other) {
-        return this.numNodes == other.numNodes && this.numLeaders == other.numLeaders && this.numPartitions == other.numPartitions &&
-            this.numRouters == other.numRouters && this.numEndDevices == other.numEndDevices && this.numDetached == other.numDetached &&
-            this.numDisabled == other.numDisabled && this.numSleepy == other.numSleepy && this.numFailed == other.numFailed
+        return this.numNodes === other.numNodes && this.numLeaders === other.numLeaders && this.numPartitions === other.numPartitions &&
+            this.numRouters === other.numRouters && this.numEndDevices === other.numEndDevices && this.numDetached === other.numDetached &&
+            this.numDisabled === other.numDisabled && this.numSleepy === other.numSleepy && this.numFailed === other.numFailed
     }
 
     printStats() {
-        return `${this.numNodes} ${this.numLeaders} ${this.numPartitions} ${this.numRouters} ${this.numEndDevices} ${this.numDetached} ${this.numDisabled} ${this.numSleepy} ${this.numFailed}`
+        return `${this.numNodes}\t${this.numLeaders}\t${this.numPartitions}\t${this.numRouters}\t${this.numEndDevices}\t${this.numDetached}\t${this.numDisabled}\t${this.numSleepy}\t${this.numFailed}`
     }
 }
 
-export default class StatsVisualizer {
-    constructor(grpcServiceClient) {
-        this.grpcServiceClient = grpcServiceClient;
-        this.curTime = 0;
-        this.logTimestampUs = 0;
+export class StatsVisualizer {
+    constructor() {
         this.nodeRoles = {};
         this.nodeModes = {};
         this.nodePartitions = {};
         this.nodesFailed = {};
         this.stats = new NodeStats();
         this.oldStats = new NodeStats();
+        this.lastPlotTimestampUs = 0;
+        this.arrayTimestamps = [];
+        this.arrayStats = [];
     }
 
-    visAdvanceTime(ts, speed) {
-        if (this.checkLogEntryChange()) {
-            if (ts >= this.logTimestampUs+1000e3) {
-                this.writeLogEntry(ts-100e3, this.oldStats) // extra entry to aid good graph plotting from csv data
+    visAdvanceTime(tsUs, speed) {
+        this.arrayStats = [];
+        this.arrayTimestamps = [];
+        if (this.checkDataPointsChange()) {
+            if (tsUs > this.lastPlotTimestampUs+1e3) {
+                this.addDataPoint(tsUs-1e3, this.oldStats); // extra data point to plot staircase type graphs
             }
-            this.writeLogEntry(ts, this.stats)
-            this.logTimestampUs = ts
-            this.oldStats = this.stats
+            this.addDataPoint(tsUs, this.stats);
+            this.writeLogEntry(tsUs, this.stats);
+            this.lastPlotTimestampUs = tsUs;
+            this.oldStats = this.stats;
         }
-        this.curTime = ts;
     }
 
     visHeartbeat() {
@@ -87,7 +93,6 @@ export default class StatsVisualizer {
     visAddNode(nodeId, x, y, radioRange) {
         this.nodeRoles[nodeId] = OtDeviceRole.OT_DEVICE_ROLE_DISABLED;
         this.nodeModes[nodeId] = new NodeMode([true, true, true, true]);
-        this.nodePartitions[nodeId] = 0;
         let msg = `Added at (${x},${y})`;
         this.logNode(nodeId, msg);
     }
@@ -95,7 +100,7 @@ export default class StatsVisualizer {
     visSetNodeRole(nodeId, role) {
         let oldRole = this.nodeRoles[nodeId];
         this.nodeRoles[nodeId] = role;
-        if (oldRole != role) {
+        if (oldRole !== role) {
             this.logNode(nodeId, `Role changed from ${fmt.roleToString(oldRole)} to ${fmt.roleToString(role)}`)
         }
     }
@@ -105,15 +110,18 @@ export default class StatsVisualizer {
         this.nodeModes[nodeId] = mode;
         let oldModeStr = fmt.modeToString(oldMode);
         let modeStr = fmt.modeToString(mode);
-        if (oldModeStr != modeStr) {
+        if (oldModeStr !== modeStr) {
             this.logNode(nodeId, `Mode changed from ${oldModeStr} to ${modeStr}`);
         }
     }
 
     visSetNodePartitionId(nodeId, partitionId) {
-        let oldPartitionId = this.nodePartitions[nodeId];
+        let oldPartitionId = 0;
+        if (nodeId in this.nodePartitions) {
+            oldPartitionId = this.nodePartitions[nodeId];
+        }
         this.nodePartitions[nodeId] = partitionId;
-        if (oldPartitionId != partitionId) {
+        if (oldPartitionId !== partitionId) {
             this.logNode(nodeId, `Partition changed from ${fmt.formatPartitionId(oldPartitionId)} to ${fmt.formatPartitionId(partitionId)}`)
         }
     }
@@ -146,37 +154,58 @@ export default class StatsVisualizer {
         return count
     }
 
+    getPartitionCount() {
+        let aPts = {};
+        for (let nodeid in this.nodePartitions) {
+            let pts = this.nodePartitions[nodeid];
+            aPts[pts] = 1;
+        }
+        return Object.keys(aPts).length;
+    }
+
+    getSleepyCount() {
+        let cnt = 0;
+        for (let nodeid in this.nodeModes){
+            if (!this.nodeModes[nodeid].rxOnWhenIdle){
+                cnt++;
+            }
+        }
+        return cnt;
+    }
+
     calcStats() {
         let s = new NodeStats();
-        s.numNodes = this.nodeRoles.length;
+        s.numNodes = Object.keys(this.nodeRoles).length;
         s.numLeaders = this.getNodeCountByRole(OtDeviceRole.OT_DEVICE_ROLE_LEADER);
+        s.numPartitions = this.getPartitionCount();
         s.numRouters = this.getNodeCountByRole(OtDeviceRole.OT_DEVICE_ROLE_ROUTER);
         s.numEndDevices = this.getNodeCountByRole(OtDeviceRole.OT_DEVICE_ROLE_CHILD);
-
-        /*
-            numNodes:      len(sv.nodeRoles),
-                numLeaders:    countRole(&sv.nodeRoles, OtDeviceRoleLeader),
-            numPartitions: countUniquePts(&sv.nodePartitions),
-            numRouters:    countRole(&sv.nodeRoles, OtDeviceRoleRouter),
-            numEndDevices: countRole(&sv.nodeRoles, OtDeviceRoleChild),
-            numDetached:   countRole(&sv.nodeRoles, OtDeviceRoleDetached),
-            numDisabled:   countRole(&sv.nodeRoles, OtDeviceRoleDisabled),
-            numSleepy:     countSleepy(&sv.nodeModes),
-            numFailed:     len(sv.nodesFailed),
-
-         */
+        s.numDetached = this.getNodeCountByRole(OtDeviceRole.OT_DEVICE_ROLE_DETACHED);
+        s.numDisabled = this.getNodeCountByRole(OtDeviceRole.OT_DEVICE_ROLE_DISABLED);
+        s.numSleepy = this.getSleepyCount();
+        s.numFailed = Object.keys(this.nodesFailed).length;
 
         return s;
     }
 
-    checkLogEntryChange() {
+    checkDataPointsChange() {
         this.stats = this.calcStats();
         return !this.stats.equals(this.oldStats);
     }
 
+    addDataPoint(tsUs, stats) {
+        this.arrayTimestamps.push(tsUs); // timestamp in us
+        this.arrayStats.push(stats);
+    }
+
+    getNewDataPoints() {
+        // these arrays get cleared upon next call to visAdvanceTime()
+        return [this.arrayTimestamps, this.arrayStats]
+    }
+
     writeLogEntry(ts, stats) {
         let entry = stats.printStats();
-        console.log(`${ts} ${entry}`);
+        console.log(`${ts}: ${entry}`);
     }
 
     onResize(width, height) {

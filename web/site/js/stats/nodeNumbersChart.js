@@ -25,101 +25,114 @@
 // POSSIBILITY OF SUCH DAMAGE.
 
 import Chart from 'chart.js/auto';
-
+import {NodeStats} from "./StatsVisualizer";
 
 export default class NodeNumbersChart {
-    constructor(ctx, deciConfig) {
+    constructor(ctx) {
+        this.fields = NodeStats.getFields();
+        this.lastStats = new NodeStats();
+        this.lastTimestampUs = 0;
+
         this.chart = new Chart(ctx, {
             type: 'line',
             data: {
                 labels: [],
-                datasets: [{
-                    label: 'Value',
-                    data: [],
-                    backgroundColor: [
-                        'rgba(255, 99, 132, 0.2)',
-                    ],
-                    borderColor: [
-                        'rgba(255, 99, 132, 1)',
-                    ],
-                    borderWidth: 1,
-                    tension: 0.3
-                }]
+                datasets: this.createDataSetsConfig(),
             },
             options: {
-                // animation: false,
+                animation: false,
+                elements: {
+                    point: {
+                        radius: 1,
+                        hoverRadius: 2,
+                    },
+                },
                 parsing: false,
                 plugins: {
-                    decimation: deciConfig,
                     title: {
                         display: true,
-                        text: 'Network average energy consumption'
+                        text: 'Node status'
                     },
                 },
                 responsive: true,
+                maintainAspectRatio: false,
                 scales: {
                     x: {
                         type: 'linear',
                         title: {
                             display: true,
                             text: 'Time (seconds)'
-                        }
+                        },
+                        beginAtZero: true
                     },
                     y: {
                         title: {
                           display: true,
-                          text: 'Energy (mJ)',
+                          text: 'Number of nodes',
+                        },
+                        ticks: {
+                            stepSize: 1,
                         },
                         beginAtZero: true
                     }
-                }
+                },
             }
         });
     }
 
-    update() {
-        if (document.getElementById('nodesForEnergy').value === 'all') {
-            this.chart.options.plugins.title.text = "Network average energy consumption";
-        } else {
-            this.chart.options.plugins.title.text = "Node "+ document.getElementById('nodesForEnergy').value +" energy consumption";
+    createDataSetsConfig() {
+        let aCfg = [];
+        let aColors = [ "#0bb4ff", "#e60049", "#e6d800",
+                                "#9b19f5", "#50e991", "#b3d4ff",
+                                "#dc0ab4", "#00bfa0", "#ffa300"];
+        for (let n in this.fields) {
+            let colDark = aColors[n];
+            let colLight = colDark + '99'; // add alpha channel to make it look lighter.
+            let cfgItem = {
+                label: this.fields[n],
+                data: [],
+                backgroundColor: [colLight],
+                borderColor: [colDark],
+                borderWidth: 1,
+                tension: 0.0,
+            };
+            aCfg.push(cfgItem);
         }
-        this.chart.update();
+        return aCfg;
     }
 
-    reset() {
-        this.chart.data.labels = [];
-        this.chart.data.datasets[0].data = [];
-        this.chart.update();
+    update(timestampUs) {
+        if (timestampUs > this.lastTimestampUs) {
+            // move 'final graph point' to current timestamp.
+            this._datasetsPop(this.chart.data);
+            this._datasetsPush(timestampUs, this.lastStats, this.chart.data);
+            this.chart.update();
+        }
+        this.lastTimestampUs = timestampUs;
     }
 
-    addNodesPoint(nodes, timestamp) {
-        let total = 0;
-        if (document.getElementById('nodesForEnergy').value === 'all') {
-            for (const node of nodes.values()) {
-                total += node.getTotal();
-            }
-            total = total/nodes.size;
-        } else {
-            if (nodes.has(parseInt(document.getElementById('nodesForEnergy').value))) {
-                total = nodes.get(parseInt(document.getElementById('nodesForEnergy').value)).getTotal();
-            } else {
-                //This node did not exist in this time interval
-                return this;
-            }
+    addData(timestampUs, stats) {
+        this.lastStats = stats;
+        this._datasetsPop(this.chart.data); // remove 'final point'
+        this._datasetsPush(timestampUs, stats, this.chart.data);
+        this._datasetsPush(timestampUs + 0.1, stats, this.chart.data); // restore 'final point'
+        //this.chart.data.labels.push(timestamp);
+        if (timestampUs > this.lastTimestampUs) {
+            this.lastTimestampUs = timestampUs;
         }
-        this.chart.data.datasets[0].data.push({
-            x: timestamp,
-            y: total
-        });
-        this.chart.data.labels.push(timestamp);
-        return this;
     }
 
-    setData(nodesOverTime, timestamps) {
-        let idx = 0;
-        for (let nodes of nodesOverTime) {
-            this.addNodesPoint(nodes, timestamps[idx++]);
+    _datasetsPush(ts, stats, data) {
+        for (let i in this.fields) {
+            let field = this.fields[i];
+            let y = stats[field];
+            data.datasets[i].data.push({x: ts/1e6, y: y}); // convert x: us to sec
         }
-        return this;
+    }
+
+    _datasetsPop(data) {
+        for (let i in this.fields) {
+            data.datasets[i].data.pop();
+        }
     }
 }

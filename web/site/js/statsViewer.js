@@ -24,7 +24,8 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-import StatsVisualizer from "./stats/StatsVisualizer";
+import {StatsVisualizer} from "./stats/StatsVisualizer";
+import NodeNumbersChart from "./stats/nodeNumbersChart";
 
 const {
     VisualizeRequest, VisualizeEvent
@@ -33,12 +34,17 @@ const {VisualizeGrpcServiceClient} = require('./proto/visualize_grpc_grpc_web_pb
 
 let vis = null;
 let grpcServiceClient = null;
+let lastTimestampUs = 0;
+
+const nodeNumbersChart = new NodeNumbersChart(
+    document.getElementById('statsViewer').getContext('2d'),
+);
 
 function loadOk() {
     console.log('connecting to server ' + server);
     grpcServiceClient = new VisualizeGrpcServiceClient(server);
 
-    vis = new StatsVisualizer(grpcServiceClient);
+    vis = new StatsVisualizer();
     
     let visualizeRequest = new VisualizeRequest();
     let metadata = {'custom-header-1': 'value1'};
@@ -69,11 +75,20 @@ function loadOk() {
                 break;
             case VisualizeEvent.TypeCase.ADVANCE_TIME:
                 e = resp.getAdvanceTime();
-                vis.visAdvanceTime(e.getTs(), e.getSpeed());
+                lastTimestampUs = e.getTs();
+                vis.visAdvanceTime(lastTimestampUs, e.getSpeed());
+                const [aTs,aStat] = vis.getNewDataPoints();
+                for( let i in aTs) {
+                    nodeNumbersChart.addData(aTs[i], aStat[i]);
+                }
+                if (aTs.length > 0) {
+                    nodeNumbersChart.update(lastTimestampUs);
+                }
                 break;
             case VisualizeEvent.TypeCase.HEARTBEAT:
                 e = resp.getHeartbeat();
                 vis.visHeartbeat();
+                nodeNumbersChart.update(lastTimestampUs);
                 break;
             case VisualizeEvent.TypeCase.SET_NODE_ROLE:
                 e = resp.getSetNodeRole();

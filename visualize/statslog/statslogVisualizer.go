@@ -138,7 +138,6 @@ func (sv *statslogVisualizer) Stop() {
 func (sv *statslogVisualizer) AddNode(nodeid NodeId, x int, y int, radioRange int) {
 	sv.nodeRoles[nodeid] = OtDeviceRoleDisabled
 	sv.nodeModes[nodeid] = NodeMode{}
-	sv.nodePartitions[nodeid] = 0
 }
 
 func (sv *statslogVisualizer) Send(srcid NodeId, dstid NodeId, mvinfo *MsgVisualizeInfo) {
@@ -156,6 +155,7 @@ func (sv *statslogVisualizer) SetNodeMode(nodeid NodeId, mode NodeMode) {
 }
 
 func (sv *statslogVisualizer) SetNodePartitionId(nodeid NodeId, parid uint32) {
+	logger.AssertTrue(parid > 0, "Partition ID cannot be 0")
 	sv.nodePartitions[nodeid] = parid
 }
 
