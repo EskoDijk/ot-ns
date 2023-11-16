@@ -745,7 +745,7 @@ func (rt *CmdRunner) executeCounters(cc *CommandContext, counters *CountersCmd) 
 
 func (rt *CmdRunner) executeWeb(cc *CommandContext, webcmd *WebCmd) {
 	tabResource := ""
-	if webcmd.TabName == nil {
+	if *webcmd.TabName == "" {
 		tabResource = web.MainTab
 	} else {
 		switch *webcmd.TabName {
