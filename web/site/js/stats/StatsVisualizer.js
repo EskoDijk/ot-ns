@@ -92,7 +92,6 @@ export class StatsVisualizer {
 
     visAddNode(nodeId, x, y, radioRange) {
         this.nodeRoles[nodeId] = OtDeviceRole.OT_DEVICE_ROLE_DISABLED;
-        this.nodeModes[nodeId] = new NodeMode([true, true, true, true]);
         let msg = `Added at (${x},${y})`;
         this.logNode(nodeId, msg);
     }
@@ -111,7 +110,7 @@ export class StatsVisualizer {
         let oldModeStr = fmt.modeToString(oldMode);
         let modeStr = fmt.modeToString(mode);
         if (oldModeStr !== modeStr) {
-            this.logNode(nodeId, `Mode changed from ${oldModeStr} to ${modeStr}`);
+            this.logNode(nodeId, `Mode changed from "${oldModeStr}" to "${modeStr}"`);
         }
     }
 
@@ -163,10 +162,12 @@ export class StatsVisualizer {
         return Object.keys(aPts).length;
     }
 
+    // counts the number of MTD SEDs in the network
     getSleepyCount() {
         let cnt = 0;
         for (let nodeid in this.nodeModes){
-            if (!this.nodeModes[nodeid].rxOnWhenIdle){
+            let mode = this.nodeModes[nodeid];
+            if (!mode.getRxOnWhenIdle() && !mode.getFullThreadDevice()){
                 cnt++;
             }
         }
