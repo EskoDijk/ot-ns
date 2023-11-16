@@ -114,9 +114,9 @@ export default class NodeNumbersChart {
     addData(timestampUs, stats) {
         this.lastStats = stats;
         this._datasetsPop(this.chart.data); // remove 'final point'
-        this._datasetsPush(timestampUs, stats, this.chart.data);
+        this._datasetsPushAndAdjust(timestampUs, stats, this.chart.data);
         this._datasetsPush(timestampUs + 0.1, stats, this.chart.data); // restore 'final point'
-        //this.chart.data.labels.push(timestamp);
+        //this.chart.data.labels.push(timestamp); // to check what effect this has. Currently, not missed.
         if (timestampUs > this.lastTimestampUs) {
             this.lastTimestampUs = timestampUs;
         }
@@ -127,6 +127,22 @@ export default class NodeNumbersChart {
             let field = this.fields[i];
             let y = stats[field];
             data.datasets[i].data.push({x: ts/1e6, y: y}); // convert x: us to sec
+        }
+    }
+
+    _datasetsPushAndAdjust(ts, stats, data) {
+        for (let i in this.fields) {
+            let dlen = data.datasets[i].data.length;
+            let fieldName = this.fields[i];
+            let y = stats[fieldName];
+            if (dlen >= 2) {
+                let y_old = data.datasets[i].data[dlen-1].y; // get last element
+                let y_old2 = data.datasets[i].data[dlen-2].y; // get 2nd last element
+                if (y == y_old && y == y_old2) { // to avoid too many points at same y value, remove superfluous y points
+                    data.datasets[i].data.pop();
+                }
+            }
+            data.datasets[i].data.push({x: ts / 1e6, y: y}); // convert x: us to sec
         }
     }
 
