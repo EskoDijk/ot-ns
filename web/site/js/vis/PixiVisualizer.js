@@ -107,6 +107,7 @@ export default class PixiVisualizer extends VObject {
 
         this.nodeWindow = new NodeWindow();
         this.addChild(this.nodeWindow);
+        this._selectedNodeId = 0;
 
         this.otVersion = "";
         this.otCommit = "";
@@ -522,7 +523,7 @@ export default class PixiVisualizer extends VObject {
         if (old_sel) {
             old_sel.onUnselected();
         }
-        delete this._selectedNodeId;
+        this._selectedNodeId = 0; // unselect
 
         let new_sel = this.nodes[id];
         if (new_sel) {
@@ -531,7 +532,6 @@ export default class PixiVisualizer extends VObject {
         }
 
         this.nodeWindow.showNode(new_sel);
-
         this.actionBar.setContext(new_sel || "any");
     }
 
