@@ -48,7 +48,7 @@ type Help struct {
 
 var (
 	cmdHeaderPattern  = regexp.MustCompile("^### .+")
-	linkTargetPattern = regexp.MustCompile("\\(#[a-z]+\\)")
+	linkTargetPattern = regexp.MustCompile(`\(#[a-z]+\)`)
 )
 
 // Embed the CLI help file as a static resource.
