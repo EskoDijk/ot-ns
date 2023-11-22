@@ -52,6 +52,7 @@ def main():
     # here we call the CLI for the user to type commands. Now the simulation can be manipulated as wanted,
     # using the CLI or GUI commands. Typing 'exit' will exit this call.
     ns.speed = 0.008
+    ns.autogo = True
     ns.interactive_cli()
 
     # after the user exits, more scripted things could be done. But usually the script would also exit.

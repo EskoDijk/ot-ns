@@ -27,6 +27,7 @@
 
 import ipaddress
 import logging
+from nonblock import nonblock_read
 import os
 import readline
 import shutil
@@ -280,7 +281,9 @@ class OTNS(object):
 
         return which_otns
 
-    def _do_command(self, cmd: str, do_logging: bool = True, raise_cli_err: bool = True) -> List[str]:
+    def _do_command(self, cmd: str, do_logging: bool = True,
+                          raise_cli_err: bool = True,
+                          output_donestrings: bool = False) -> List[str]:
         with self._lock_otns_do_command:
             if do_logging:
                 logging.info("OTNS <<< %s", cmd)
@@ -291,23 +294,28 @@ class OTNS(object):
                 self._on_otns_eof()
 
             output = []
+            if cmd == '':
+                return output
+
             while True:
                 try:
                     line = self._otns.stdout.readline()
                 except (IOError, BrokenPipeError):
                     self._on_otns_eof()
-
                 if line == b'':
                     self._on_otns_eof()
 
                 line = line.rstrip(b'\r\n').decode('utf-8')
                 if do_logging:
                     logging.info(f"OTNS >>> {line}")
-                if line == 'Done':
+                if line == 'Done' or line == 'Started':
+                    if output_donestrings:
+                        output.append(line)
                     return output
-                elif (line.startswith('Error: ') or line.startswith('Error ')) and raise_cli_err:
-                    raise create_otns_cli_error(line)
-                elif line == 'Started':
+                elif line.startswith('Error: ') or line.startswith('Error '):
+                    if raise_cli_err:
+                        raise create_otns_cli_error(line)
+                    output.append(line)
                     return output
 
                 output.append(line)
@@ -324,10 +332,23 @@ class OTNS(object):
         """
         return self._do_command(cmd)
 
+    def _interactive_cli_thread(self, prompt: str, close_otns_on_exit: bool) -> None:
+        while True:
+            cmd = input(prompt)
+            if len(cmd.strip()) == 0:
+                cmd = ''
+            if cmd == 'exit':
+                break
+            output_lines = self._do_command(cmd, raise_cli_err=False, do_logging=False, output_donestrings=True)
+            for line in output_lines:
+                print(line)
+        if close_otns_on_exit:
+            self.close()
+        self._cli_thread = None
+
     def interactive_cli(self, prompt: Optional[str] = CLI_PROMPT,
                         user_hint: Optional[str] = CLI_USER_HINT,
-                        close_otns_on_exit: Optional[bool] = False,
-                        is_autogo: Optional[bool] = True) -> None:
+                        close_otns_on_exit: Optional[bool] = False) -> None:
         """
         Start an interactive CLI and GUI session, where the user can control the simulation until the
         exit command is typed.
@@ -335,32 +356,37 @@ class OTNS(object):
         :param prompt: (optional) custom prompt string
         :param user_hint: (optional) user hint about being in CLI mode
         :param close_otns_on_exit: (optional) behavior to close OTNS when user exits the CLI.
-        :param is_autogo: (optional) if True, simulation time will automatically advance at given speed.
+
+        :return: True if interactive CLI was started and concluded, False if it could not be
+                 started (e.g. already running via a thread).
         """
         with self._lock_interactive_cli:
-            old_autogo = self.autogo
-            self.autogo = is_autogo
+            if self._cli_thread is not None:
+                return False
             readline.set_auto_history(True)  # using Python readline library for CLI history on input().
+            self._cli_thread = threading.Thread(target=self._interactive_cli_thread, args=(prompt, close_otns_on_exit))
             print(user_hint)
-            while True:
-                cmd = input(prompt)
-                if len(cmd.strip()) == 0:
-                    continue
-                if cmd == 'exit':
-                    break
+            self._cli_thread.start()
 
-                output_lines = self._do_command(cmd)
-                for line in output_lines:
-                    print(line)
+            # loop to print any remaining OTNS output (not directly caused by CLI commands in CLI thread)
+            while self._cli_thread:
+                time.sleep(0.2)
+                with self._lock_otns_do_command:
+                    try:
+                        line = nonblock_read(self._otns.stdout)
+                    except (IOError, BrokenPipeError):
+                        continue
+                    if line is None or line == b'':
+                        continue
 
-            self.autogo = old_autogo
-            if close_otns_on_exit:
-                self.close()
+                    line = line.decode('utf-8')
+                    print(line, end='')
+
+        return True
 
     def interactive_cli_threaded(self, prompt: Optional[str] = CLI_PROMPT,
                                  user_hint: Optional[str] = CLI_USER_HINT,
-                                 close_otns_on_exit: Optional[bool] = True,
-                                 is_autogo: Optional[bool] = True) -> bool:
+                                 close_otns_on_exit: Optional[bool] = True) -> bool:
         """
         Start an interactive CLI and GUI session in a new thread. The user can now control the simulation
         using CLI and GUI, while the Python script also operates on the simulation in parallel. If the
@@ -369,15 +395,19 @@ class OTNS(object):
         :param prompt: (optional) custom prompt string
         :param user_hint: (optional) user hint about being in CLI mode
         :param close_otns_on_exit: (optional) behavior to close OTNS when user exits the CLI.
-        :param is_autogo: (optional) if True, simulation time will automatically advance at given speed.
 
         :return: True if thread could be started, False if not (e.g. already running).
         """
-        if self._cli_thread is not None:
-            return False
-        self._cli_thread = threading.Thread(target=self.interactive_cli, args=(prompt, user_hint, close_otns_on_exit, is_autogo))
-        self._cli_thread.start()
-        return True
+        with self._lock_interactive_cli:
+            if self._cli_thread is not None:
+                return False
+            readline.set_auto_history(True)  # using Python readline library for CLI history on input().
+
+            self._cli_thread = threading.Thread(target=self._interactive_cli_thread, args=(prompt, close_otns_on_exit))
+            print(user_hint)
+            self._cli_thread.start()
+
+            return True
 
     def add(self, type: str, x: float = None, y: float = None, id=None, radio_range=None, executable=None,
             restore=False, txpower: int=None, version: str = None) -> int:

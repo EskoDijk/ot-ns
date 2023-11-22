@@ -202,6 +202,8 @@ func (cli *CliInstance) Run(handler CliHandler, options *CliOptions) error {
 
 		cmd := strings.TrimSpace(line)
 		if len(cmd) == 0 {
+			stdout.WriteString("")
+			_ = stdout.Sync()
 			continue
 		}
 
