@@ -27,7 +27,6 @@
 
 import ipaddress
 import logging
-from nonblock import nonblock_read
 import os
 import readline
 import shutil
@@ -54,17 +53,19 @@ class OTNS(object):
     CLI_USER_HINT = 'OTNS command CLI - type \'exit\' to exit, or \'help\' for command overview.'
 
     def __init__(self, otns_path: Optional[str] = None, otns_args: Optional[List[str]] = None):
+        self._closed = False
+        self._cli_thread = None
+        self._lock_interactive_cli = threading.Lock()
+        self._lock_otns_do_command = threading.Lock()
+        self.logconfig(logging.WARNING)
+
         self._otns_path = otns_path or self._detect_otns_path()
         default_args = ['-autogo=false', '-web=false', '-speed', str(OTNS.DEFAULT_SIMULATE_SPEED)]
         # Note: given otns_args may override i.e. revert the default_args
         self._otns_args = default_args + list(otns_args or [])
         logging.info("otns found: %s", self._otns_path)
 
-        self._lock_interactive_cli = threading.Lock()
-        self._lock_otns_do_command = threading.Lock()
-        self._cli_thread = None
         self._launch_otns()
-        self._closed = False
 
     def _launch_otns(self) -> None:
         logging.info("launching otns: %s %s", self._otns_path, ' '.join(self._otns_args))
@@ -82,8 +83,8 @@ class OTNS(object):
             return
 
         self._closed = True
-        if self._cli_thread is not None:
-            logging.info("OTNS simulation is to be closed - waiting for user CLI exit by the \'exit\' command.")
+        if self._cli_thread is not None and self._cli_thread is not threading.current_thread():
+            logging.warning("OTNS simulation is to be closed - waiting for user CLI exit by the \'exit\' command.")
             self._cli_thread.join()
         logging.info("waiting for OTNS to close ...")
         try:
@@ -240,6 +241,7 @@ class OTNS(object):
     def loglevel(self, level: str) -> None:
         """
         Set log-level for all OT-NS and Node log messages.
+        Note: this is set independent from OTNS.logconfig().
 
         :param level: new log-level name, debug | info | warn | error
         """
@@ -290,7 +292,7 @@ class OTNS(object):
             try:
                 self._otns.stdin.write(cmd.encode('ascii') + b'\n')
                 self._otns.stdin.flush()
-            except (IOError, BrokenPipeError):
+            except (IOError, BrokenPipeError, ValueError):
                 self._on_otns_eof()
 
             output = []
@@ -336,12 +338,13 @@ class OTNS(object):
         while True:
             cmd = input(prompt)
             if len(cmd.strip()) == 0:
-                cmd = ''
+                continue
             if cmd == 'exit':
                 break
-            output_lines = self._do_command(cmd, raise_cli_err=False, do_logging=False, output_donestrings=True)
+            output_lines = self._do_command(cmd, raise_cli_err=False, do_logging=True, output_donestrings=True)
             for line in output_lines:
                 print(line)
+
         if close_otns_on_exit:
             self.close()
         self._cli_thread = None
@@ -364,23 +367,8 @@ class OTNS(object):
             if self._cli_thread is not None:
                 return False
             readline.set_auto_history(True)  # using Python readline library for CLI history on input().
-            self._cli_thread = threading.Thread(target=self._interactive_cli_thread, args=(prompt, close_otns_on_exit))
             print(user_hint)
-            self._cli_thread.start()
-
-            # loop to print any remaining OTNS output (not directly caused by CLI commands in CLI thread)
-            while self._cli_thread:
-                time.sleep(0.2)
-                with self._lock_otns_do_command:
-                    try:
-                        line = nonblock_read(self._otns.stdout)
-                    except (IOError, BrokenPipeError):
-                        continue
-                    if line is None or line == b'':
-                        continue
-
-                    line = line.decode('utf-8')
-                    print(line, end='')
+            self._interactive_cli_thread(prompt, close_otns_on_exit)
 
         return True
 

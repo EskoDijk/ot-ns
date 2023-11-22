@@ -33,6 +33,7 @@ from otns.cli.errors import OTNSExitedError
 
 def main():
     ns = OTNS()
+    ns.web()
 
     ns.radiomodel = 'MIDisc'
     ns.speed = 10.0
@@ -57,8 +58,8 @@ def main():
     if ns.interactive_cli_threaded():
         # if returns True, the threaded CLI was started.
         # in parallel, this script can now act on the simulation.
-        for n in range(1, 10):
-            print('Sending scripted ping 1 -> 5')
+        for n in range(1, 20):
+            print('\nSending Python scripted ping 1 -> 5')
             ns.ping(1, 5)
             time.sleep(5)
 

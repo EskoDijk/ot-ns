@@ -196,6 +196,7 @@ func (cli *CliInstance) Run(handler CliHandler, options *CliOptions) error {
 
 		if options.EchoInput {
 			if _, err := stdout.WriteString(line + "\n"); err != nil {
+				_ = stdout.Sync()
 				return err
 			}
 		}
