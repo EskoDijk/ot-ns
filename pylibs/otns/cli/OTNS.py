@@ -250,11 +250,11 @@ class OTNS(object):
     def logconfig(self, level: int = logging.INFO) -> None:
         """
         Configure Python logging package to display the pyOTNS internal log messages.
-        This overrides any existing configuration of the 'logging' package.
+        This may override existing configuration of the 'logging' package.
 
         :param level: a log level value that defines what to log, e.g. logging.DEBUG.
         """
-        logging.basicConfig(force=True, level=level, format='%(asctime)s - %(levelname)s - %(message)s')
+        logging.basicConfig(level=level, format='%(asctime)s - %(levelname)s - %(message)s')
 
     @property
     def time(self) -> int:
