@@ -201,7 +201,7 @@ func (s *Simulation) updateNodeVersions() {
 	ver := "-"
 	com := ""
 	if len(s.nodeVersions) == 1 {
-		for v, _ := range s.nodeVersions {
+		for v := range s.nodeVersions {
 			ver = v
 			com = getCommitFromOtVersion(v)
 		}
