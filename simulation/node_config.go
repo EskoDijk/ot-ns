@@ -55,7 +55,7 @@ type NodeAutoPlacer struct {
 var DefaultExecutableConfig ExecutableConfig = ExecutableConfig{
 	Ftd:         "ot-cli-ftd",
 	Mtd:         "ot-cli-ftd",
-	Br:          "ot-br.sh",
+	Br:          "ot-cli-ftd",
 	SearchPaths: []string{".", "./ot-rfsim/ot-versions"},
 }
 

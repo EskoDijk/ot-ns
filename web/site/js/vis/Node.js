@@ -40,10 +40,11 @@ const HEXAGONAL_SHAPE_RADIUS = 22;
 let vis = Visualizer();
 
 export default class Node extends VObject {
-    constructor(nodeId, x, y, radioRange) {
+    constructor(nodeId, x, y, radioRange, nodeType) {
         super();
 
         this.id = nodeId;
+        this.type = nodeType;
         this.extAddr = EXT_ADDR_INVALID;
         this.radioRange = radioRange;
         this.nodeMode = new NodeMode([true, true, true, true]);

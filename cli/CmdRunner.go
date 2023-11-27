@@ -387,7 +387,8 @@ func (rt *CmdRunner) executeAddNode(cc *CommandContext, cmd *AddCmd) {
 		cfg.IsAutoPlaced = false
 	}
 
-	UpdateNodeConfig(&cfg, cmd.Type.Val)
+	cfg.Type = cmd.Type.Val
+	UpdateNodeConfig(&cfg)
 
 	if cmd.Id != nil {
 		cfg.ID = cmd.Id.Val

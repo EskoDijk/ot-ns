@@ -135,7 +135,7 @@ func (sv *statslogVisualizer) Stop() {
 	sv.close()
 }
 
-func (sv *statslogVisualizer) AddNode(nodeid NodeId, x int, y int, radioRange int) {
+func (sv *statslogVisualizer) AddNode(nodeid NodeId, cfg *NodeConfig) {
 	sv.nodeRoles[nodeid] = OtDeviceRoleDisabled
 	sv.nodeModes[nodeid] = NodeMode{}
 }
