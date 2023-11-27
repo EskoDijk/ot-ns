@@ -44,7 +44,7 @@ class BasicTests(OTNSTestCase):
         ns.speed = float('inf')
         self.assertEqual(ns.speed, OTNS.MAX_SIMULATE_SPEED)
 
-    def testGetSetMDR(self):
+    def testGetSetPlr(self):
         ns = self.ns
         assert ns.packet_loss_ratio == 0
         ns.packet_loss_ratio = 0.5
@@ -74,6 +74,7 @@ class BasicTests(OTNSTestCase):
         ns.add("fed")
         ns.add("med")
         ns.add("sed")
+
         self.go(33)
         self.assertFormPartitions(1)
 
@@ -192,7 +193,7 @@ class BasicTests(OTNSTestCase):
         self.go(10)
         self.assertTrue(len(ns.nodes()) == 1 and 1 not in ns.nodes())
 
-    def testMDREffective(self):
+    def testPlrEffective(self):
         ns = self.ns
         ns.packet_loss_ratio = 1
         self.assertTrue(ns.packet_loss_ratio, 1)
