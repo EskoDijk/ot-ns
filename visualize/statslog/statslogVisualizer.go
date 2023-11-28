@@ -192,16 +192,11 @@ func (sv *statslogVisualizer) createLogFile() {
 	logger.AssertNil(sv.logFile)
 
 	var err error
-	err = os.Remove(sv.logFileName)
-	if err != nil {
-		logger.Errorf("removing old stats log file %s failed: %+v", sv.logFileName, err)
-		sv.isFileEnabled = false
-		return
-	}
+	_ = os.Remove(sv.logFileName)
 
 	sv.logFile, err = os.OpenFile(sv.logFileName, os.O_CREATE|os.O_WRONLY, 0664)
 	if err != nil {
-		logger.Errorf("creating stats log file %s failed: %+v", sv.logFileName, err)
+		logger.Errorf("creating new stats log file %s failed: %+v", sv.logFileName, err)
 		sv.isFileEnabled = false
 		return
 	}
