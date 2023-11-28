@@ -218,6 +218,7 @@ app.loader
     .add('WhiteSolidCircle64', '/static/image/white-shapes/circle-64.png')
     .add('WhiteSolidTriangle64', '/static/image/white-shapes/triangle-64.png')
     .add('WhiteSolidHexagon64', '/static/image/white-shapes/hexagon-64.png')
+    .add('WhiteSolidSquare64', '/static/image/white-shapes/square-64.png')
     .add('WhiteDashed4Circle64', '/static/image/white-shapes/circle-dashed-4-64.png')
     .add('WhiteDashed8Circle64', '/static/image/white-shapes/circle-dashed-8-64.png')
     .add('WhiteDashed8Circle128', '/static/image/white-shapes/circle-dashed-8-128.png')
