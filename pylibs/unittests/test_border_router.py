@@ -42,6 +42,27 @@ class BorderRouterTests(OTNSTestCase):
         ns.go(10)
         self.assertTrue(len(ns.nodes())==0)
 
+    def testBorderRouterDistributesOmrPrefix(self):
+        ns = self.ns
+        ns.radiomodel = 'MIDisc' # force line topology
+
+        nid = ns.add('br', x=100, y=100)
+        ns.go(10)
+
+        ns.add('router', x=300, y=100)
+        ns.go(10)
+
+        ns.add('fed', x=500, y=100)
+        ns.go(80)
+
+        ns.ping(3,1,addrtype='slaac',count=4)
+        ns.go(50)
+        ns.ping(1,3,addrtype='slaac',count=4)
+        ns.go(50)
+
+        pings = ns.pings()
+        self.assertTrue(len(pings) == 8)
+
 
 if __name__ == '__main__':
     unittest.main()

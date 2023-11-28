@@ -160,16 +160,17 @@ func (s *Simulation) AddNode(cfg *NodeConfig) (*Node, error) {
 		node.Logger.DisplayPendingLogEntries(ts)
 		return nil, errors.Errorf("simulation AddNode: new node %d did not respond (evtCnt=%d)", nodeid, evtCnt)
 	}
+
+	// run setup and script(s) for the node
 	node.Logger.Debugf("start setup of node (mode, init script)")
 	node.setupMode()
 	err = node.CommandResult()
-
 	if !s.rawMode && err == nil {
-		err = node.runInitScript(cfg.InitScript)
+		err = node.runScript(cfg.InitScript)
 	}
 
 	node.Logger.DisplayPendingLogEntries(ts)
-	if s.IsStopping() { // stop early when exiting the simulation.
+	if s.IsStopping() { // stop here when exiting the simulation.
 		return nil, CommandInterruptedError
 	}
 
@@ -184,6 +185,7 @@ func (s *Simulation) AddNode(cfg *NodeConfig) (*Node, error) {
 	s.updateNodeVersions()
 	node.onStart()
 	node.Logger.DisplayPendingLogEntries(ts)
+
 	return node, err
 }
 

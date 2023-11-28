@@ -535,6 +535,7 @@ ping <src-id> <dst-id> [<addr-type>] [datasize <sz>] [count <cnt>] [interval <in
 ping <src-id> "<dst-addr>" [datasize <sz>] [count <cnt>] [interval <intval>] [hoplimit <hoplim>]
 ```
 
+where `<addr-type>` can be `linklocal`, `rloc`, `mleid`, `slaac`, or `any`.
 NOTE: Sleepy End Devices (SEDs) typically don't respond to a ping request, while Synchronized Sleepy End Devices
 (SSEDs) do. A regular SED can be turned into a SSED by using the `csl period` command on the SED node.
 

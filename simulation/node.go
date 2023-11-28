@@ -147,7 +147,7 @@ func (node *Node) error(err error) {
 	}
 }
 
-func (node *Node) runInitScript(cfg []string) error {
+func (node *Node) runScript(cfg []string) error {
 	logger.AssertNotNil(cfg)
 	for _, cmd := range cfg {
 		if node.CommandResult() != nil {
@@ -487,6 +487,18 @@ func (node *Node) GetIpAddrMleid() []string {
 func (node *Node) GetIpAddrRloc() []string {
 	addrs := node.Command("ipaddr rloc", DefaultCommandTimeout)
 	return addrs
+}
+
+func (node *Node) GetIpAddrSlaac() []string {
+	addrs := node.Command("ipaddr -v", DefaultCommandTimeout)
+	slaacAddrs := make([]string, 0)
+	for _, addr := range addrs {
+		idx := strings.Index(addr, " origin:slaac ")
+		if idx > 0 {
+			slaacAddrs = append(slaacAddrs, addr[0:idx])
+		}
+	}
+	return slaacAddrs
 }
 
 func (node *Node) GetIpMaddr() []string {
