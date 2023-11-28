@@ -71,7 +71,7 @@ func (cfg *ExecutableConfig) SearchPathsString() string {
 // GetExecutableForThreadVersion gets the prebuilt executable for given Thread version string as in cli.ThreadVersion
 func GetExecutableForThreadVersion(version string) string {
 	logger.AssertTrue(strings.HasPrefix(version, "v1") && len(version) >= 3 && len(version) <= 4)
-	return "ot-rfsim/ot-versions/ot-cli-ftd_" + version
+	return "ot-cli-ftd_" + version
 }
 
 func isFile(exePath string) bool {
