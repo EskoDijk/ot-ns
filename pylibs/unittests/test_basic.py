@@ -575,8 +575,8 @@ class BasicTests(OTNSTestCase):
         t1 = ns.time
         ns.speed = 5
         ns.autogo = True
-        time.sleep(1)
-        self.assertTrue(ns.time > 4e6 + t1)
+        time.sleep(3)
+        self.assertTrue(ns.time > 11e6 + t1)
         self.assertTrue(ns.autogo)
 
         # When autogo is disabled, it finishes the current autogo duration of 1 second.
