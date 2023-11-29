@@ -136,7 +136,7 @@ func (s *Simulation) AddNode(cfg *NodeConfig) (*Node, error) {
 	node, err := newNode(s, nodeid, cfg, dnode)
 	if err != nil {
 		logger.Errorf("simulation add node failed: %v", err)
-		node.exit()
+		_ = node.exit()
 		s.d.DeleteNode(nodeid) // delete dispatcher node again.
 		s.nodePlacer.ReuseNextNodePosition()
 		return nil, err

@@ -88,7 +88,7 @@ type Node struct {
 // newNode creates a new simulation node. If unsuccessful, it returns an error != nil and the Node object created
 // so far (if node return != nil), or nil if node object wasn't created yet.
 func newNode(s *Simulation, nodeid NodeId, cfg *NodeConfig, dnode *dispatcher.Node) (*Node, error) {
-	var err error = nil
+	var err error
 
 	if !cfg.Restore {
 		flashFile := fmt.Sprintf("tmp/%d_%d.flash", s.cfg.Id, nodeid)
