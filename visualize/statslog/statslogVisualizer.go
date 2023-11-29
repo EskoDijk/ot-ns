@@ -253,7 +253,6 @@ func (sv *statslogVisualizer) writeToLogFile(line string) error {
 
 func (sv *statslogVisualizer) close() {
 	if sv.logFile != nil {
-		_ = sv.logFile.Sync()
 		_ = sv.logFile.Close()
 		sv.logFile = nil
 		sv.isFileEnabled = false

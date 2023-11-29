@@ -594,6 +594,7 @@ func (rt *CmdRunner) executeNode(cc *CommandContext, cmd *NodeCmd) {
 
 			err := node.CommandResult()
 			node.DisplayPendingLogEntries()
+			node.DisplayPendingLines()
 			if cc.isBackgroundCmd && err == nil {
 				cc.outputf("Started\n")
 			}
