@@ -136,7 +136,7 @@ func (s *Simulation) AddNode(cfg *NodeConfig) (*Node, error) {
 	node, err := newNode(s, nodeid, cfg, dnode)
 	if err != nil {
 		logger.Errorf("simulation add node failed: %v", err)
-		_ = node.exit()
+		_ = node.exit()        // delete the simulation node
 		s.d.DeleteNode(nodeid) // delete dispatcher node again.
 		s.nodePlacer.ReuseNextNodePosition()
 		return nil, err
@@ -418,7 +418,6 @@ func (s *Simulation) DeleteNode(nodeid NodeId) error {
 		err := fmt.Errorf("node %d not found", nodeid)
 		return err
 	}
-	logger.AssertFalse(s.Dispatcher().IsAlive(nodeid))
 	s.d.NotifyCommand(nodeid) // sets node alive, as we expect a NodeExit event as final one in queue.
 	err := node.exit()
 	s.d.RecvEvents()
