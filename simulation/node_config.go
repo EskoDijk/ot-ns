@@ -92,7 +92,7 @@ func (cfg *ExecutableConfig) SearchPathsString() string {
 	return s[0:len(s)-2] + "]"
 }
 
-// GetExecutableForThreadVersion gets the prebuilt executable for given Thread version string as in cli.ThreadVersion
+// GetExecutableForThreadVersion gets prebuilt executable name for given Thread version string as in cli.ThreadVersion
 func GetExecutableForThreadVersion(version string) string {
 	logger.AssertTrue(strings.HasPrefix(version, "v1") && len(version) >= 3 && len(version) <= 4)
 	return "ot-cli-ftd_" + version

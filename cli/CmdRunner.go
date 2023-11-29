@@ -401,7 +401,8 @@ func (rt *CmdRunner) executeAddNode(cc *CommandContext, cmd *AddCmd) {
 	if cmd.Executable != nil {
 		cfg.ExecutablePath = simCfg.ExeConfig.DetermineExecutableBasedOnExeName(cmd.Executable.Path)
 	} else if cmd.Version != nil {
-		cfg.ExecutablePath = simulation.GetExecutableForThreadVersion(cmd.Version.Val)
+		exeName := simulation.GetExecutableForThreadVersion(cmd.Version.Val)
+		cfg.ExecutablePath = simCfg.ExeConfig.DetermineExecutableBasedOnExeName(exeName)
 	}
 
 	cfg.Restore = cmd.Restore != nil
