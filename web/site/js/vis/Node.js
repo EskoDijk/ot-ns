@@ -56,6 +56,8 @@ export default class Node extends VObject {
         this.role = OtDeviceRole.OT_DEVICE_ROLE_DISABLED;
         this.txPowerLast = POWER_DBM_INVALID;
         this.channelLast = -1;
+        this.otVersion = "";
+        this.otCommit = "";
         this._failed = false;
         this._parent = 0;
         this._partition = 0;
@@ -244,6 +246,11 @@ export default class Node extends VObject {
             this.nodeMode = mode;
             this._statusSprite.texture = this._getStatusSpriteTexture();
         }
+    }
+
+    setOTVersion(version, commit) {
+        this.otVersion = version;
+        this.otCommit = commit;
     }
 
     getRoleColor() {

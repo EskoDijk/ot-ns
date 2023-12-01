@@ -98,12 +98,14 @@ type NetworkInfo struct {
 	Real    bool
 	Version string
 	Commit  string
+	NodeId  int
 }
 
 func DefaultNetworkInfo() NetworkInfo {
 	return NetworkInfo{
 		Real:    false,
-		Version: "-",
+		Version: "",
 		Commit:  "",
+		NodeId:  InvalidNodeId,
 	}
 }

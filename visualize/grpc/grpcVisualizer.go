@@ -75,6 +75,7 @@ func (gv *grpcVisualizer) SetNetworkInfo(networkInfo visualize.NetworkInfo) {
 		Real:    networkInfo.Real,
 		Version: networkInfo.Version,
 		Commit:  networkInfo.Commit,
+		NodeId:  int32(networkInfo.NodeId),
 	}}}, false)
 }
 
@@ -373,6 +374,7 @@ func (gv *grpcVisualizer) prepareStream(stream *grpcStream) error {
 		Real:    gv.f.networkInfo.Real,
 		Version: gv.f.networkInfo.Version,
 		Commit:  gv.f.networkInfo.Commit,
+		NodeId:  int32(InvalidNodeId),
 	}}}); err != nil {
 		return err
 	}

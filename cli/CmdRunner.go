@@ -402,7 +402,6 @@ func (rt *CmdRunner) executeAddNode(cc *CommandContext, cmd *AddCmd) {
 		cfg.ExecutablePath = simCfg.ExeConfig.FindExecutable(cmd.Executable.Path)
 	} else if cmd.Version != nil {
 		cfg.Version = cmd.Version.Val
-		cfg.ExecutablePath = simCfg.ExeConfig.FindExecutableBasedOnConfig(&cfg)
 	}
 
 	cfg.Restore = cmd.Restore != nil
@@ -1181,9 +1180,9 @@ func (rt *CmdRunner) executeExe(cc *CommandContext, cmd *ExeCmd) {
 			cfg.ExeConfig = cfg.ExeConfigDefault
 		} else if isSetVersion && !isSetPath {
 			// set executables to that of a named version for all node types except br.
-			ec.SetVersion(cmd.Version.Val)
+			ec.SetVersion(cmd.Version.Val, &cfg.ExeConfigDefault)
 		} else if !isSetDefault && !isSetNodeType && !isSetVersion && !isSetPath {
-			// display the exe output list.
+			// only display the exe output list.
 		} else {
 			cc.errorf("exe: unsupported combination of command options")
 			return
