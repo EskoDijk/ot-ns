@@ -203,6 +203,7 @@ message SetNetworkInfoEvent {
     string version = 2;
     string commit = 3;
     int32 node_id = 4;
+    int32 thread_version = 5;
 }
 
 message NodeEnergy {

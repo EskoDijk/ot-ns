@@ -46,6 +46,7 @@ export default class Node extends VObject {
 
         this.id = nodeId;
         this.type = nodeType;
+        this.threadVersion = 0;
         this.extAddr = EXT_ADDR_INVALID;
         this.radioRange = radioRange;
         this.nodeMode = new NodeMode([true, true, true, true]);
@@ -246,6 +247,10 @@ export default class Node extends VObject {
             this.nodeMode = mode;
             this._statusSprite.texture = this._getStatusSpriteTexture();
         }
+    }
+
+    setThreadVersion(version) {
+        this.threadVersion = version;
     }
 
     setOTVersion(version, commit) {

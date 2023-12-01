@@ -72,10 +72,11 @@ func (gv *grpcVisualizer) SetNetworkInfo(networkInfo visualize.NetworkInfo) {
 
 	gv.f.networkInfo = networkInfo
 	gv.addVisualizationEvent(&pb.VisualizeEvent{Type: &pb.VisualizeEvent_SetNetworkInfo{SetNetworkInfo: &pb.SetNetworkInfoEvent{
-		Real:    networkInfo.Real,
-		Version: networkInfo.Version,
-		Commit:  networkInfo.Commit,
-		NodeId:  int32(networkInfo.NodeId),
+		Real:          networkInfo.Real,
+		Version:       networkInfo.Version,
+		Commit:        networkInfo.Commit,
+		NodeId:        int32(networkInfo.NodeId),
+		ThreadVersion: int32(networkInfo.ThreadVersion),
 	}}}, false)
 }
 

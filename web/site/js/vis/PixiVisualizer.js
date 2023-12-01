@@ -349,18 +349,17 @@ export default class PixiVisualizer extends VObject {
         }
     }
 
-    visSetNetworkInfo(version, commit, real, nodeId) {
-        this.log('visSetNetworkInfo');
+    visSetNetworkInfo(version, commit, real, nodeId, threadVersion) {
         if (nodeId<=0) { // if no nodeId given, it sets default network display.
             this.setOTVersion(version, commit);
             this.setReal(real);
         }else{
             let node = this.nodes[nodeId];
             if (node) {
-                this.log(`Node ${nodeId} OpenThread Version: ${version}`); // FIXME remove
-                this.log(`Node ${nodeId} OpenThread Commit : ${commit}`);
                 node.setOTVersion(version, commit);
+                node.setThreadVersion(threadVersion);
                 this.displayOTVersion(version, commit);
+                this.onNodeUpdate(nodeId);
             }else{
                 this.log(`visSetNetworkInfo(): node ${nodeId} not found`);
             }

@@ -163,11 +163,13 @@ func (s *Simulation) AddNode(cfg *NodeConfig) (*Node, error) {
 	// run setup and script(s) for the node
 	node.Logger.Debugf("start setup of node (version/commit, mode, init script)")
 	ver := node.GetVersion()
+	threadVer := node.GetThreadVersion()
 	nodeInfo := visualize.NetworkInfo{
-		Real:    s.networkInfo.Real,
-		Version: ver,
-		Commit:  getCommitFromOtVersion(ver),
-		NodeId:  nodeid,
+		Real:          s.networkInfo.Real,
+		Version:       ver,
+		Commit:        getCommitFromOtVersion(ver),
+		NodeId:        nodeid,
+		ThreadVersion: threadVer,
 	}
 	s.vis.SetNetworkInfo(nodeInfo)
 	err = node.CommandResult()
