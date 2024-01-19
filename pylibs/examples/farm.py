@@ -50,9 +50,12 @@ FARM_RECT = [10 * R, 10 * R, 210 * R, 110 * R] # number in meters
 
 
 def main():
-    ns = OTNS(otns_args=['-log', 'info', '-no-logfile'])
+    #ns = OTNS(otns_args=['-log', 'info', '-no-logfile'])
+    ns = OTNS()
+    ns.loglevel = 'info'
+    ns.logconfig('info')
     ns.speed = 4
-    ns.radiomodel = 'Outdoor'
+    ns.radiomodel = 'MutualInterference'
     ns.set_radioparam('MeterPerUnit', 1/R )
     ns.set_title("Farm Example")
     ns.config_visualization(broadcast_message=False)

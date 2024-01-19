@@ -28,6 +28,7 @@
 #
 # SRP client and server example.
 
+import time
 from otns.cli import OTNS
 from otns.cli.errors import OTNSExitedError
 
@@ -38,8 +39,10 @@ def main():
     ns.set_title("SRP Example - BR server = 1, Client = 3")
     ns.web()
 
-    # start an SRP server
+    # start an SRP server on a BR (non-BRs don't have SRP server build flag enabled)
     id_br = ns.add('br', x=200, y=300)
+    # starting the server manually is not really needed, due to the autostart feature for BR.
+    # But it's left here to show the command to manually enable/disable.
     ns.node_cmd(id_br,'srp server enable')
     ns.go(10)
 
@@ -52,7 +55,7 @@ def main():
     ns.node_cmd(id_cl,'srp client host name MyExampleHost')
     ns.node_cmd(id_cl,'srp client host address auto')
 
-    # register an SRP service
+    # client registers an SRP service
     ns.node_cmd(id_cl,'srp client service add MyExampleInstance _otns-test._udp 8080 1 2')
     ns.node_cmd(id_cl,'srp client autostart enable')
     ns.go(50)
