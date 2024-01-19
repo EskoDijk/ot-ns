@@ -1,4 +1,4 @@
-// Copyright (c) 2022-2023, The OTNS Authors.
+// Copyright (c) 2022-2024, The OTNS Authors.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -31,9 +31,9 @@ import (
 	"net"
 	"time"
 
-	"github.com/openthread/ot-ns/logger"
 	"google.golang.org/grpc"
 
+	"github.com/openthread/ot-ns/logger"
 	"github.com/openthread/ot-ns/visualize/grpc/pb"
 )
 
@@ -43,6 +43,7 @@ type grpcServer struct {
 	address                  string
 	visualizingStreams       map[*grpcStream]struct{}
 	visualizingEnergyStreams map[*grpcEnergyStream]struct{}
+	grpcClientAdded          chan string
 }
 
 func (gs *grpcServer) Visualize(req *pb.VisualizeRequest, stream pb.VisualizeGrpcService_VisualizeServer) error {
@@ -54,7 +55,7 @@ func (gs *grpcServer) Visualize(req *pb.VisualizeRequest, stream pb.VisualizeGrp
 	var heartbeatTicker *time.Ticker
 
 	gstream := newGrpcStream(stream)
-	logger.Debugf("New visualize request got.")
+	logger.Debugf("New gRPC visualize request received.")
 
 	gs.vis.Lock()
 	err = gs.prepareStream(gstream)
@@ -62,8 +63,8 @@ func (gs *grpcServer) Visualize(req *pb.VisualizeRequest, stream pb.VisualizeGrp
 		gs.vis.Unlock()
 		goto exit
 	}
-
 	gs.visualizingStreams[gstream] = struct{}{}
+	gs.grpcClientAdded <- req.String() // FIXME let write never be blocking - notify via channel about the new client's id
 	gs.vis.Unlock()
 
 	defer gs.disposeStream(gstream)
@@ -168,7 +169,7 @@ func (gs *grpcServer) prepareStream(stream *grpcStream) error {
 	return gs.vis.prepareStream(stream)
 }
 
-func newGrpcServer(vis *grpcVisualizer, address string) *grpcServer {
+func newGrpcServer(vis *grpcVisualizer, address string, chanNewClientNotifier chan string) *grpcServer {
 	server := grpc.NewServer(grpc.ReadBufferSize(1024*8), grpc.WriteBufferSize(1024*1024*1))
 	gs := &grpcServer{
 		vis:                      vis,
@@ -176,6 +177,7 @@ func newGrpcServer(vis *grpcVisualizer, address string) *grpcServer {
 		address:                  address,
 		visualizingStreams:       map[*grpcStream]struct{}{},
 		visualizingEnergyStreams: map[*grpcEnergyStream]struct{}{},
+		grpcClientAdded:          chanNewClientNotifier,
 	}
 	pb.RegisterVisualizeGrpcServiceServer(server, gs)
 	return gs

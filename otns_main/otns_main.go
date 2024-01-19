@@ -1,4 +1,4 @@
-// Copyright (c) 2020-2023, The OTNS Authors.
+// Copyright (c) 2020-2024, The OTNS Authors.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -155,15 +155,17 @@ func Main(ctx *progctx.ProgCtx, visualizerCreator func(ctx *progctx.ProgCtx, arg
 	if !args.NoReplay {
 		replayFn = fmt.Sprintf("otns_%d.replay", simId)
 	}
+
+	chanGrpcClientNotifier := make(chan string, 3)
 	if vis != nil {
 		vis = visualizeMulti.NewMultiVisualizer(
 			vis,
-			visualizeGrpc.NewGrpcVisualizer(visGrpcServerAddr, replayFn),
+			visualizeGrpc.NewGrpcVisualizer(visGrpcServerAddr, replayFn, chanGrpcClientNotifier),
 			visualizeStatslog.NewStatslogVisualizer(simId),
 		)
 	} else {
 		vis = visualizeMulti.NewMultiVisualizer(
-			visualizeGrpc.NewGrpcVisualizer(visGrpcServerAddr, replayFn),
+			visualizeGrpc.NewGrpcVisualizer(visGrpcServerAddr, replayFn, chanGrpcClientNotifier),
 			visualizeStatslog.NewStatslogVisualizer(simId),
 		)
 	}
@@ -180,6 +182,8 @@ func Main(ctx *progctx.ProgCtx, visualizerCreator func(ctx *progctx.ProgCtx, arg
 	<-webSite.Started
 
 	sim := createSimulation(simId, ctx)
+	sim.WebTabAdded = chanGrpcClientNotifier
+
 	rt := cli.NewCmdRunner(ctx, sim)
 	vis.Init()
 	sim.SetVisualizer(vis)
@@ -203,7 +207,7 @@ func Main(ctx *progctx.ProgCtx, visualizerCreator func(ctx *progctx.ProgCtx, arg
 	web.ConfigWeb(args.DispatcherHost, args.DispatcherPort-2, args.DispatcherPort-1, args.DispatcherPort-3)
 	logger.Debugf("open web: %v", args.OpenWeb)
 	if args.OpenWeb {
-		_ = web.OpenWeb(ctx, web.MainTab)
+		_ = web.OpenWeb(ctx, web.MainTab, sim.WebTabAdded)
 	}
 
 	ctx.WaitAdd("autogo", 1)

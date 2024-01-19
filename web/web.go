@@ -1,4 +1,4 @@
-// Copyright (c) 2020-2023, The OTNS Authors.
+// Copyright (c) 2020-2024, The OTNS Authors.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -30,6 +30,7 @@ import (
 	"fmt"
 	"os/exec"
 	"runtime"
+	"time"
 
 	"github.com/openthread/ot-ns/logger"
 	"github.com/openthread/ot-ns/progctx"
@@ -39,6 +40,8 @@ const (
 	MainTab   = "visualize"
 	EnergyTab = "energyViewer"
 	StatsTab  = "statsViewer"
+
+	DefaultWebTabConnectTimeout = time.Second * 5
 )
 
 var (
@@ -60,14 +63,27 @@ func ConfigWeb(serverBindAddress string, serverHttpDebugPort int, grpcServicePor
 	logger.Debugf("ConfigWeb: %+v", grpcWebProxyParams)
 }
 
-func OpenWeb(ctx *progctx.ProgCtx, tabResourceName string) error {
+func OpenWeb(ctx *progctx.ProgCtx, tabResourceName string, newWebTabs <-chan string) error {
 	if err := assureGrpcWebProxyRunning(ctx); err != nil {
 		logger.Errorf("start grpcwebproxy failed: %v", err)
 		logger.Errorf("Web visualization is unusable. Please make sure grpcwebproxy is installed.")
 		return err
 	}
 
-	return openWebBrowser(fmt.Sprintf("http://localhost:%d/%s?addr=localhost:%d", grpcWebProxyParams.webSitePort, tabResourceName, grpcWebProxyParams.serverHttpDebugPort))
+	err := openWebBrowser(fmt.Sprintf("http://localhost:%d/%s?addr=localhost:%d", grpcWebProxyParams.webSitePort, tabResourceName, grpcWebProxyParams.serverHttpDebugPort))
+	if err != nil || newWebTabs == nil {
+		return err
+	}
+
+	// if newWebTabs is provided (!= nil), wait for new gRPC client to connect
+	blockTimeout := time.After(DefaultWebTabConnectTimeout)
+	select {
+	case <-newWebTabs:
+		// TODO in the future, could check here that the id string of new web tab matches the expected reqId query parameter
+		return nil
+	case <-blockTimeout:
+		return fmt.Errorf("new web tab '%s' didn't gRPC-connect within timeout DefaultWebTabConnectTimeout", tabResourceName)
+	}
 }
 
 // open opens the specified URL in the default browser of the user.

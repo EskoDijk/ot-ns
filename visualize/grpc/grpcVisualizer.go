@@ -1,4 +1,4 @@
-// Copyright (c) 2020-2023, The OTNS Authors.
+// Copyright (c) 2020-2024, The OTNS Authors.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -52,7 +52,7 @@ type grpcVisualizer struct {
 }
 
 // NewGrpcVisualizer creates a new Visualizer that uses Google RPC communication with a web page.
-func NewGrpcVisualizer(address string, replayFn string) visualize.Visualizer {
+func NewGrpcVisualizer(address string, replayFn string, chanNewClientNotifier chan string) visualize.Visualizer {
 	gsv := &grpcVisualizer{
 		simctrl: nil,
 		f:       newGrpcField(),
@@ -62,7 +62,7 @@ func NewGrpcVisualizer(address string, replayFn string) visualize.Visualizer {
 		gsv.replay = replay.NewReplay(replayFn)
 	}
 
-	gsv.server = newGrpcServer(gsv, address)
+	gsv.server = newGrpcServer(gsv, address, chanNewClientNotifier)
 	return gsv
 }
 

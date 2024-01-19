@@ -1,4 +1,4 @@
-// Copyright (c) 2022-2023, The OTNS Authors.
+// Copyright (c) 2022-2024, The OTNS Authors.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -80,7 +80,7 @@ func main() {
 
 	go func() {
 		web.ConfigWeb("", 8998, 8999, 8997)
-		_ = web.OpenWeb(ctx, web.MainTab)
+		_ = web.OpenWeb(ctx, web.MainTab, nil)
 	}()
 
 	err = server.Serve(lis)
