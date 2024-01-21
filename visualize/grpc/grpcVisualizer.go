@@ -70,7 +70,13 @@ func (gv *grpcVisualizer) SetNetworkInfo(networkInfo visualize.NetworkInfo) {
 	gv.Lock()
 	defer gv.Unlock()
 
-	gv.f.networkInfo = networkInfo
+	if networkInfo.NodeId == InvalidNodeId {
+		gv.f.networkInfo = networkInfo
+	} else {
+		gv.f.setNodeVersion(networkInfo.NodeId, networkInfo.Version)
+		gv.f.setNodeCommit(networkInfo.NodeId, networkInfo.Commit)
+		gv.f.setNodeThreadVersion(networkInfo.NodeId, networkInfo.ThreadVersion)
+	}
 	gv.addVisualizationEvent(&pb.VisualizeEvent{Type: &pb.VisualizeEvent_SetNetworkInfo{SetNetworkInfo: &pb.SetNetworkInfoEvent{
 		Real:          networkInfo.Real,
 		Version:       networkInfo.Version,
@@ -370,7 +376,7 @@ func (gv *grpcVisualizer) SetTitle(titleInfo visualize.TitleInfo) {
 }
 
 func (gv *grpcVisualizer) prepareStream(stream *grpcStream) error {
-	// set network info
+	// set global network info (not-node-specific)
 	if err := stream.Send(&pb.VisualizeEvent{Type: &pb.VisualizeEvent_SetNetworkInfo{SetNetworkInfo: &pb.SetNetworkInfoEvent{
 		Real:    gv.f.networkInfo.Real,
 		Version: gv.f.networkInfo.Version,
@@ -523,6 +529,18 @@ func (gv *grpcVisualizer) prepareStream(stream *grpcStream) error {
 			}); err != nil {
 				return err
 			}
+		}
+		// node type and thread version
+		if err := stream.Send(&pb.VisualizeEvent{
+			Type: &pb.VisualizeEvent_SetNetworkInfo{SetNetworkInfo: &pb.SetNetworkInfoEvent{
+				Real:          false,
+				Version:       node.version,
+				Commit:        node.commit,
+				NodeId:        int32(nodeid),
+				ThreadVersion: int32(node.threadVersion),
+			}},
+		}); err != nil {
+			return err
 		}
 	}
 

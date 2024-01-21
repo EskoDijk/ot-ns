@@ -64,7 +64,13 @@ func (gs *grpcServer) Visualize(req *pb.VisualizeRequest, stream pb.VisualizeGrp
 		goto exit
 	}
 	gs.visualizingStreams[gstream] = struct{}{}
-	gs.grpcClientAdded <- req.String() // FIXME let write never be blocking - notify via channel about the new client's id
+	// if web.OpenWeb goroutine is waiting for a new client, then notify it.
+	select {
+	case gs.grpcClientAdded <- req.String():
+		break
+	default:
+		break
+	}
 	gs.vis.Unlock()
 
 	defer gs.disposeStream(gstream)

@@ -41,7 +41,7 @@ const (
 	EnergyTab = "energyViewer"
 	StatsTab  = "statsViewer"
 
-	DefaultWebTabConnectTimeout = time.Second * 5
+	DefaultWebTabConnectTimeout = time.Second * 1
 )
 
 var (
@@ -69,6 +69,11 @@ func OpenWeb(ctx *progctx.ProgCtx, tabResourceName string, newWebTabs <-chan str
 		logger.Errorf("Web visualization is unusable. Please make sure grpcwebproxy is installed.")
 		return err
 	}
+	if newWebTabs != nil { // empty the channel: clear any previous state.
+		for len(newWebTabs) > 0 {
+			<-newWebTabs
+		}
+	}
 
 	err := openWebBrowser(fmt.Sprintf("http://localhost:%d/%s?addr=localhost:%d", grpcWebProxyParams.webSitePort, tabResourceName, grpcWebProxyParams.serverHttpDebugPort))
 	if err != nil || newWebTabs == nil {
@@ -79,7 +84,6 @@ func OpenWeb(ctx *progctx.ProgCtx, tabResourceName string, newWebTabs <-chan str
 	blockTimeout := time.After(DefaultWebTabConnectTimeout)
 	select {
 	case <-newWebTabs:
-		// TODO in the future, could check here that the id string of new web tab matches the expected reqId query parameter
 		return nil
 	case <-blockTimeout:
 		return fmt.Errorf("new web tab '%s' didn't gRPC-connect within timeout DefaultWebTabConnectTimeout", tabResourceName)

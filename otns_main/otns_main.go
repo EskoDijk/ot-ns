@@ -156,7 +156,7 @@ func Main(ctx *progctx.ProgCtx, visualizerCreator func(ctx *progctx.ProgCtx, arg
 		replayFn = fmt.Sprintf("otns_%d.replay", simId)
 	}
 
-	chanGrpcClientNotifier := make(chan string, 3)
+	chanGrpcClientNotifier := make(chan string, 1)
 	if vis != nil {
 		vis = visualizeMulti.NewMultiVisualizer(
 			vis,
@@ -182,7 +182,7 @@ func Main(ctx *progctx.ProgCtx, visualizerCreator func(ctx *progctx.ProgCtx, arg
 	<-webSite.Started
 
 	sim := createSimulation(simId, ctx)
-	sim.WebTabAdded = chanGrpcClientNotifier
+	sim.WebTabAdded = chanGrpcClientNotifier // channel is used to notify about new gRPC client connect
 
 	rt := cli.NewCmdRunner(ctx, sim)
 	vis.Init()
@@ -207,7 +207,7 @@ func Main(ctx *progctx.ProgCtx, visualizerCreator func(ctx *progctx.ProgCtx, arg
 	web.ConfigWeb(args.DispatcherHost, args.DispatcherPort-2, args.DispatcherPort-1, args.DispatcherPort-3)
 	logger.Debugf("open web: %v", args.OpenWeb)
 	if args.OpenWeb {
-		_ = web.OpenWeb(ctx, web.MainTab, sim.WebTabAdded)
+		_ = web.OpenWeb(ctx, web.MainTab, nil)
 	}
 
 	ctx.WaitAdd("autogo", 1)

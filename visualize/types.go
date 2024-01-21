@@ -99,7 +99,7 @@ type NetworkInfo struct {
 	Version       string
 	Commit        string
 	NodeId        int
-	ThreadVersion int
+	ThreadVersion uint16
 }
 
 func DefaultNetworkInfo() NetworkInfo {
@@ -108,6 +108,6 @@ func DefaultNetworkInfo() NetworkInfo {
 		Version:       "",
 		Commit:        "",
 		NodeId:        InvalidNodeId,
-		ThreadVersion: 0,
+		ThreadVersion: InvalidThreadVersion,
 	}
 }
