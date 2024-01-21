@@ -36,15 +36,15 @@ import (
 
 func TestOpenWeb(t *testing.T) {
 	ctx := progctx.New(context.Background())
-	err := OpenWeb(ctx, MainTab, nil)
+	err := OpenWeb(ctx, MainTab)
 	if err != nil {
 		t.Error(err)
 	}
-	err = OpenWeb(ctx, StatsTab, nil)
+	err = OpenWeb(ctx, StatsTab)
 	if err != nil {
 		t.Error(err)
 	}
-	err = OpenWeb(ctx, EnergyTab, nil)
+	err = OpenWeb(ctx, EnergyTab)
 	if err != nil {
 		t.Error(err)
 	}

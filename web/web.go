@@ -41,7 +41,7 @@ const (
 	EnergyTab = "energyViewer"
 	StatsTab  = "statsViewer"
 
-	DefaultWebTabConnectTimeout = time.Second * 1
+	defaultWebClientConnectTime = 200 * time.Millisecond
 )
 
 var (
@@ -63,31 +63,21 @@ func ConfigWeb(serverBindAddress string, serverHttpDebugPort int, grpcServicePor
 	logger.Debugf("ConfigWeb: %+v", grpcWebProxyParams)
 }
 
-func OpenWeb(ctx *progctx.ProgCtx, tabResourceName string, newWebTabs <-chan string) error {
+func OpenWeb(ctx *progctx.ProgCtx, tabResourceName string) error {
 	if err := assureGrpcWebProxyRunning(ctx); err != nil {
 		logger.Errorf("start grpcwebproxy failed: %v", err)
 		logger.Errorf("Web visualization is unusable. Please make sure grpcwebproxy is installed.")
 		return err
 	}
-	if newWebTabs != nil { // empty the channel: clear any previous state.
-		for len(newWebTabs) > 0 {
-			<-newWebTabs
-		}
-	}
 
 	err := openWebBrowser(fmt.Sprintf("http://localhost:%d/%s?addr=localhost:%d", grpcWebProxyParams.webSitePort, tabResourceName, grpcWebProxyParams.serverHttpDebugPort))
-	if err != nil || newWebTabs == nil {
+	if err != nil {
 		return err
 	}
 
-	// if newWebTabs is provided (!= nil), wait for new gRPC client to connect
-	blockTimeout := time.After(DefaultWebTabConnectTimeout)
-	select {
-	case <-newWebTabs:
-		return nil
-	case <-blockTimeout:
-		return fmt.Errorf("new web tab '%s' didn't gRPC-connect within timeout DefaultWebTabConnectTimeout", tabResourceName)
-	}
+	// give some time for new gRPC client to connect. If it connects later, also no problem.
+	time.Sleep(defaultWebClientConnectTime)
+	return nil
 }
 
 // open opens the specified URL in the default browser of the user.

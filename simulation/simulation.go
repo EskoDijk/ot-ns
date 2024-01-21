@@ -46,9 +46,8 @@ import (
 )
 
 type Simulation struct {
-	Started     chan struct{}
-	Exited      chan struct{}
-	WebTabAdded chan string
+	Started chan struct{}
+	Exited  chan struct{}
 
 	ctx            *progctx.ProgCtx
 	stopped        bool

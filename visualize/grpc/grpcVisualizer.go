@@ -105,7 +105,7 @@ func (gv *grpcVisualizer) Run() {
 				return
 			}
 		}
-		logger.Errorf("gRPC server quit: %v", err)
+		logger.Errorf("gRPC server quit with error: %v", err)
 	}
 }
 
@@ -430,6 +430,7 @@ func (gv *grpcVisualizer) prepareStream(stream *grpcStream) error {
 			X:          int32(node.x),
 			Y:          int32(node.y),
 			RadioRange: int32(node.radioRange),
+			NodeType:   node.nodeType,
 		}}}
 
 		if err := stream.Send(addNodeEvent); err != nil {

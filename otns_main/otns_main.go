@@ -182,8 +182,6 @@ func Main(ctx *progctx.ProgCtx, visualizerCreator func(ctx *progctx.ProgCtx, arg
 	<-webSite.Started
 
 	sim := createSimulation(simId, ctx)
-	sim.WebTabAdded = chanGrpcClientNotifier // channel is used to notify about new gRPC client connect
-
 	rt := cli.NewCmdRunner(ctx, sim)
 	vis.Init()
 	sim.SetVisualizer(vis)
@@ -207,7 +205,12 @@ func Main(ctx *progctx.ProgCtx, visualizerCreator func(ctx *progctx.ProgCtx, arg
 	web.ConfigWeb(args.DispatcherHost, args.DispatcherPort-2, args.DispatcherPort-1, args.DispatcherPort-3)
 	logger.Debugf("open web: %v", args.OpenWeb)
 	if args.OpenWeb {
-		_ = web.OpenWeb(ctx, web.MainTab, nil)
+		sim.PostAsync(func() {
+			err := web.OpenWeb(ctx, web.MainTab)
+			if err == nil {
+				logger.Error(err)
+			}
+		})
 	}
 
 	ctx.WaitAdd("autogo", 1)

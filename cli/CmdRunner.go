@@ -773,7 +773,7 @@ func (rt *CmdRunner) executeWeb(cc *CommandContext, webcmd *WebCmd) {
 		}
 	}
 	rt.postAsyncWait(cc, func(sim *simulation.Simulation) {
-		if err := web.OpenWeb(rt.ctx, tabResource, sim.WebTabAdded); err != nil {
+		if err := web.OpenWeb(rt.ctx, tabResource); err != nil {
 			cc.error(err)
 		}
 	})

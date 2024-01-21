@@ -80,7 +80,7 @@ func main() {
 
 	go func() {
 		web.ConfigWeb("", 8998, 8999, 8997)
-		_ = web.OpenWeb(ctx, web.MainTab, nil)
+		_ = web.OpenWeb(ctx, web.MainTab)
 	}()
 
 	err = server.Serve(lis)
