@@ -43,7 +43,7 @@ from otns.cli import OTNS
 from otns.cli.errors import OTNSExitedError
 
 R = 6 # screen-pixels per meter
-RECEIVER_TX_POWER = 12 # dBm, integer - router
+RECEIVER_TX_POWER = 20 # dBm, integer - router
 HORSE_TX_POWER = 0 #dBm, integer - sensor
 HORSE_NUM = 10
 FARM_RECT = [10 * R, 10 * R, 210 * R, 110 * R] # number in meters
