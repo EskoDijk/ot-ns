@@ -191,7 +191,7 @@ func (ot *OtnsTest) RemoveAllNodes() {
 type NodeInfo struct {
 	ExtAddr uint64
 	Rloc16  uint16
-	X, Y    int
+	X, Y, Z int
 	Failed  bool
 }
 
@@ -239,6 +239,7 @@ func (ot *OtnsTest) ListNodes() map[NodeId]*NodeInfo {
 			Rloc16:  rloc16,
 			X:       x,
 			Y:       y,
+			Z:       0,
 			Failed:  failed,
 		}
 	}

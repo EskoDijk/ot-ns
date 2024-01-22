@@ -74,7 +74,7 @@ func (nv nopVisualizer) RemoveChildTable(id NodeId, extaddr uint64) {
 func (nv nopVisualizer) DeleteNode(id NodeId) {
 }
 
-func (nv nopVisualizer) SetNodePos(nodeid NodeId, x, y int) {
+func (nv nopVisualizer) SetNodePos(nodeid NodeId, x, y, z int) {
 }
 
 func (nv nopVisualizer) SetController(ctrl SimulationController) {

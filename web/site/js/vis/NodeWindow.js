@@ -73,7 +73,7 @@ export default class NodeWindow extends VObject {
             `Partition : ${fmt.formatPartitionId(node.partition)}\n` +
 
             `Radio-fail: ${node.failed ? "FAILED (simulated)":"No"}\n` +
-            `Position  : (${node.x}, ${node.y})\n` ;
+            `Position  : (${node.x}, ${node.y}, ${node.z})\n` ;
 
         if (node.txPowerLast != POWER_DBM_INVALID) {
             txt += `Tx-Power  : ${node.txPowerLast} dBm  (last fr)\n`

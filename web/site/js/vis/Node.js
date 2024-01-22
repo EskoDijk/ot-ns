@@ -41,7 +41,7 @@ const SQUARE_SHAPE_RADIUS = 22;
 let vis = Visualizer();
 
 export default class Node extends VObject {
-    constructor(nodeId, x, y, radioRange, nodeType) {
+    constructor(nodeId, x, y, z, radioRange, nodeType) {
         super();
 
         this.id = nodeId;
@@ -71,6 +71,7 @@ export default class Node extends VObject {
         this._root = new PIXI.Container();
         this.x = x;
         this.y = y;
+        this.z = z;
         this.position.set(x, y);
 
         let radius = CIRCULAR_SHAPE_RADIUS;

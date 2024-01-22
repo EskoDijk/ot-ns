@@ -308,13 +308,13 @@ export default class PixiVisualizer extends VObject {
         }
     }
 
-    visAddNode(nodeId, x, y, radioRange, nodeType) {
-        let node = new Node(nodeId, x, y, radioRange, nodeType);
+    visAddNode(nodeId, x, y, z, radioRange, nodeType) {
+        let node = new Node(nodeId, x, y, z, radioRange, nodeType);
         this.nodes[nodeId] = node;
         this._nodesStage.addChild(node._root);
         this.setSelectedNode(nodeId);
 
-        let msg = `Added at (${x},${y})`;
+        let msg = `Added at (${x},${y},${z})`;
         if (!this.real) {
             msg += `, radio range ${radioRange}`
         }
@@ -393,9 +393,9 @@ export default class PixiVisualizer extends VObject {
         return this.speed >= MAX_SPEED
     }
 
-    visSetNodePos(nodeId, x, y) {
-        this.nodes[nodeId].setPosition(x, y);
-        this.logNode(nodeId, `Moved to (${x},${y})`)
+    visSetNodePos(nodeId, x, y, z) {
+        this.nodes[nodeId].setPosition(x, y, z);
+        this.logNode(nodeId, `Moved to (${x},${y},${z})`)
         this.onNodeUpdate(nodeId);
     }
 

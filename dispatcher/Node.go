@@ -67,13 +67,14 @@ type JoinResult struct {
 type Node struct {
 	D           *Dispatcher
 	Id          NodeId
-	X, Y        int
+	X, Y, Z     int
 	PartitionId uint32
 	ExtAddr     uint64
 	Rloc16      uint16
 	CreateTime  uint64
 	CurTime     uint64
 	Role        OtDeviceRole
+	Type        string
 	RadioNode   *radiomodel.RadioNode
 
 	conn          net.Conn
@@ -95,6 +96,7 @@ func newNode(d *Dispatcher, nodeid NodeId, cfg *NodeConfig) *Node {
 	radioCfg := &radiomodel.RadioNodeConfig{
 		X:          cfg.X,
 		Y:          cfg.Y,
+		Z:          cfg.Z,
 		RadioRange: cfg.RadioRange,
 	}
 
@@ -105,9 +107,11 @@ func newNode(d *Dispatcher, nodeid NodeId, cfg *NodeConfig) *Node {
 		CreateTime:  d.CurTime,
 		X:           cfg.X,
 		Y:           cfg.Y,
+		Z:           cfg.Z,
 		ExtAddr:     InvalidExtAddr,
 		Rloc16:      InvalidRloc16,
 		Role:        OtDeviceRoleDisabled,
+		Type:        cfg.Type,
 		conn:        nil, // connection will be set when first event is received from node.
 		err:         nil, // keep track of connection errors.
 		RadioNode:   radiomodel.NewRadioNode(nodeid, radioCfg),

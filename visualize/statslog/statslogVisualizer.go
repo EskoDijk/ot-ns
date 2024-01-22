@@ -118,7 +118,7 @@ func (sv *statslogVisualizer) DeleteNode(id NodeId) {
 	delete(sv.nodesFailed, id)
 }
 
-func (sv *statslogVisualizer) SetNodePos(NodeId, int, int) {
+func (sv *statslogVisualizer) SetNodePos(NodeId, int, int, int) {
 }
 
 func (sv *statslogVisualizer) SetController(SimulationController) {

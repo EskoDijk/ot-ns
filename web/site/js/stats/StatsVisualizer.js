@@ -90,9 +90,9 @@ export class StatsVisualizer {
     visHeartbeat() {
     }
 
-    visAddNode(nodeId, x, y, radioRange) {
+    visAddNode(nodeId, x, y, z, radioRange) {
         this.nodeRoles[nodeId] = OtDeviceRole.OT_DEVICE_ROLE_DISABLED;
-        let msg = `Added at (${x},${y})`;
+        let msg = `Added at (${x},${y},${z})`;
         this.logNode(nodeId, msg);
     }
 

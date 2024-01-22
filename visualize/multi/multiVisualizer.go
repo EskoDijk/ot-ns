@@ -141,9 +141,9 @@ func (mv *multiVisualizer) SetController(ctrl visualize.SimulationController) {
 	}
 }
 
-func (mv *multiVisualizer) SetNodePos(nodeid NodeId, x, y int) {
+func (mv *multiVisualizer) SetNodePos(nodeid NodeId, x, y, z int) {
 	for _, v := range mv.vs {
-		v.SetNodePos(nodeid, x, y)
+		v.SetNodePos(nodeid, x, y, z)
 	}
 }
 
