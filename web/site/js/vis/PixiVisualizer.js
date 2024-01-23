@@ -115,6 +115,7 @@ export default class PixiVisualizer extends VObject {
         this.nodeWindow = new NodeWindow();
         this.addChild(this.nodeWindow);
         this._selectedNodeId = 0;
+        this._selectAddedNode = false;
 
         this.otVersion = "";
         this.otCommit = "";
@@ -312,7 +313,10 @@ export default class PixiVisualizer extends VObject {
         let node = new Node(nodeId, x, y, z, radioRange, nodeType);
         this.nodes[nodeId] = node;
         this._nodesStage.addChild(node._root);
-        this.setSelectedNode(nodeId);
+        if (this._selectAddedNode) {
+            this.setSelectedNode(nodeId);
+            this._selectAddedNode = false;
+        }
 
         let msg = `Added at (${x},${y},${z})`;
         if (!this.real) {
@@ -485,7 +489,9 @@ export default class PixiVisualizer extends VObject {
         console.error("CountDown not implemented")
     }
 
+    // user controls (buttons) to add a node
     ctrlAddNode(type) {
+        this._selectAddedNode = true; // make the new node the selected one, once it gets added.
         if (this.newNodePos == null) {
             this.runCommand("add " + type);
         }else{
@@ -494,6 +500,7 @@ export default class PixiVisualizer extends VObject {
         }
     }
 
+    // 2D interface can only move x, y of node - not z.
     ctrlMoveNodeTo(nodeId, x, y, cb) {
         x = Math.floor(x);
         y = Math.floor(y);
