@@ -57,7 +57,7 @@ var DefaultExecutableConfig ExecutableConfig = ExecutableConfig{
 	Ftd:         "ot-cli-ftd",
 	Mtd:         "ot-cli-mtd",
 	Br:          "ot-cli-ftd_br",
-	SearchPaths: []string{".", "./ot-rfsim/ot-versions", "./build/bin"},
+	SearchPaths: []string{".", "./ot-rfsim/ot-versions", "./build/bin", "~/.local/bin"},
 }
 
 // DefaultNodeInitScript is an array of commands, sent to a new node by default (unless changed).
