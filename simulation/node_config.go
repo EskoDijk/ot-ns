@@ -57,7 +57,7 @@ var DefaultExecutableConfig ExecutableConfig = ExecutableConfig{
 	Ftd:         "ot-cli-ftd",
 	Mtd:         "ot-cli-mtd",
 	Br:          "ot-cli-ftd_br",
-	SearchPaths: []string{".", "./ot-rfsim/ot-versions", "./build/bin", "~/.local/bin"},
+	SearchPaths: []string{".", "./ot-rfsim/ot-versions", "./build/bin"},
 }
 
 // DefaultNodeInitScript is an array of commands, sent to a new node by default (unless changed).
@@ -127,6 +127,7 @@ func (cfg *ExecutableConfig) FindExecutable(exeName string) string {
 			return "./" + exePath
 		}
 	}
+	// if not found, try to relay on OS $PATH to find the executables.
 	return exeName
 }
 
