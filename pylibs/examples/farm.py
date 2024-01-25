@@ -51,7 +51,10 @@ FARM_RECT = [10 * R, 10 * R, 210 * R, 110 * R] # number in meters
 
 def main():
     #ns = OTNS(otns_args=['-log', 'info', '-no-logfile'])
-    ns = OTNS()
+    random_seed = 23982342342
+    ns = OTNS(otns_args=['-seed', f'{random_seed}'])
+    random.seed(random_seed)
+
     ns.loglevel = 'info'
     ns.logconfig('info')
     ns.speed = 4
