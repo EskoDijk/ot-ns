@@ -73,6 +73,7 @@ type MainArgs struct {
 	PcapType       string
 	NoReplay       bool
 	NoLogFile      bool
+	RandomSeed     int64
 }
 
 var (
@@ -107,7 +108,7 @@ func parseArgs() {
 	flag.StringVar(&args.PcapType, "pcap", pcap.FrameTypeWpanStr, "PCAP file type: 'off', 'wpan', or 'wpan-tap' (name is \"current.pcap\")")
 	flag.BoolVar(&args.NoReplay, "no-replay", false, "do not generate Replay file (named \"otns_?.replay\")")
 	flag.BoolVar(&args.NoLogFile, "no-logfile", false, "do not generate node log files (named \"tmp/?_?.log\")")
-
+	flag.Int64Var(&args.RandomSeed, "seed", 0, "set specific random-seed value (for reproducability)")
 	flag.Parse()
 }
 
@@ -142,7 +143,12 @@ func Main(ctx *progctx.ProgCtx, visualizerCreator func(ctx *progctx.ProgCtx, arg
 	logger.SetLevelFromString(args.LogLevel)
 	simId := parseListenAddr()
 
-	rand.Seed(time.Now().UnixNano())
+	if args.RandomSeed == 0 {
+		rand.Seed(time.Now().UnixNano())
+	} else {
+		logger.Debugf("rand.Seed() initialized to %d", args.RandomSeed)
+		rand.Seed(args.RandomSeed)
+	}
 
 	var vis visualize.Visualizer
 	if visualizerCreator != nil {
