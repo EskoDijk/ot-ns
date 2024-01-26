@@ -46,6 +46,7 @@ import (
 	. "github.com/openthread/ot-ns/types"
 	"github.com/openthread/ot-ns/visualize"
 	"github.com/openthread/ot-ns/web"
+	"math/rand"
 )
 
 const (
@@ -409,6 +410,11 @@ func (rt *CmdRunner) executeAddNode(cc *CommandContext, cmd *AddCmd) {
 	}
 
 	cfg.Restore = cmd.Restore != nil
+
+	// in case of specified simulation random seed, each node gets a PRNG-predictable random seed assigned.
+	if simCfg.RandomSeed != 0 {
+		cfg.RandomSeed = rand.Int31()
+	}
 
 	// for a BR, do extra init steps to set prefix/routes/etc.
 	if cfg.IsBorderRouter {

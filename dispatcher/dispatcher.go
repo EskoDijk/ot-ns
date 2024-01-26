@@ -1352,6 +1352,17 @@ func (d *Dispatcher) NotifyCommand(nodeid NodeId) {
 	d.setAlive(nodeid)
 }
 
+// NotifyNodeFailure is called by other goroutines to notify the dispatcher that a node process has
+// failed. From failed nodes, we don't expect further messages and they can't be alive.
+func (d *Dispatcher) NotifyNodeProcessFailure(nodeid NodeId) {
+	d.eventChan <- &Event{
+		Delay:  0,
+		Type:   EventTypeNodeDisconnected,
+		NodeId: nodeid,
+		Conn:   nil,
+	}
+}
+
 func (d *Dispatcher) dumpPacket(item *Event) {
 	sb := strings.Builder{}
 	_, _ = fmt.Fprintf(&sb, "DUMP:PACKET:%d:%d:", item.Timestamp, item.NodeId)

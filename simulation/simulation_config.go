@@ -56,6 +56,7 @@ type Config struct {
 	Id               int
 	Channel          ChannelId
 	LogLevel         logger.Level
+	RandomSeed       int64
 }
 
 func DefaultConfig() *Config {
@@ -76,5 +77,6 @@ func DefaultConfig() *Config {
 		Id:               0,
 		Channel:          DefaultChannel,
 		LogLevel:         logger.WarnLevel,
+		RandomSeed:       0,
 	}
 }

@@ -144,10 +144,10 @@ func Main(ctx *progctx.ProgCtx, visualizerCreator func(ctx *progctx.ProgCtx, arg
 	simId := parseListenAddr()
 
 	if args.RandomSeed == 0 {
-		rand.Seed(time.Now().UnixNano())
+		rand.Seed(time.Now().UnixNano()) // TODO: from go 1.20 onwards, this is not needed and deprecated.
 	} else {
 		logger.Debugf("rand.Seed() initialized to %d", args.RandomSeed)
-		rand.Seed(args.RandomSeed)
+		rand.Seed(args.RandomSeed) // TODO: seed setting can be confined to Simulation object.
 	}
 
 	var vis visualize.Visualizer
@@ -293,6 +293,7 @@ func createSimulation(simId int, ctx *progctx.ProgCtx) *simulation.Simulation {
 		}
 	}
 	simcfg.LogLevel = logger.ParseLevelString(args.LogLevel)
+	simcfg.RandomSeed = args.RandomSeed
 
 	dispatcherCfg := dispatcher.DefaultConfig()
 	dispatcherCfg.SimulationId = simcfg.Id
