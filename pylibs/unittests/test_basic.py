@@ -670,6 +670,38 @@ class BasicTests(OTNSTestCase):
         output = ns.cmd('') # test empty command (like pressing enter, only newline is sent to OTNS)
         self.assertEqual(0, len(output))
 
+    def testRandomSeedSetting(self):
+        self.tearDown()
+        nodes = range(1,6)
+
+        # create a new OTNS with 'seed' parameter.
+        with OTNS(otns_args=['-log', 'debug', '-seed', '20242025']) as ns:
+            self.ns = ns
+
+            mleid_addr = ['']
+            for i in nodes:
+                ns.add("router")
+                mleid_addr.append(str(ns.get_ipaddrs(i, 'mleid')[0]))
+            ns.go(150)
+            self.assertFormPartitions(1)
+
+            node_states = ['']
+            for i in nodes:
+                node_states.append(ns.get_state(i))
+
+        # create a new OTNS with same 'seed' parameter. By using same seed, it becomes
+        # predictable who will become the Leader and what random address a node will use, etc.
+        with OTNS(otns_args=['-log', 'debug', '-seed', '20242025']) as ns:
+            self.ns = ns
+
+            for i in nodes:
+                ns.add("router")
+                self.assertEqual(mleid_addr[i], str(ns.get_ipaddrs(i, 'mleid')[0]))
+            ns.go(150)
+            self.assertFormPartitions(1)
+
+            for i in nodes:
+                self.assertNodeState(i, node_states[i])
 
 if __name__ == '__main__':
     unittest.main()
