@@ -1,4 +1,4 @@
-// Copyright (c) 2020-2023, The OTNS Authors.
+// Copyright (c) 2024, The OTNS Authors.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -24,35 +24,52 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-package dispatcher
+package prng
 
 import (
+	"math/rand"
 	"time"
 
-	"github.com/openthread/ot-ns/pcap"
+	"github.com/openthread/ot-ns/logger"
 )
 
-type Config struct {
-	Speed             float64
-	Real              bool
-	DumpPackets       bool
-	PcapEnabled       bool
-	PcapFrameType     pcap.FrameType
-	DefaultWatchOn    bool
-	DefaultWatchLevel string
-	VizUpdateTime     time.Duration
-	SimulationId      int
+type RandomSeed int64
+
+var newNodeRandSeedGenerator *rand.Rand
+var newRadioModelRandSeedGenerator *rand.Rand
+var newFailTimeRandGenerator *rand.Rand
+var newRandomProbGenerator *rand.Rand
+var cnt uint64 = 0
+
+func PrngInit(rootSeed int64) {
+	if rootSeed == 0 {
+		rootSeed = time.Now().UnixNano() // TODO: from go 1.20 onwards, this is not needed and deprecated.
+	}
+	rand.Seed(rootSeed)
+
+	newNodeRandSeedGenerator = rand.New(rand.NewSource(rootSeed + int64(rand.Intn(1e10)))) // TODO check which range is possible
+	newRadioModelRandSeedGenerator = rand.New(rand.NewSource(rootSeed + int64(rand.Intn(1e10))))
+	newFailTimeRandGenerator = rand.New(rand.NewSource(rootSeed + int64(rand.Intn(1e10))))
+	newRandomProbGenerator = rand.New(rand.NewSource(rootSeed + int64(rand.Intn(1e10))))
 }
 
-func DefaultConfig() *Config {
-	return &Config{
-		Speed:          1,
-		Real:           false,
-		DumpPackets:    false,
-		PcapEnabled:    true,
-		PcapFrameType:  pcap.FrameTypeWpan,
-		DefaultWatchOn: false,
-		VizUpdateTime:  125 * time.Millisecond,
-		SimulationId:   0,
-	}
+// NewNodeRandomSeed generates unique random-seeds for newly created nodes.
+func NewNodeRandomSeed() int32 {
+	return newNodeRandSeedGenerator.Int31()
+}
+
+// NewRadioModelRandomSeed generates unique random-seeds for newly created radio models.
+func NewRadioModelRandomSeed() RandomSeed {
+	return RandomSeed(newRadioModelRandSeedGenerator.Int63())
+}
+
+func NewFailTime(failStartTimeMax int) uint64 {
+	return uint64(newFailTimeRandGenerator.Intn(failStartTimeMax))
+}
+
+func NewRandomProb() float64 {
+	cnt++
+	r := newRandomProbGenerator.Float64()
+	logger.Debugf("Generated n=%d: %f", cnt, r)
+	return r
 }

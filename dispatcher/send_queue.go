@@ -42,7 +42,12 @@ func (sq *sendQueue) Len() int {
 }
 
 func (sq *sendQueue) Less(i, j int) bool {
-	return sq.q[i].Timestamp < sq.q[j].Timestamp
+	ti := sq.q[i].Timestamp
+	tj := sq.q[j].Timestamp
+	if ti == tj {
+		return sq.q[i].NodeId < sq.q[j].NodeId
+	}
+	return ti < tj
 }
 
 func (sq *sendQueue) Swap(i, j int) {

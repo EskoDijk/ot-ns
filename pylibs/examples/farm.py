@@ -24,7 +24,7 @@
 # CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
-
+import logging
 # This script simulates a farm where sensors are installed on horses.
 # 6 Routers are installed at the borders of the farm which has a transmission range of 300m.
 # One of the Routers is selected as the Gateway.
@@ -52,14 +52,18 @@ FARM_RECT = [10 * R, 10 * R, 210 * R, 110 * R] # number in meters
 def main():
     #ns = OTNS(otns_args=['-log', 'info', '-no-logfile'])
     random_seed = 23982342342
-    ns = OTNS(otns_args=['-seed', f'{random_seed}'])
+    ns = OTNS(otns_args=['-seed', f'{random_seed}', '-pcap', 'wpan-tap'])
     random.seed(random_seed)
 
-    ns.loglevel = 'info'
-    ns.logconfig('info')
-    ns.speed = 4
+    ns.loglevel = 'trace'
+    ns.watch_default('trace')
+    ns.logconfig(logging.DEBUG)
+    ns.speed = 9999
     ns.radiomodel = 'MutualInterference'
     ns.set_radioparam('MeterPerUnit', 1/R )
+    ns.set_radioparam('ShadowFadingSigmaDb', 0.0)
+    ns.set_radioparam('TimeFadingSigmaMaxDb', 0.0)
+
     ns.set_title("Farm Example")
     ns.config_visualization(broadcast_message=False)
     ns.web()
@@ -96,7 +100,7 @@ def main():
         return False
 
     time_accum = 0
-    while True:
+    while ns.time < 9e6:
         dt = 1
         ns.go(dt)
         time_accum += dt
@@ -124,6 +128,8 @@ def main():
             for sid in horse_pos:
                 ns.ping(sid, gateway)
             time_accum -= 10
+
+    ns.web_display()
 
 
 if __name__ == '__main__':

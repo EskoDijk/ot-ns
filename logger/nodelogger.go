@@ -156,13 +156,6 @@ func (nl *NodeLogger) Logf(level Level, format string, args []interface{}) {
 	NodeLogf(nl.Id, level, format, args)
 }
 
-func (nl *NodeLogger) Trace(args ...interface{}) {
-	if TraceLevel > nl.CurrentLevel {
-		return
-	}
-	NodeLogf(nl.Id, TraceLevel, "", args...)
-}
-
 func (nl *NodeLogger) Tracef(format string, args ...interface{}) {
 	if TraceLevel > nl.CurrentLevel {
 		return

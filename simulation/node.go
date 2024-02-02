@@ -187,7 +187,7 @@ func (node *Node) exit() error {
 	isKilled := false
 	if node.cmd.Process != nil {
 		processDone := make(chan bool)
-		node.Logger.Trace("Waiting for process PID %d to exit ...", node.cmd.Process.Pid)
+		node.Logger.Tracef("Waiting for process PID %d to exit ...", node.cmd.Process.Pid)
 		timeout := time.After(NodeExitTimeout)
 		go func() {
 			select {

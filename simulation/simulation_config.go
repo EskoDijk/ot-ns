@@ -28,6 +28,7 @@ package simulation
 
 import (
 	"github.com/openthread/ot-ns/logger"
+	. "github.com/openthread/ot-ns/prng"
 	. "github.com/openthread/ot-ns/types"
 )
 
@@ -56,7 +57,7 @@ type Config struct {
 	Id               int
 	Channel          ChannelId
 	LogLevel         logger.Level
-	RandomSeed       int64
+	RandomSeed       RandomSeed
 }
 
 func DefaultConfig() *Config {

@@ -30,7 +30,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"math/rand"
 	"reflect"
 	"strconv"
 	"strings"
@@ -41,6 +40,7 @@ import (
 
 	"github.com/openthread/ot-ns/dispatcher"
 	"github.com/openthread/ot-ns/logger"
+	"github.com/openthread/ot-ns/prng"
 	"github.com/openthread/ot-ns/progctx"
 	"github.com/openthread/ot-ns/radiomodel"
 	"github.com/openthread/ot-ns/simulation"
@@ -413,7 +413,7 @@ func (rt *CmdRunner) executeAddNode(cc *CommandContext, cmd *AddCmd) {
 
 	// in case of specified simulation random seed, each node gets a PRNG-predictable random seed assigned.
 	if simCfg.RandomSeed != 0 {
-		cfg.RandomSeed = rand.Int31()
+		cfg.RandomSeed = prng.NewNodeRandomSeed()
 	}
 
 	// for a BR, do extra init steps to set prefix/routes/etc.

@@ -29,13 +29,11 @@ package otns_main
 import (
 	"flag"
 	"fmt"
-	"math/rand"
 	"os"
 	"os/signal"
 	"strconv"
 	"strings"
 	"syscall"
-	"time"
 
 	"github.com/pkg/errors"
 
@@ -43,6 +41,7 @@ import (
 	"github.com/openthread/ot-ns/dispatcher"
 	"github.com/openthread/ot-ns/logger"
 	"github.com/openthread/ot-ns/pcap"
+	"github.com/openthread/ot-ns/prng"
 	"github.com/openthread/ot-ns/progctx"
 	"github.com/openthread/ot-ns/simulation"
 	. "github.com/openthread/ot-ns/types"
@@ -143,12 +142,7 @@ func Main(ctx *progctx.ProgCtx, visualizerCreator func(ctx *progctx.ProgCtx, arg
 	logger.SetLevelFromString(args.LogLevel)
 	simId := parseListenAddr()
 
-	if args.RandomSeed == 0 {
-		rand.Seed(time.Now().UnixNano()) // TODO: from go 1.20 onwards, this is not needed and deprecated.
-	} else {
-		logger.Debugf("rand.Seed() initialized to %d", args.RandomSeed)
-		rand.Seed(args.RandomSeed) // TODO: seed setting can be confined to Simulation object.
-	}
+	prng.PrngInit(args.RandomSeed)
 
 	var vis visualize.Visualizer
 	if visualizerCreator != nil {
@@ -293,12 +287,15 @@ func createSimulation(simId int, ctx *progctx.ProgCtx) *simulation.Simulation {
 		}
 	}
 	simcfg.LogLevel = logger.ParseLevelString(args.LogLevel)
-	simcfg.RandomSeed = args.RandomSeed
+	simcfg.RandomSeed = prng.RandomSeed(args.RandomSeed)
 
 	dispatcherCfg := dispatcher.DefaultConfig()
 	dispatcherCfg.SimulationId = simcfg.Id
 	dispatcherCfg.PcapEnabled = args.PcapType != pcap.FrameTypeOffStr
 	dispatcherCfg.PcapFrameType = pcap.ParseFrameTypeStr(args.PcapType)
+	if dispatcherCfg.PcapFrameType == pcap.FrameTypeUnknown {
+		logger.Fatalf("Unknown PCAP frame type '%s', use -h flag for an overview.", args.PcapType)
+	}
 	dispatcherCfg.DefaultWatchLevel = args.WatchLevel
 	dispatcherCfg.DefaultWatchOn = logger.ParseLevelString(args.WatchLevel) != logger.OffLevel
 

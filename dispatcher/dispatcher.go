@@ -32,7 +32,6 @@ import (
 	"fmt"
 	"io"
 	"math"
-	"math/rand"
 	"net"
 	"os"
 	"sort"
@@ -47,6 +46,7 @@ import (
 	. "github.com/openthread/ot-ns/event"
 	"github.com/openthread/ot-ns/logger"
 	"github.com/openthread/ot-ns/pcap"
+	"github.com/openthread/ot-ns/prng"
 	"github.com/openthread/ot-ns/progctx"
 	"github.com/openthread/ot-ns/radiomodel"
 	. "github.com/openthread/ot-ns/types"
@@ -380,13 +380,11 @@ func (d *Dispatcher) handleRecvEvent(evt *Event) {
 		d.alarmMgr.SetTimestamp(nodeid, d.CurTime+delay) // schedule future wake-up of node
 	case EventTypeRadioCommStart:
 		fallthrough
+	case EventTypeRadioState:
+		fallthrough
 	case EventTypeRadioChannelSample:
 		d.Counters.RadioEvents += 1
-		d.radioModel.HandleEvent(node.RadioNode, d.eventQueue, evt)
-	case EventTypeRadioState:
-		d.Counters.RadioEvents += 1
-		d.handleRadioState(node, evt)
-		d.radioModel.HandleEvent(node.RadioNode, d.eventQueue, evt)
+		d.eventQueue.Add(evt)
 	case EventTypeStatusPush:
 		d.Counters.StatusPushEvents += 1
 		d.handleStatusPush(node, string(evt.Data))
@@ -422,7 +420,7 @@ loop:
 		shouldBlock := len(d.aliveNodes) > 0
 		if shouldBlock {
 			select {
-			case evt := <-d.eventChan: // new event
+			case evt := <-d.eventChan: // get new event
 				count += 1
 				d.handleRecvEvent(evt)
 			case <-blockTimeout: // timeout
@@ -534,7 +532,10 @@ func (d *Dispatcher) processNextEvent(simSpeed float64) bool {
 					case EventTypeAlarmFired:
 						d.advanceNodeTime(node, evt.Timestamp, false)
 					case EventTypeRadioLog:
-						node.logger.Trace(evt.Data)
+						node.logger.Tracef("%s", string(evt.Data))
+					case EventTypeRadioState:
+						d.handleRadioState(node, evt)
+						d.radioModel.HandleEvent(node.RadioNode, d.eventQueue, evt)
 					default:
 						d.radioModel.HandleEvent(node.RadioNode, d.eventQueue, evt)
 					}
@@ -808,7 +809,7 @@ func (d *Dispatcher) sendOneRadioFrame(evt *Event,
 	if d.globalPacketLossRatio > 0 {
 		datalen := len(evt.Data)
 		succRate := math.Pow(1.0-d.globalPacketLossRatio, float64(datalen)/128.0)
-		if rand.Float64() >= succRate {
+		if prng.NewRandomProb() >= succRate {
 			return
 		}
 	}
