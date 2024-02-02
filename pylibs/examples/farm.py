@@ -24,7 +24,7 @@
 # CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
-import logging
+
 # This script simulates a farm where sensors are installed on horses.
 # 6 Routers are installed at the borders of the farm which has a transmission range of 300m.
 # One of the Routers is selected as the Gateway.
@@ -36,17 +36,19 @@ import logging
 #
 # Inspired by https://www.threadgroup.org/Farm-Jenny
 
-import random
+import logging
 import math
+import random
 
 from otns.cli import OTNS
 from otns.cli.errors import OTNSExitedError
 
-R = 6 # screen-pixels per meter
-RECEIVER_TX_POWER = 20 # dBm, integer - router
-HORSE_TX_POWER = 0 #dBm, integer - sensor
+R = 3 # screen-pixels per meter
+RECEIVER_TX_POWER = 10 # dBm, integer - router
+HORSE_TX_POWER = -20 #dBm, integer - sensor
 HORSE_NUM = 10
-FARM_RECT = [10 * R, 10 * R, 210 * R, 110 * R] # number in meters
+HORSE_MAX_SPEED_MPS = 3 # horse max speed in m/sec
+FARM_RECT = [20 * R, 20 * R, 440 * R, 260 * R] # number in meters
 
 
 def main():
@@ -59,7 +61,7 @@ def main():
     ns.watch_default('trace')
     ns.logconfig(logging.DEBUG)
     ns.speed = 9999
-    ns.radiomodel = 'MutualInterference'
+    ns.radiomodel = 'Outdoor'
     ns.set_radioparam('MeterPerUnit', 1/R )
     ns.set_radioparam('ShadowFadingSigmaDb', 0.0)
     ns.set_radioparam('TimeFadingSigmaMaxDb', 0.0)
@@ -81,7 +83,7 @@ def main():
     for i in range(HORSE_NUM):
         rx = random.randint(FARM_RECT[0] + 20, FARM_RECT[2] - 20)
         ry = random.randint(FARM_RECT[1] + 20, FARM_RECT[3] - 20)
-        sid = ns.add("sed", rx, ry, txpower=HORSE_TX_POWER)
+        sid = ns.add("ssed", rx, ry, txpower=HORSE_TX_POWER)
         horse_pos[sid] = (rx, ry)
         horse_move_dir[sid] = random.uniform(0, math.pi * 2)
 
@@ -100,6 +102,8 @@ def main():
         return False
 
     time_accum = 0
+    sid_last_ping = 0
+
     while ns.time < 9e6:
         dt = 1
         ns.go(dt)
@@ -108,7 +112,7 @@ def main():
         for sid, (sx, sy) in horse_pos.items():
 
             for i in range(10):
-                mdist = random.uniform(0, 2 * R * dt)
+                mdist = random.uniform(0, HORSE_MAX_SPEED_MPS * R * dt)
 
                 sx = int(sx + mdist * math.cos(horse_move_dir[sid]))
                 sy = int(sy + mdist * math.sin(horse_move_dir[sid]))
@@ -124,10 +128,18 @@ def main():
                 horse_pos[sid] = (sx, sy)
                 break
 
-        if time_accum >= 10:
+        if time_accum >= HORSE_NUM+1:
+            ns.print_pings(ns.pings())
+            found = False
             for sid in horse_pos:
-                ns.ping(sid, gateway)
-            time_accum -= 10
+                if sid > sid_last_ping:
+                    ns.ping(sid, gateway)
+                    sid_last_ping = sid
+                    found = True
+                    break
+            if not found:
+                sid_last_ping = 0
+                time_accum = 0
 
     ns.web_display()
 
