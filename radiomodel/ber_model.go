@@ -29,11 +29,12 @@ package radiomodel
 import (
 	"encoding/binary"
 	"fmt"
+	"math"
+
 	. "github.com/openthread/ot-ns/event"
 	"github.com/openthread/ot-ns/logger"
 	"github.com/openthread/ot-ns/prng"
 	. "github.com/openthread/ot-ns/types"
-	"math"
 )
 
 // reference: IEEE 802.15.4-2006,E.4.1.8 Bit Error Rate (BER) calculations
