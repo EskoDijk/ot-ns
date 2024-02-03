@@ -224,7 +224,7 @@ func (d *Dispatcher) GetUnixSocketName() string {
 func (d *Dispatcher) Nodes() []*Node {
 	rval := make([]*Node, 0, len(d.nodes))
 	nodeIds := make([]NodeId, 0, len(d.nodes))
-	for nodeId, _ := range d.nodes {
+	for nodeId := range d.nodes {
 		nodeIds = append(nodeIds, nodeId)
 	}
 	sort.Ints(nodeIds)

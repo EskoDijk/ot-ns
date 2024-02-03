@@ -59,16 +59,13 @@ func applyBerModel(sirDb DbValue, srcNodeId NodeId, evt *Event) (bool, string) {
 	}
 
 	if pSuccess < 1.0 {
-		if rnd > pSuccess {
+		if rnd > pSuccess { // failure case
 			evt.Data = interferePsduData(evt.Data)
 			evt.RadioCommData.Error = OT_ERROR_FCS
-			logMsg = fmt.Sprintf("applied OT_ERROR_FCS sirDb=%f src=%d dst=%d Psuc=%f FrLen=%dB rnd=%f",
-				sirDb, srcNodeId, evt.NodeId, pSuccess, nbits/8, rnd) // TODO not format this if trace logging is off.
-		} else { // FIXME below logging to remove
-			logMsg = fmt.Sprintf("BerModel Rx success  sirDb=%f src=%d dst=%d Psuc=%f FrLen=%dB rnd=%f",
-				sirDb, srcNodeId, evt.NodeId, pSuccess, nbits/8, rnd) // TODO not format this if trace logging is off.
+			logMsg = fmt.Sprintf("applied OT_ERROR_FCS sirDb=%f src=%d dst=%d Psuc=%f FrLen=%dB",
+				sirDb, srcNodeId, evt.NodeId, pSuccess, nbits/8) // TODO not format this if trace logging is off.
+			return true, logMsg
 		}
-		return true, logMsg
 	}
 	return false, logMsg
 }
