@@ -29,19 +29,18 @@ package prng
 import (
 	"math/rand"
 	"time"
-
-	"github.com/openthread/ot-ns/logger"
 )
 
 type RandomSeed int64
 
 var newNodeRandSeedGenerator *rand.Rand
 var newRadioModelRandSeedGenerator *rand.Rand
-var newFailTimeRandGenerator *rand.Rand
-var newRandomProbGenerator *rand.Rand
-var cnt uint64 = 0
+var failTimeRandGenerator *rand.Rand
+var unitRandGenerator *rand.Rand
 
-func PrngInit(rootSeed int64) {
+// Init initializes the prng package, either with a fixed PRNG seed (rootSeed != 0) or a 'random' time-based PRNG
+// seed (if rootSeed == 0).
+func Init(rootSeed int64) {
 	if rootSeed == 0 {
 		rootSeed = time.Now().UnixNano() // TODO: from go 1.20 onwards, this is not needed and deprecated.
 	}
@@ -49,8 +48,8 @@ func PrngInit(rootSeed int64) {
 
 	newNodeRandSeedGenerator = rand.New(rand.NewSource(rootSeed + int64(rand.Intn(1e10)))) // TODO check which range is possible
 	newRadioModelRandSeedGenerator = rand.New(rand.NewSource(rootSeed + int64(rand.Intn(1e10))))
-	newFailTimeRandGenerator = rand.New(rand.NewSource(rootSeed + int64(rand.Intn(1e10))))
-	newRandomProbGenerator = rand.New(rand.NewSource(rootSeed + int64(rand.Intn(1e10))))
+	failTimeRandGenerator = rand.New(rand.NewSource(rootSeed + int64(rand.Intn(1e10))))
+	unitRandGenerator = rand.New(rand.NewSource(rootSeed + int64(rand.Intn(1e10))))
 }
 
 // NewNodeRandomSeed generates unique random-seeds for newly created nodes.
@@ -63,13 +62,12 @@ func NewRadioModelRandomSeed() RandomSeed {
 	return RandomSeed(newRadioModelRandSeedGenerator.Int63())
 }
 
+// NewFailTime generates a random new failure-start time between 0 and failStartTimeMax.
 func NewFailTime(failStartTimeMax int) uint64 {
-	return uint64(newFailTimeRandGenerator.Intn(failStartTimeMax))
+	return uint64(failTimeRandGenerator.Intn(failStartTimeMax))
 }
 
-func NewRandomProb() float64 {
-	cnt++
-	r := newRandomProbGenerator.Float64()
-	logger.Debugf("Generated n=%d: %f", cnt, r)
-	return r
+// NewUnitRandom generates a new random unit [0, 1] float, which can be used as a random probability.
+func NewUnitRandom() float64 {
+	return unitRandGenerator.Float64()
 }

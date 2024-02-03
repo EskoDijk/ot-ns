@@ -700,9 +700,9 @@ func (rt *CmdRunner) executeLsPartitions(cc *CommandContext) {
 	pars := map[uint32][]NodeId{}
 
 	rt.postAsyncWait(cc, func(sim *simulation.Simulation) {
-		for nodeid, dnode := range sim.Dispatcher().Nodes() {
+		for _, dnode := range sim.Dispatcher().Nodes() {
 			parid := dnode.PartitionId
-			pars[parid] = append(pars[parid], nodeid)
+			pars[parid] = append(pars[parid], dnode.Id)
 		}
 	})
 
@@ -722,10 +722,10 @@ func (rt *CmdRunner) executeCollectPings(cc *CommandContext, pings *PingsCmd) {
 	allPings := make(map[NodeId][]*dispatcher.PingResult)
 	rt.postAsyncWait(cc, func(sim *simulation.Simulation) {
 		d := sim.Dispatcher()
-		for nodeid, node := range d.Nodes() {
+		for _, node := range d.Nodes() {
 			pings := node.CollectPings()
 			if len(pings) > 0 {
-				allPings[nodeid] = pings
+				allPings[node.Id] = pings
 			}
 		}
 	})
@@ -742,10 +742,10 @@ func (rt *CmdRunner) executeCollectJoins(cc *CommandContext, joins *JoinsCmd) {
 
 	rt.postAsyncWait(cc, func(sim *simulation.Simulation) {
 		d := sim.Dispatcher()
-		for nodeid, node := range d.Nodes() {
+		for _, node := range d.Nodes() {
 			joins := node.CollectJoins()
 			if len(joins) > 0 {
-				allJoins[nodeid] = joins
+				allJoins[node.Id] = joins
 			}
 		}
 	})

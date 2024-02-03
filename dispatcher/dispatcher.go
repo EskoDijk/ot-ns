@@ -220,8 +220,18 @@ func (d *Dispatcher) GetUnixSocketName() string {
 	return d.socketName
 }
 
-func (d *Dispatcher) Nodes() map[NodeId]*Node {
-	return d.nodes
+// Nodes returns an array of dispatcher Node pointers, sorted on NodeId.
+func (d *Dispatcher) Nodes() []*Node {
+	rval := make([]*Node, 0, len(d.nodes))
+	nodeIds := make([]NodeId, 0, len(d.nodes))
+	for nodeId, _ := range d.nodes {
+		nodeIds = append(nodeIds, nodeId)
+	}
+	sort.Ints(nodeIds)
+	for _, nodeId := range nodeIds {
+		rval = append(rval, d.nodes[nodeId])
+	}
+	return rval
 }
 
 func (d *Dispatcher) Go(duration time.Duration) <-chan error {
@@ -687,7 +697,7 @@ func (d *Dispatcher) sendRadioCommRxStartEvents(srcNode *Node, evt *Event) {
 
 	// dispatch the message to all in range that are receiving.
 	neighborNodes := map[NodeId]*Node{}
-	for _, dstNode := range d.nodes {
+	for _, dstNode := range d.Nodes() {
 		if d.checkRadioReachable(srcNode, dstNode) {
 			d.sendOneRadioFrame(evt, srcNode, dstNode)
 			neighborNodes[dstNode.Id] = dstNode
@@ -778,7 +788,7 @@ func (d *Dispatcher) sendRadioCommRxDoneEvents(srcNode *Node, evt *Event) {
 	// if not dispatched yet, dispatch to all nodes able to receive. Works e.g. for Acks that don't have
 	// a destination address.
 	if !dispatchedByDstAddr {
-		for _, dstNode := range d.nodes {
+		for _, dstNode := range d.Nodes() {
 			if d.checkRadioReachable(srcNode, dstNode) {
 				d.sendOneRadioFrame(evt, srcNode, dstNode)
 			}
@@ -809,7 +819,7 @@ func (d *Dispatcher) sendOneRadioFrame(evt *Event,
 	if d.globalPacketLossRatio > 0 {
 		datalen := len(evt.Data)
 		succRate := math.Pow(1.0-d.globalPacketLossRatio, float64(datalen)/128.0)
-		if prng.NewRandomProb() >= succRate {
+		if prng.NewUnitRandom() >= succRate {
 			return
 		}
 	}
@@ -867,8 +877,8 @@ func (d *Dispatcher) syncAliveNodes() {
 
 // syncAllNodes advances all the node's time to current dispatcher time.
 func (d *Dispatcher) syncAllNodes() {
-	for nodeid := range d.nodes {
-		d.advanceNodeTime(d.nodes[nodeid], d.CurTime, false)
+	for _, node := range d.Nodes() {
+		d.advanceNodeTime(node, d.CurTime, false)
 	}
 	d.RecvEvents() // blocks until all nodes asleep again.
 }
@@ -1220,7 +1230,7 @@ func (d *Dispatcher) GetNode(id NodeId) *Node {
 
 func (d *Dispatcher) GetFailedCount() int {
 	failCount := 0
-	for _, dn := range d.nodes {
+	for _, dn := range d.Nodes() {
 		if dn.IsFailed() {
 			failCount += 1
 		}
@@ -1452,9 +1462,9 @@ func (d *Dispatcher) GetRadioModel() radiomodel.RadioModel {
 func (d *Dispatcher) SetRadioModel(model radiomodel.RadioModel) {
 	if d.radioModel != model && d.radioModel != nil {
 		// when setting a new model, transfer all nodes into it.
-		for id, node := range d.nodes {
-			d.radioModel.DeleteNode(id)
-			model.AddNode(id, node.RadioNode)
+		for _, node := range d.Nodes() {
+			d.radioModel.DeleteNode(node.Id)
+			model.AddNode(node.Id, node.RadioNode)
 		}
 	}
 	d.radioModel = model

@@ -142,7 +142,7 @@ func Main(ctx *progctx.ProgCtx, visualizerCreator func(ctx *progctx.ProgCtx, arg
 	logger.SetLevelFromString(args.LogLevel)
 	simId := parseListenAddr()
 
-	prng.PrngInit(args.RandomSeed)
+	prng.Init(args.RandomSeed)
 
 	var vis visualize.Visualizer
 	if visualizerCreator != nil {

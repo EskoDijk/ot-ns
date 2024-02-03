@@ -45,15 +45,20 @@ var (
 
 func applyBerModel(sirDb DbValue, srcNodeId NodeId, evt *Event) (bool, string) {
 	pSuccess := 1.0
+	rnd := 0.5
 	logMsg := ""
 	var nbits int
-	// if sirDb >= 6.0, then ratio SIR=~2, and pSuccess for any regular 15.4 frame is =~ 1.0 always.
-	// Save time (?) by not doing the calculation then.
-	if sirDb < 6.0 {
+	// if sirDb >= 6.0, then ratio SIR>=~3.98, and pSuccess for any regular 15.4 frame is =~ 1.0 always.
+	// if sirDb <= -10.0, then ratio SIR<=~0.1, and pSuccess for shortest frame is < 10e-8 always.
+	// Save time (?) by not doing the calculation in these cases.
+	if sirDb < -10.0 {
+		pSuccess = 0.0
+	} else if sirDb < 6.0 {
 		pSuccess, nbits = computePacketSuccessRate(sirDb, evt.RadioCommData.Duration)
+		rnd = prng.NewUnitRandom()
 	}
+
 	if pSuccess < 1.0 {
-		rnd := prng.NewRandomProb()
 		if rnd > pSuccess {
 			evt.Data = interferePsduData(evt.Data)
 			evt.RadioCommData.Error = OT_ERROR_FCS

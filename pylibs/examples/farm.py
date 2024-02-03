@@ -52,15 +52,18 @@ FARM_RECT = [20 * R, 20 * R, 440 * R, 260 * R] # number in meters
 
 
 def main():
-    #ns = OTNS(otns_args=['-log', 'info', '-no-logfile'])
-    random_seed = 23982342342
-    ns = OTNS(otns_args=['-seed', f'{random_seed}', '-pcap', 'wpan-tap'])
-    random.seed(random_seed)
+    ns = OTNS(otns_args=['-no-logfile'])
 
-    ns.loglevel = 'trace'
-    ns.watch_default('trace')
-    ns.logconfig(logging.DEBUG)
-    ns.speed = 9999
+    if False: # Optional forcing of random-seed for OTNS and Python. This gives exact reproducable simulation.
+        # The pcap parameter is to select another PCAP type that includes channel info.
+        random_seed = 2142142
+        ns = OTNS(otns_args=['-seed', f'{random_seed}', '-pcap', 'wpan-tap'])
+        random.seed(random_seed)
+
+    ns.loglevel = 'info'
+    ns.watch_default('note')
+    ns.logconfig(logging.INFO)
+    ns.speed = 4
     ns.radiomodel = 'Outdoor'
     ns.set_radioparam('MeterPerUnit', 1/R )
     ns.set_radioparam('ShadowFadingSigmaDb', 0.0)
@@ -104,7 +107,7 @@ def main():
     time_accum = 0
     sid_last_ping = 0
 
-    while ns.time < 9e6:
+    while True:
         dt = 1
         ns.go(dt)
         time_accum += dt
