@@ -702,7 +702,7 @@ func (d *Dispatcher) sendRadioCommRxStartEvents(srcNode *Node, evt *Event) {
 
 	// dispatch the message to all in range that are receiving.
 	neighborNodes := map[NodeId]*Node{}
-	for _, dstNode := range d.Nodes() {
+	for _, dstNode := range d.nodesArray {
 		if d.checkRadioReachable(srcNode, dstNode) {
 			d.sendOneRadioFrame(evt, srcNode, dstNode)
 			neighborNodes[dstNode.Id] = dstNode
@@ -793,7 +793,7 @@ func (d *Dispatcher) sendRadioCommRxDoneEvents(srcNode *Node, evt *Event) {
 	// if not dispatched yet, dispatch to all nodes able to receive. Works e.g. for Acks that don't have
 	// a destination address.
 	if !dispatchedByDstAddr {
-		for _, dstNode := range d.Nodes() {
+		for _, dstNode := range d.nodesArray {
 			if d.checkRadioReachable(srcNode, dstNode) {
 				d.sendOneRadioFrame(evt, srcNode, dstNode)
 			}
@@ -882,7 +882,7 @@ func (d *Dispatcher) syncAliveNodes() {
 
 // syncAllNodes advances all the node's time to current dispatcher time.
 func (d *Dispatcher) syncAllNodes() {
-	for _, node := range d.Nodes() {
+	for _, node := range d.nodesArray {
 		d.advanceNodeTime(node, d.CurTime, false)
 	}
 	d.RecvEvents() // blocks until all nodes asleep again.
@@ -1236,7 +1236,7 @@ func (d *Dispatcher) GetNode(id NodeId) *Node {
 
 func (d *Dispatcher) GetFailedCount() int {
 	failCount := 0
-	for _, dn := range d.Nodes() {
+	for _, dn := range d.nodesArray {
 		if dn.IsFailed() {
 			failCount += 1
 		}
@@ -1469,7 +1469,7 @@ func (d *Dispatcher) GetRadioModel() radiomodel.RadioModel {
 func (d *Dispatcher) SetRadioModel(model radiomodel.RadioModel) {
 	if d.radioModel != model && d.radioModel != nil {
 		// when setting a new model, transfer all nodes into it.
-		for _, node := range d.Nodes() {
+		for _, node := range d.nodesArray {
 			d.radioModel.DeleteNode(node.Id)
 			model.AddNode(node.Id, node.RadioNode)
 		}
