@@ -87,6 +87,7 @@ type Dispatcher struct {
 	alarmMgr              *alarmMgr
 	eventQueue            *sendQueue
 	nodes                 map[NodeId]*Node
+	nodesArray            []*Node
 	deletedNodes          map[NodeId]struct{}
 	aliveNodes            map[NodeId]struct{}
 	pcap                  pcap.File
@@ -142,6 +143,7 @@ func NewDispatcher(ctx *progctx.ProgCtx, cfg *Config, cbHandler CallbackHandler)
 		eventQueue:         newSendQueue(),
 		alarmMgr:           newAlarmMgr(),
 		nodes:              make(map[NodeId]*Node),
+		nodesArray:         make([]*Node, 0),
 		deletedNodes:       map[NodeId]struct{}{},
 		aliveNodes:         make(map[NodeId]struct{}),
 		extaddrMap:         map[uint64]*Node{},
@@ -222,16 +224,19 @@ func (d *Dispatcher) GetUnixSocketName() string {
 
 // Nodes returns an array of dispatcher Node pointers, sorted on NodeId.
 func (d *Dispatcher) Nodes() []*Node {
-	rval := make([]*Node, 0, len(d.nodes))
+	return d.nodesArray
+}
+
+func (d *Dispatcher) reconstructNodesArray() {
+	d.nodesArray = make([]*Node, 0, len(d.nodes))
 	nodeIds := make([]NodeId, 0, len(d.nodes))
 	for nodeId := range d.nodes {
 		nodeIds = append(nodeIds, nodeId)
 	}
 	sort.Ints(nodeIds)
 	for _, nodeId := range nodeIds {
-		rval = append(rval, d.nodes[nodeId])
+		d.nodesArray = append(d.nodesArray, d.nodes[nodeId])
 	}
-	return rval
 }
 
 func (d *Dispatcher) Go(duration time.Duration) <-chan error {
@@ -1011,6 +1016,7 @@ func (d *Dispatcher) AddNode(nodeid NodeId, cfg *NodeConfig) *Node {
 
 	node := newNode(d, nodeid, cfg)
 	d.nodes[nodeid] = node
+	d.reconstructNodesArray()
 	d.alarmMgr.AddNode(nodeid)
 	d.energyAnalyser.AddNode(nodeid, d.CurTime)
 	d.vis.AddNode(nodeid, cfg)
@@ -1252,6 +1258,7 @@ func (d *Dispatcher) DeleteNode(id NodeId) {
 	logger.AssertNotNil(node)
 
 	delete(d.nodes, id)
+	d.reconstructNodesArray()
 	delete(d.aliveNodes, id)
 	delete(d.watchingNodes, id)
 	if node.Rloc16 != InvalidRloc16 {
