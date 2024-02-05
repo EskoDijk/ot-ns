@@ -105,7 +105,7 @@ func newNode(s *Simulation, nodeid NodeId, cfg *NodeConfig, dnode *dispatcher.No
 		cmd:           cmd,
 		pendingLines:  make(chan string, 10000),
 		pendingEvents: make(chan *event.Event, 100),
-		uartType:      NodeUartTypeUndefined,
+		uartType:      nodeUartTypeUndefined,
 		uartReader:    make(chan []byte, 10000),
 		version:       "",
 	}
@@ -242,11 +242,11 @@ func (node *Node) assurePrompt() {
 }
 
 func (node *Node) inputCommand(cmd string) error {
-	logger.AssertTrue(node.uartType != NodeUartTypeUndefined)
+	logger.AssertTrue(node.uartType != nodeUartTypeUndefined)
 	var err error
 	node.cmdErr = nil // reset last command error
 
-	if node.uartType == NodeUartTypeRealTime {
+	if node.uartType == nodeUartTypeRealTime {
 		_, err = node.pipeIn.Write([]byte(cmd + "\n"))
 		node.S.Dispatcher().NotifyCommand(node.Id)
 	} else {

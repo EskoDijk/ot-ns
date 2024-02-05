@@ -29,10 +29,6 @@ package simulation
 import (
 	"fmt"
 	"io"
-	"os"
-	"path/filepath"
-	"strings"
-
 	"regexp"
 
 	. "github.com/openthread/ot-ns/types"
@@ -49,9 +45,9 @@ var (
 type NodeUartType int
 
 const (
-	NodeUartTypeUndefined   NodeUartType = iota
-	NodeUartTypeRealTime    NodeUartType = iota
-	NodeUartTypeVirtualTime NodeUartType = iota
+	nodeUartTypeUndefined   NodeUartType = iota
+	nodeUartTypeRealTime    NodeUartType = iota
+	nodeUartTypeVirtualTime NodeUartType = iota
 )
 
 type CmdRunner interface {
@@ -60,29 +56,4 @@ type CmdRunner interface {
 	// GetContextNodeId gets the user's current selected node ID context for running commands, or
 	// types.InvalidNodeId if no node context selected.
 	GetContextNodeId() NodeId
-}
-
-func removeAllFiles(globPath string) error {
-	files, err := filepath.Glob(globPath)
-	if err != nil {
-		return err
-	}
-	for _, f := range files {
-		if err := os.Remove(f); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func getCommitFromOtVersion(ver string) string {
-	if strings.HasPrefix(ver, "OPENTHREAD/") && len(ver) >= 13 {
-		commit := ver[11:]
-		idx := strings.Index(commit, ";")
-		if idx > 0 {
-			commit = commit[0:idx]
-			return commit
-		}
-	}
-	return ""
 }

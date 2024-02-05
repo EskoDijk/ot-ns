@@ -150,7 +150,7 @@ func (s *Simulation) AddNode(cfg *NodeConfig) (*Node, error) {
 	s.nodes[nodeid] = node
 
 	// init of the sim/dispatcher nodes
-	node.uartType = NodeUartTypeVirtualTime
+	node.uartType = nodeUartTypeVirtualTime
 	logger.AssertTrue(s.d.IsAlive(nodeid))
 	evtCnt := s.d.RecvEvents() // allow new node to connect, and to receive its startup events.
 
