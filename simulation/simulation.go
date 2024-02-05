@@ -38,7 +38,6 @@ import (
 	"github.com/openthread/ot-ns/dispatcher"
 	"github.com/openthread/ot-ns/energy"
 	"github.com/openthread/ot-ns/event"
-	"github.com/openthread/ot-ns/kpi"
 	"github.com/openthread/ot-ns/logger"
 	"github.com/openthread/ot-ns/progctx"
 	"github.com/openthread/ot-ns/radiomodel"
@@ -63,7 +62,7 @@ type Simulation struct {
 	networkInfo    visualize.NetworkInfo
 	energyAnalyser *energy.EnergyAnalyser
 	nodePlacer     *NodeAutoPlacer
-	kpiMgr         *kpi.KpiManager
+	kpiMgr         *KpiManager
 }
 
 func NewSimulation(ctx *progctx.ProgCtx, cfg *Config, dispatcherCfg *dispatcher.Config) (*Simulation, error) {
@@ -78,7 +77,7 @@ func NewSimulation(ctx *progctx.ProgCtx, cfg *Config, dispatcherCfg *dispatcher.
 		autoGoChange: make(chan bool, 1),
 		networkInfo:  visualize.DefaultNetworkInfo(),
 		nodePlacer:   NewNodeAutoPlacer(),
-		kpiMgr:       kpi.NewKpiManager(),
+		kpiMgr:       NewKpiManager(),
 	}
 	s.SetLogLevel(cfg.LogLevel)
 	s.networkInfo.Real = cfg.Real
@@ -107,6 +106,7 @@ func NewSimulation(ctx *progctx.ProgCtx, cfg *Config, dispatcherCfg *dispatcher.
 	s.d.SetEnergyAnalyser(s.energyAnalyser)
 	s.vis.SetEnergyAnalyser(s.energyAnalyser)
 
+	s.kpiMgr.Init(s)
 	s.kpiMgr.Start()
 	return s, nil
 }
