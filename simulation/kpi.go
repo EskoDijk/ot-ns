@@ -29,8 +29,9 @@ package simulation
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/openthread/ot-ns/logger"
 	"os"
+
+	"github.com/openthread/ot-ns/logger"
 )
 
 type KpiManager struct {
@@ -53,7 +54,6 @@ func (km *KpiManager) Init(sim *Simulation) {
 
 func (km *KpiManager) Start() {
 	km.data.Time.StartTimeUs = km.sim.Dispatcher().CurTime
-
 }
 
 func (km *KpiManager) Stop() {
@@ -67,8 +67,13 @@ func (km *KpiManager) Stop() {
 func (km *KpiManager) SaveFile() {
 	json, err := json.MarshalIndent(km.data, "", "    ")
 	if err != nil {
-		return // TODO
+		logger.Errorf("Could not create KPI JSON data: %v", err)
+		return
 	}
 	fn := fmt.Sprintf("%s/%d_kpi.json", km.sim.cfg.OutputDir, km.sim.cfg.Id)
-	os.WriteFile(fn, json, 0644)
+	err = os.WriteFile(fn, json, 0644)
+	if err != nil {
+		logger.Errorf("Could not write  KPI JSON file: %v", err)
+		return
+	}
 }
