@@ -38,6 +38,7 @@ import (
 	"github.com/openthread/ot-ns/dispatcher"
 	"github.com/openthread/ot-ns/energy"
 	"github.com/openthread/ot-ns/event"
+	"github.com/openthread/ot-ns/kpi"
 	"github.com/openthread/ot-ns/logger"
 	"github.com/openthread/ot-ns/progctx"
 	"github.com/openthread/ot-ns/radiomodel"
@@ -62,6 +63,7 @@ type Simulation struct {
 	networkInfo    visualize.NetworkInfo
 	energyAnalyser *energy.EnergyAnalyser
 	nodePlacer     *NodeAutoPlacer
+	kpiMgr         *kpi.KpiManager
 }
 
 func NewSimulation(ctx *progctx.ProgCtx, cfg *Config, dispatcherCfg *dispatcher.Config) (*Simulation, error) {
@@ -76,6 +78,7 @@ func NewSimulation(ctx *progctx.ProgCtx, cfg *Config, dispatcherCfg *dispatcher.
 		autoGoChange: make(chan bool, 1),
 		networkInfo:  visualize.DefaultNetworkInfo(),
 		nodePlacer:   NewNodeAutoPlacer(),
+		kpiMgr:       kpi.NewKpiManager(),
 	}
 	s.SetLogLevel(cfg.LogLevel)
 	s.networkInfo.Real = cfg.Real
@@ -93,10 +96,10 @@ func NewSimulation(ctx *progctx.ProgCtx, cfg *Config, dispatcherCfg *dispatcher.
 	s.d.SetRadioModel(radiomodel.NewRadioModel(cfg.RadioModel))
 	s.vis = s.d.GetVisualizer()
 	if err := s.createTmpDir(); err != nil {
-		logger.Panicf("creating ./tmp/ directory failed: %+v", err)
+		logger.Panicf("creating %s/ directory failed: %+v", cfg.OutputDir, err)
 	}
 	if err := s.cleanTmpDir(cfg.Id); err != nil {
-		logger.Panicf("cleaning ./tmp/ directory files '%d_*.*' failed: %+v", cfg.Id, err)
+		logger.Panicf("cleaning %s/ directory files '%d_*.*' failed: %+v", cfg.OutputDir, cfg.Id, err)
 	}
 
 	//TODO add a flag to turn on/off the energy analyzer
@@ -104,6 +107,7 @@ func NewSimulation(ctx *progctx.ProgCtx, cfg *Config, dispatcherCfg *dispatcher.
 	s.d.SetEnergyAnalyser(s.energyAnalyser)
 	s.vis.SetEnergyAnalyser(s.energyAnalyser)
 
+	s.kpiMgr.Start()
 	return s, nil
 }
 
@@ -305,6 +309,7 @@ func (s *Simulation) Stop() {
 
 	logger.Infof("stopping simulation and exiting nodes ...")
 	s.stopped = true
+	s.kpiMgr.Stop()
 
 	// for faster process, signal node exit first in parallel.
 	for _, node := range s.nodes {
@@ -454,17 +459,17 @@ func (s *Simulation) GoAtSpeed(duration time.Duration, speed float64) <-chan err
 
 func (s *Simulation) cleanTmpDir(simulationId int) error {
 	// tmp directory is used by nodes for saving *.flash files. Need to be cleaned when simulation started
-	err := removeAllFiles(fmt.Sprintf("tmp/%d_*.flash", simulationId))
+	err := removeAllFiles(fmt.Sprintf("%s/%d_*.flash", s.cfg.OutputDir, simulationId))
 	if err != nil {
 		return err
 	}
-	err = removeAllFiles(fmt.Sprintf("tmp/%d_*.log", simulationId))
+	err = removeAllFiles(fmt.Sprintf("%s/%d_*.log", s.cfg.OutputDir, simulationId))
 	return err
 }
 
 func (s *Simulation) createTmpDir() error {
 	// tmp directory is used by nodes for saving *.flash files. Need to be present when simulation started
-	err := os.Mkdir("tmp", 0775)
+	err := os.Mkdir(s.cfg.OutputDir, 0775)
 	if errors.Is(err, fs.ErrExist) {
 		return nil // ok, already present
 	}

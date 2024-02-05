@@ -58,6 +58,7 @@ type Config struct {
 	Channel          ChannelId
 	LogLevel         logger.Level
 	RandomSeed       RandomSeed
+	OutputDir        string
 }
 
 func DefaultConfig() *Config {
@@ -79,5 +80,6 @@ func DefaultConfig() *Config {
 		Channel:          DefaultChannel,
 		LogLevel:         logger.WarnLevel,
 		RandomSeed:       0,
+		OutputDir:        "tmp",
 	}
 }

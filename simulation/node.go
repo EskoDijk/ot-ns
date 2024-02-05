@@ -81,7 +81,7 @@ func newNode(s *Simulation, nodeid NodeId, cfg *NodeConfig, dnode *dispatcher.No
 	var err error
 
 	if !cfg.Restore {
-		flashFile := fmt.Sprintf("tmp/%d_%d.flash", s.cfg.Id, nodeid)
+		flashFile := fmt.Sprintf("%s/%d_%d.flash", s.cfg.OutputDir, s.cfg.Id, nodeid)
 		if err = os.RemoveAll(flashFile); err != nil {
 			logger.Errorf("Remove flash file %s failed: %+v", flashFile, err)
 			return nil, err
@@ -99,7 +99,7 @@ func newNode(s *Simulation, nodeid NodeId, cfg *NodeConfig, dnode *dispatcher.No
 	node := &Node{
 		S:             s,
 		Id:            nodeid,
-		Logger:        logger.GetNodeLogger(s.cfg.Id, cfg),
+		Logger:        logger.GetNodeLogger(s.cfg.OutputDir, s.cfg.Id, cfg),
 		DNode:         dnode,
 		cfg:           cfg,
 		cmd:           cmd,
