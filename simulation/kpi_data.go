@@ -28,18 +28,26 @@ package simulation
 
 import . "github.com/openthread/ot-ns/types"
 
-type KpiTime struct {
+type KpiTimeUs struct {
 	StartTimeUs uint64 `json:"start"`
 	EndTimeUs   uint64 `json:"end"`
 	PeriodUs    uint64 `json:"duration"`
 }
 
+type KpiTimeSec struct {
+	StartTimeSec float64 `json:"start"`
+	EndTimeSec   float64 `json:"end"`
+	PeriodSec    float64 `json:"duration"`
+}
+
 type KpiChannel struct {
-	TxTimeUs   uint64  `json:"tx_time_us"`
-	TxFraction float64 `json:"tx_fraction"`
+	TxTimeUs     uint64  `json:"tx_time_us"`
+	TxPercentage float64 `json:"tx_percentage"`
 }
 
 type Kpi struct {
-	Time     KpiTime `json:"time_us"`
-	Channels map[ChannelId]KpiChannel
+	FileTime string                   `json:"created"`
+	TimeUs   KpiTimeUs                `json:"time_us"`
+	TimeSec  KpiTimeSec               `json:"time_sec"`
+	Channels map[ChannelId]KpiChannel `json:"channels"`
 }

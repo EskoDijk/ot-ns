@@ -30,13 +30,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/openthread/ot-ns/logger"
+	"github.com/openthread/ot-ns/radiomodel"
+	. "github.com/openthread/ot-ns/types"
 )
 
 type KpiManager struct {
-	sim  *Simulation
-	data *Kpi
+	sim       *Simulation
+	data      *Kpi
+	isRunning bool
 }
 
 // NewKpiManager creates a new KPI manager/bookkeeper for a particular simulation.
@@ -48,32 +52,69 @@ func NewKpiManager() *KpiManager {
 // Init inits the KPI manager for the given simulation.
 func (km *KpiManager) Init(sim *Simulation) {
 	logger.AssertNil(km.sim)
+	logger.AssertFalse(km.isRunning)
 	km.sim = sim
 	km.data = &Kpi{}
 }
 
 func (km *KpiManager) Start() {
-	km.data.Time.StartTimeUs = km.sim.Dispatcher().CurTime
+	logger.AssertFalse(km.isRunning)
+	km.data.TimeUs.StartTimeUs = km.sim.Dispatcher().CurTime
+	km.isRunning = true
+	km.SaveFile(km.getDefaultSaveFileName())
 }
 
 func (km *KpiManager) Stop() {
-	km.data.Time.EndTimeUs = km.sim.Dispatcher().CurTime
-	km.data.Time.PeriodUs = km.data.Time.EndTimeUs - km.data.Time.StartTimeUs
-
-	// TODO km.sim.Dispatcher().GetRadioModel(). get radio chan data
-	km.SaveFile()
+	logger.AssertTrue(km.isRunning)
+	km.calculateKpis()
+	km.isRunning = false
+	km.SaveFile(km.getDefaultSaveFileName())
 }
 
-func (km *KpiManager) SaveFile() {
+func (km *KpiManager) SaveFile(fn string) {
+	logger.AssertNotNil(km.sim)
+	if km.isRunning {
+		km.calculateKpis()
+	}
+
+	km.data.FileTime = time.Now().Format(time.RFC3339)
 	json, err := json.MarshalIndent(km.data, "", "    ")
 	if err != nil {
-		logger.Errorf("Could not create KPI JSON data: %v", err)
+		logger.Fatalf("Could not marshal KPI JSON data: %v", err)
 		return
 	}
-	fn := fmt.Sprintf("%s/%d_kpi.json", km.sim.cfg.OutputDir, km.sim.cfg.Id)
+
 	err = os.WriteFile(fn, json, 0644)
 	if err != nil {
-		logger.Errorf("Could not write  KPI JSON file: %v", err)
+		logger.Errorf("Could not write  KPI JSON file %s: %v", fn, err)
 		return
 	}
+}
+
+func (km *KpiManager) calculateKpis() {
+	// time
+	km.data.TimeUs.EndTimeUs = km.sim.Dispatcher().CurTime
+	km.data.TimeUs.PeriodUs = km.data.TimeUs.EndTimeUs - km.data.TimeUs.StartTimeUs
+	km.data.TimeSec.StartTimeSec = float64(km.data.TimeUs.StartTimeUs) / 1e6
+	km.data.TimeSec.EndTimeSec = float64(km.data.TimeUs.EndTimeUs) / 1e6
+	km.data.TimeSec.PeriodSec = float64(km.data.TimeUs.PeriodUs) / 1e6
+
+	// channels
+	km.data.Channels = make(map[ChannelId]KpiChannel)
+	if km.data.TimeUs.PeriodUs > 0 {
+		for ch := radiomodel.MinChannelNumber; ch < radiomodel.MaxChannelNumber; ch++ {
+			stats := km.sim.Dispatcher().GetRadioModel().GetChannelStats(ch, km.sim.Dispatcher().CurTime)
+			if stats != nil {
+				chanKpi := KpiChannel{
+					TxTimeUs:     stats.TxTimeUs,
+					TxPercentage: 100.0 * float64(stats.TxTimeUs) / float64(km.data.TimeUs.PeriodUs),
+				}
+				km.data.Channels[ch] = chanKpi
+			}
+		}
+	}
+}
+
+func (km *KpiManager) getDefaultSaveFileName() string {
+	return fmt.Sprintf("%s/%d_kpi.json", km.sim.cfg.OutputDir, km.sim.cfg.Id)
 }
