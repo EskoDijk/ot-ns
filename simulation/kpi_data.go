@@ -42,7 +42,13 @@ type KpiTimeSec struct {
 
 type KpiChannel struct {
 	TxTimeUs     uint64  `json:"tx_time_us"`
-	TxPercentage float64 `json:"tx_percentage"`
+	TxPercentage float64 `json:"tx_percent"`
+}
+
+type KpiMac struct {
+	Message         string             `json:"status"`
+	NoAckPercentage map[NodeId]float64 `json:"noack_percent"`
+	NumAckRequested map[NodeId]int     `json:"TxAckRequested"`
 }
 
 type Kpi struct {
@@ -50,4 +56,5 @@ type Kpi struct {
 	TimeUs   KpiTimeUs                `json:"time_us"`
 	TimeSec  KpiTimeSec               `json:"time_sec"`
 	Channels map[ChannelId]KpiChannel `json:"channels"`
+	Mac      KpiMac                   `json:"mac"`
 }

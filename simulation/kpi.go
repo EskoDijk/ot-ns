@@ -29,6 +29,7 @@ package simulation
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 	"time"
 
@@ -113,6 +114,26 @@ func (km *KpiManager) calculateKpis() {
 			}
 		}
 	}
+
+	// counters mac
+	km.data.Mac.NoAckPercentage = make(map[NodeId]float64)
+	km.data.Mac.NumAckRequested = make(map[NodeId]int)
+	km.data.Mac.Message = "MAC counters not included due to interrupted simulation"
+
+	if km.sim.IsStopping() {
+		return
+	}
+	for _, nid := range km.sim.GetNodes() {
+		counters := km.sim.nodes[nid].GetCounters("mac")
+
+		noAckPercent := 100.0 - 100.0*float64(counters["TxAcked"])/float64(counters["TxAckRequested"])
+		if math.IsNaN(noAckPercent) {
+			noAckPercent = 0.0
+		}
+		km.data.Mac.NoAckPercentage[nid] = noAckPercent
+		km.data.Mac.NumAckRequested[nid] = counters["TxAckRequested"]
+	}
+	km.data.Mac.Message = "ok"
 }
 
 func (km *KpiManager) getDefaultSaveFileName() string {

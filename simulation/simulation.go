@@ -226,7 +226,6 @@ func (s *Simulation) Run() {
 	s.ctx.WaitAdd("dispatcher", 1)
 	close(s.Started)
 	s.d.Run()
-	s.ctx.Cancel("simulation-run")
 	s.Stop()
 	close(s.Exited)
 	s.d.Stop()
@@ -311,13 +310,14 @@ func (s *Simulation) Stop() {
 	s.stopped = true
 	s.kpiMgr.Stop()
 
+	s.ctx.Cancel("simulation-stop")
+
 	// for faster process, signal node exit first in parallel.
 	for _, node := range s.nodes {
 		_ = node.signalExit()
 	}
 
 	// then clean up and wait for each node process to stop, sequentially.
-	s.ctx.Cancel("simulation-stop")
 	for _, node := range s.nodes {
 		_ = node.exit()
 	}

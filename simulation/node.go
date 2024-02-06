@@ -872,6 +872,25 @@ func (node *Node) GetSingleton() bool {
 	}
 }
 
+func (node *Node) GetCounters(counterType string) map[string]int {
+	lines := node.Command("counters "+counterType, DefaultCommandTimeout)
+	res := make(map[string]int)
+	for _, line := range lines {
+		kv := strings.Split(line, ": ")
+		if len(kv) != 2 {
+			node.Logger.Errorf("GetCounters(): unexpected data '%v'", line)
+			return nil
+		}
+		val, err := strconv.Atoi(kv[1])
+		if err != nil {
+			node.Logger.Errorf("GetCounters(): unexpected value string '%v' (not int)", kv[1])
+			return nil
+		}
+		res[kv[0]] = val
+	}
+	return res
+}
+
 func (node *Node) processUartData() {
 	var deadline <-chan time.Time
 	done := node.S.ctx.Done()
