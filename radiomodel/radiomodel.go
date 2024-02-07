@@ -53,8 +53,9 @@ type EventQueue interface {
 
 // ChannelStats contains statistics and usage data for a radio channel.
 type ChannelStats struct {
-	Channel  ChannelId
-	TxTimeUs uint64 // total time (us) that >= 1 nodes have been transmitting on this channel
+	Channel   ChannelId
+	TxTimeUs  uint64 // total time (us) that >= 1 nodes have been transmitting on this channel
+	NumFrames uint64 // total number of frame transmissions on channel
 
 	numTransmitters int    // internal bookkeeping: number of tx nodes
 	txStartTime     uint64 // internal bookkeeping: start of an initial tx on a clear channel

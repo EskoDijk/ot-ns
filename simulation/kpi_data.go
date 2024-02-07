@@ -43,6 +43,8 @@ type KpiTimeSec struct {
 type KpiChannel struct {
 	TxTimeUs     uint64  `json:"tx_time_us"`
 	TxPercentage float64 `json:"tx_percent"`
+	NumFrames    uint64  `json:"tx_frames"`
+	AvgFps       float64 `json:"tx_avg_fps"`
 }
 
 type KpiMac struct {

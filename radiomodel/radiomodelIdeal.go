@@ -191,6 +191,7 @@ func (rm *RadioModelIdeal) statsTxStart(node *RadioNode, evt *Event) {
 		chStats = &ChannelStats{
 			Channel:         ch,
 			TxTimeUs:        0,
+			NumFrames:       0,
 			numTransmitters: 0,
 		}
 		rm.channelStats[ch] = chStats
@@ -199,6 +200,7 @@ func (rm *RadioModelIdeal) statsTxStart(node *RadioNode, evt *Event) {
 		chStats.txStartTime = evt.Timestamp
 	}
 	chStats.numTransmitters++
+	chStats.NumFrames++
 }
 
 func (rm *RadioModelIdeal) statsTxStop(node *RadioNode, evt *Event) {

@@ -149,6 +149,8 @@ func (km *KpiManager) retrieveRadioModelStats() RadioStatsStore {
 				chanKpi := KpiChannel{
 					TxTimeUs:     stats.TxTimeUs,
 					TxPercentage: 100.0 * float64(stats.TxTimeUs) / float64(passedTime),
+					NumFrames:    stats.NumFrames,
+					AvgFps:       1.0e6 * float64(stats.NumFrames) / float64(passedTime),
 				}
 				ret[ch] = chanKpi
 			}
