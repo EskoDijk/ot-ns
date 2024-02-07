@@ -131,8 +131,10 @@ func (km *KpiManager) retrieveNodeCounters() NodeCountersStore {
 	nodes := km.sim.GetNodes()
 	nodesMap := make(NodeCountersStore, len(nodes))
 	for _, nid := range nodes {
-		counters := km.sim.nodes[nid].GetCounters("mac", "mac.")
-		nodesMap[nid] = counters
+		counters1 := km.sim.nodes[nid].GetCounters("mac", "mac.")
+		counters2 := km.sim.nodes[nid].GetCounters("mle", "mle.")
+		counters3 := km.sim.nodes[nid].GetCounters("ip", "ip.")
+		nodesMap[nid] = mergeNodeCounters(counters1, counters2, counters3)
 	}
 	return nodesMap
 }

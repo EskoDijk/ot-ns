@@ -56,3 +56,13 @@ func getCommitFromOtVersion(ver string) string {
 	}
 	return ""
 }
+
+func mergeNodeCounters(counters ...NodeCounters) NodeCounters {
+	res := make(NodeCounters)
+	for _, c := range counters {
+		for k, v := range c {
+			res[k] = v
+		}
+	}
+	return res
+}
