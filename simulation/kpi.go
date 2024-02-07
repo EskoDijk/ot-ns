@@ -39,10 +39,16 @@ import (
 )
 
 type KpiManager struct {
-	sim       *Simulation
-	data      *Kpi
-	isRunning bool
+	sim           *Simulation
+	data          *Kpi
+	startCounters NodeCountersStore
+	curCounters   NodeCountersStore
+	curRadioStats RadioStatsStore
+	isRunning     bool
 }
+
+type NodeCountersStore map[NodeId]NodeCounters
+type RadioStatsStore map[ChannelId]KpiChannel
 
 // NewKpiManager creates a new KPI manager/bookkeeper for a particular simulation.
 func NewKpiManager() *KpiManager {
@@ -55,26 +61,46 @@ func (km *KpiManager) Init(sim *Simulation) {
 	logger.AssertNil(km.sim)
 	logger.AssertFalse(km.isRunning)
 	km.sim = sim
-	km.data = &Kpi{}
+	km.data = &Kpi{Status: "ok"}
+	km.startCounters = NodeCountersStore{}
+	km.curCounters = NodeCountersStore{}
 }
 
 func (km *KpiManager) Start() {
-	logger.AssertFalse(km.isRunning)
+	logger.AssertNotNil(km.sim)
+	km.startCounters = km.retrieveNodeCounters()
 	km.data.TimeUs.StartTimeUs = km.sim.Dispatcher().CurTime
+	rm := km.sim.Dispatcher().GetRadioModel()
+	for ch := radiomodel.MinChannelNumber; ch <= radiomodel.MaxChannelNumber; ch++ {
+		rm.ResetChannelStats(ch)
+	}
 	km.isRunning = true
 	km.SaveFile(km.getDefaultSaveFileName())
 }
 
 func (km *KpiManager) Stop() {
-	logger.AssertTrue(km.isRunning)
-	km.calculateKpis()
-	km.isRunning = false
+	if km.isRunning {
+		km.curCounters = km.retrieveNodeCounters()
+		km.curRadioStats = km.retrieveRadioModelStats()
+		km.isRunning = false
+		km.calculateKpis()
+		km.SaveDefaultFile()
+	}
+}
+
+func (km *KpiManager) IsRunning() bool {
+	return km.isRunning
+}
+
+func (km *KpiManager) SaveDefaultFile() {
 	km.SaveFile(km.getDefaultSaveFileName())
 }
 
 func (km *KpiManager) SaveFile(fn string) {
 	logger.AssertNotNil(km.sim)
 	if km.isRunning {
+		km.curCounters = km.retrieveNodeCounters()
+		km.curRadioStats = km.retrieveRadioModelStats()
 		km.calculateKpis()
 	}
 
@@ -92,6 +118,58 @@ func (km *KpiManager) SaveFile(fn string) {
 	}
 }
 
+func (km *KpiManager) stopNode(nodeid NodeId) {
+	// deleted nodes during a KPI period won't be used anymore in final node-specific KPI calculations.
+	delete(km.startCounters, nodeid)
+	delete(km.curCounters, nodeid)
+}
+
+func (km *KpiManager) retrieveNodeCounters() NodeCountersStore {
+	if km.sim.IsStopping() {
+		return nil
+	}
+	nodes := km.sim.GetNodes()
+	nodesMap := make(NodeCountersStore, len(nodes))
+	for _, nid := range nodes {
+		counters := km.sim.nodes[nid].GetCounters("mac", "mac.")
+		nodesMap[nid] = counters
+	}
+	return nodesMap
+}
+
+func (km *KpiManager) retrieveRadioModelStats() RadioStatsStore {
+	ret := make(RadioStatsStore)
+	curTime := km.sim.Dispatcher().CurTime
+	passedTime := curTime - km.data.TimeUs.StartTimeUs
+
+	if passedTime > 0 {
+		for ch := radiomodel.MinChannelNumber; ch <= radiomodel.MaxChannelNumber; ch++ {
+			stats := km.sim.Dispatcher().GetRadioModel().GetChannelStats(ch, curTime)
+			if stats != nil {
+				chanKpi := KpiChannel{
+					TxTimeUs:     stats.TxTimeUs,
+					TxPercentage: 100.0 * float64(stats.TxTimeUs) / float64(passedTime),
+				}
+				ret[ch] = chanKpi
+			}
+		}
+	}
+
+	return ret
+}
+
+func getCountersDiff(curCtr NodeCounters, startCtr NodeCounters) NodeCounters {
+	ret := NodeCounters{}
+	for k, v := range curCtr {
+		startVal := 0 // if node wasn't known at start, it was created during - use 0 for a counter's start value.
+		if sv, ok := startCtr[k]; ok {
+			startVal = sv
+		}
+		ret[k] = v - startVal
+	}
+	return ret
+}
+
 func (km *KpiManager) calculateKpis() {
 	// time
 	km.data.TimeUs.EndTimeUs = km.sim.Dispatcher().CurTime
@@ -101,39 +179,24 @@ func (km *KpiManager) calculateKpis() {
 	km.data.TimeSec.PeriodSec = float64(km.data.TimeUs.PeriodUs) / 1e6
 
 	// channels
-	km.data.Channels = make(map[ChannelId]KpiChannel)
-	if km.data.TimeUs.PeriodUs > 0 {
-		for ch := radiomodel.MinChannelNumber; ch < radiomodel.MaxChannelNumber; ch++ {
-			stats := km.sim.Dispatcher().GetRadioModel().GetChannelStats(ch, km.sim.Dispatcher().CurTime)
-			if stats != nil {
-				chanKpi := KpiChannel{
-					TxTimeUs:     stats.TxTimeUs,
-					TxPercentage: 100.0 * float64(stats.TxTimeUs) / float64(km.data.TimeUs.PeriodUs),
-				}
-				km.data.Channels[ch] = chanKpi
-			}
-		}
-	}
+	km.data.Channels = km.curRadioStats
 
-	// counters mac
+	// counters
 	km.data.Mac.NoAckPercentage = make(map[NodeId]float64)
-	km.data.Mac.NumAckRequested = make(map[NodeId]int)
-	km.data.Mac.Message = "MAC counters not included due to interrupted simulation"
-
-	if km.sim.IsStopping() {
-		return
-	}
-	for _, nid := range km.sim.GetNodes() {
-		counters := km.sim.nodes[nid].GetCounters("mac")
-
-		noAckPercent := 100.0 - 100.0*float64(counters["TxAcked"])/float64(counters["TxAckRequested"])
-		if math.IsNaN(noAckPercent) {
-			noAckPercent = 0.0
+	km.data.Counters = make(map[NodeId]NodeCounters)
+	if km.curCounters == nil {
+		km.data.Status = "'counters' and 'mac' not included due to interrupted simulation"
+	} else {
+		for nid, ctr := range km.curCounters {
+			counters := getCountersDiff(ctr, km.startCounters[nid])
+			noAckPercent := 100.0 - 100.0*float64(counters["mac.TxAcked"])/float64(counters["mac.TxAckRequested"])
+			if math.IsNaN(noAckPercent) {
+				noAckPercent = 0.0
+			}
+			km.data.Mac.NoAckPercentage[nid] = noAckPercent
+			km.data.Counters[nid] = counters
 		}
-		km.data.Mac.NoAckPercentage[nid] = noAckPercent
-		km.data.Mac.NumAckRequested[nid] = counters["TxAckRequested"]
 	}
-	km.data.Mac.Message = "ok"
 }
 
 func (km *KpiManager) getDefaultSaveFileName() string {

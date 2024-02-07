@@ -46,15 +46,15 @@ type KpiChannel struct {
 }
 
 type KpiMac struct {
-	Message         string             `json:"status"`
 	NoAckPercentage map[NodeId]float64 `json:"noack_percent"`
-	NumAckRequested map[NodeId]int     `json:"TxAckRequested"`
 }
 
 type Kpi struct {
 	FileTime string                   `json:"created"`
+	Status   string                   `json:"status"`
 	TimeUs   KpiTimeUs                `json:"time_us"`
 	TimeSec  KpiTimeSec               `json:"time_sec"`
 	Channels map[ChannelId]KpiChannel `json:"channels"`
 	Mac      KpiMac                   `json:"mac"`
+	Counters map[NodeId]NodeCounters  `json:"counters"`
 }

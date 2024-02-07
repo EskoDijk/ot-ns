@@ -421,6 +421,7 @@ func (s *Simulation) DeleteNode(nodeid NodeId) error {
 	err := node.exit()
 	s.d.RecvEvents()
 	s.d.DeleteNode(nodeid)
+	s.kpiMgr.stopNode(nodeid)
 	delete(s.nodes, nodeid)
 	return err
 }
@@ -497,6 +498,10 @@ func (s *Simulation) SetNetworkInfo(networkInfo visualize.NetworkInfo) {
 
 func (s *Simulation) GetEnergyAnalyser() *energy.EnergyAnalyser {
 	return s.energyAnalyser
+}
+
+func (s *Simulation) GetKpiManager() *KpiManager {
+	return s.kpiMgr
 }
 
 func (s *Simulation) GetConfig() *Config {

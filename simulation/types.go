@@ -57,3 +57,5 @@ type CmdRunner interface {
 	// types.InvalidNodeId if no node context selected.
 	GetContextNodeId() NodeId
 }
+
+type NodeCounters map[string]int

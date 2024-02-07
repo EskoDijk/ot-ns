@@ -872,9 +872,9 @@ func (node *Node) GetSingleton() bool {
 	}
 }
 
-func (node *Node) GetCounters(counterType string) map[string]int {
+func (node *Node) GetCounters(counterType string, keyPrefix string) NodeCounters {
 	lines := node.Command("counters "+counterType, DefaultCommandTimeout)
-	res := make(map[string]int)
+	res := make(NodeCounters)
 	for _, line := range lines {
 		kv := strings.Split(line, ": ")
 		if len(kv) != 2 {
@@ -886,7 +886,7 @@ func (node *Node) GetCounters(counterType string) map[string]int {
 			node.Logger.Errorf("GetCounters(): unexpected value string '%v' (not int)", kv[1])
 			return nil
 		}
-		res[kv[0]] = val
+		res[keyPrefix+kv[0]] = val
 	}
 	return res
 }
