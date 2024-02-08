@@ -1251,9 +1251,9 @@ func (rt *CmdRunner) executeKpi(cc *CommandContext, cmd *KpiCmd) {
 		if len(cmd.Operation) == 0 {
 			isRunning := sim.GetKpiManager().IsRunning()
 			if isRunning {
-				cc.outputf("Started\n")
+				cc.outputf("on\n")
 			} else {
-				cc.outputf("Stopped\n")
+				cc.outputf("off\n")
 			}
 			return
 		}

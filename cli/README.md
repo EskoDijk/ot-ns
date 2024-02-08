@@ -426,11 +426,14 @@ Done
 > go 3600
 Done
 > kpi
-started
+on
 Done
 > kpi save "kpi_scenario_1.json"
 Done
-> kpi start
+> kpi stop
+Done
+> kpi
+off
 Done
 > 
 ```
