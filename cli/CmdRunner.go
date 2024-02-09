@@ -30,6 +30,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
 	"reflect"
 	"strconv"
 	"strings"
@@ -185,10 +186,6 @@ func (rt *CmdRunner) GetPrompt() string {
 	}
 }
 
-func (rt *CmdRunner) GetContextNodeId() NodeId {
-	return rt.contextNodeId
-}
-
 func (rt *CmdRunner) execute(cmd *Command, output io.Writer) {
 	cc := &CommandContext{
 		Command:         cmd,
@@ -290,6 +287,10 @@ func (rt *CmdRunner) execute(cmd *Command, output io.Writer) {
 		rt.executeAutoGo(cc, cmd.AutoGo)
 	} else if cmd.Kpi != nil {
 		rt.executeKpi(cc, cmd.Kpi)
+	} else if cmd.Load != nil {
+		rt.executeLoad(cc, cmd.Load)
+	} else if cmd.Save != nil {
+		rt.executeSave(cc, cmd.Save)
 	} else {
 		logger.Panicf("unimplemented command: %#v", cmd)
 	}
@@ -1271,4 +1272,65 @@ func (rt *CmdRunner) executeKpi(cc *CommandContext, cmd *KpiCmd) {
 			}
 		}
 	})
+}
+
+func (rt *CmdRunner) executeSave(cc *CommandContext, cmd *SaveCmd) {
+	var rootYaml yaml.Node
+
+	// test filename if valid
+	_, err := os.Stat(cmd.Filename)
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		cc.errorf("Invalid save file name: %s", cmd.Filename)
+		return
+	}
+
+	rt.postAsyncWait(cc, func(sim *simulation.Simulation) {
+		networkConfig := sim.ExportNetwork()
+		nodesConfig := sim.ExportNodes(&networkConfig)
+
+		root := map[string]interface{}{
+			"network": networkConfig,
+			"nodes":   nodesConfig,
+		}
+		err = rootYaml.Encode(root)
+		logger.PanicIfError(err)
+
+		var data []byte
+		data, err = yaml.Marshal(&rootYaml)
+		err = os.WriteFile(cmd.Filename, data, 0644)
+	})
+
+	if err != nil {
+		cc.errorf("Error writing file '%s': %v", cmd.Filename, err)
+	}
+}
+
+func (rt *CmdRunner) executeLoad(cc *CommandContext, cmd *LoadCmd) {
+	var rootYaml map[string]interface{}
+
+	// test filename if valid
+	fileInfo, err := os.Stat(cmd.Filename)
+	if err != nil || fileInfo.IsDir() {
+		cc.errorf("Invalid load file name: %s", cmd.Filename)
+		return
+	}
+
+	rt.postAsyncWait(cc, func(sim *simulation.Simulation) {
+		b, err := os.ReadFile(cmd.Filename)
+		if err != nil {
+			cc.errorf("Could not load file '%s': %v", cmd.Filename, err)
+			return
+		}
+		err = yaml.Unmarshal(b, rootYaml)
+		if err != nil {
+			cc.errorf("Error in YAML file: %v", err)
+			return
+		}
+
+		networkConfig := simulation.YamlNodeConfig(rootYaml["network"])
+	})
+
+	if err != nil {
+		cc.errorf("Error writing file '%s': %v", cmd.Filename, err)
+	}
 }

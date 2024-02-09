@@ -247,6 +247,56 @@ func (s *Simulation) GetNodes() []NodeId {
 	return keys
 }
 
+// ExportNetwork exports config info of network to a YAML-friendly object.
+func (s *Simulation) ExportNetwork() YamlNetworkConfig {
+	var rr *int = nil
+
+	// include radio-range if non-default
+	if s.cfg.NewNodeConfig.RadioRange != DefaultNodeConfig().RadioRange {
+		rr = &s.cfg.NewNodeConfig.RadioRange
+	}
+	res := YamlNetworkConfig{
+		Position:   []int{0, 0, 0}, // when exporting, always a 0-offset is used.
+		RadioRange: rr,
+	}
+	return res
+}
+
+// ExportNodes exports config/position info of all nodes to a YAML-friendly object.
+func (s *Simulation) ExportNodes(nwConfig *YamlNetworkConfig) []YamlNodeConfig {
+	nodes := s.GetNodes()
+	res := make([]YamlNodeConfig, 0)
+	defaultRr := DefaultNodeConfig().RadioRange
+
+	for _, nodeId := range nodes {
+		node := s.nodes[nodeId]
+		dNode := s.Dispatcher().GetNode(nodeId)
+		var rr *int = nil
+		var ver *string = nil
+
+		// include radio-range if non-default
+		if (nwConfig.RadioRange != nil && node.cfg.RadioRange != *nwConfig.RadioRange) ||
+			(nwConfig.RadioRange == nil && node.cfg.RadioRange != defaultRr) {
+			rr = &node.cfg.RadioRange
+		}
+
+		// include version if non-empty
+		if len(node.cfg.Version) > 0 {
+			ver = &node.cfg.Version
+		}
+
+		cfg := YamlNodeConfig{
+			ID:         nodeId,
+			Type:       node.cfg.Type,
+			Position:   []int{dNode.X, dNode.Y, dNode.Z},
+			RadioRange: rr,
+			Version:    ver,
+		}
+		res = append(res, cfg)
+	}
+	return res
+}
+
 func (s *Simulation) AutoGo() bool {
 	return s.autoGo
 }

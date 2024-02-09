@@ -52,6 +52,7 @@ type Command struct {
 	Help                *HelpCmd                `| @@` //nolint
 	Joins               *JoinsCmd               `| @@` //nolint
 	Kpi                 *KpiCmd                 `| @@` //nolint
+	Load                *LoadCmd                `| @@` //nolint
 	LogLevel            *LogLevelCmd            `| @@` //nolint
 	Move                *MoveCmd                `| @@` //nolint
 	NetInfo             *NetInfoCmd             `| @@` //nolint
@@ -65,6 +66,7 @@ type Command struct {
 	RadioModel          *RadioModelCmd          `| @@` //nolint
 	RadioParam          *RadioParamCmd          `| @@` //nolint
 	RfSim               *RfSimCmd               `| @@` //nolint
+	Save                *SaveCmd                `| @@` //nolint
 	Scan                *ScanCmd                `| @@` //nolint
 	Speed               *SpeedCmd               `| @@` //nolint
 	Time                *TimeCmd                `| @@` //nolint
@@ -521,6 +523,19 @@ type KpiCmd struct {
 	Cmd       struct{} `"kpi"`                        //nolint
 	Operation string   `[ @("start"|"stop"|"save") ]` //nolint
 	Filename  string   `[ @String ]`                  //nolint
+}
+
+// noinspection GoVetStructTag
+type LoadCmd struct {
+	Cmd      struct{} `"load"`  //nolint
+	Filename string   `@String` //nolint
+}
+
+// noinspection GoVetStructTag
+type SaveCmd struct {
+	Cmd       struct{} `"save"`                   //nolint
+	Filename  string   `@String`                  //nolint
+	Operation string   `[ @("all"|"topo"|"py") ]` //nolint
 }
 
 // noinspection GoVetStructTag
