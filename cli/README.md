@@ -123,19 +123,18 @@ Done
 
 Enable collecting info on CoAP messages or show collected info in YAML.
 
-#### coaps enable
+```shell
+coaps [enable]
+```
 
-Enable collecting info of CoAP messages. CoAP message transmission and reception is detected through the special 
+Use `coaps enable` to enable collecting info on CoAP messages. CoAP message transmission and reception is detected through the special 
 "coap" OTNS push events sent from the OT node binary to the simulator.
+Use `coaps` to show info of collected CoAP messages in YAML format.
 
 ```bash
 > coaps enable
 Done
 ```
-
-#### coaps
-
-Show info of collected CoAP messages in YAML format.
 
 ```bash
 > coaps
