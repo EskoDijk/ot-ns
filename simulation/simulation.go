@@ -111,12 +111,9 @@ func NewSimulation(ctx *progctx.ProgCtx, cfg *Config, dispatcherCfg *dispatcher.
 	return s, nil
 }
 
+// AddNode adds a node to the simulation as defined by the config cfg.
 func (s *Simulation) AddNode(cfg *NodeConfig) (*Node, error) {
 	nodeid := cfg.ID
-	if nodeid <= 0 {
-		nodeid = s.genNodeId()
-		cfg.ID = nodeid
-	}
 
 	if s.nodes[nodeid] != nil {
 		return nil, errors.Errorf("node %d already exists", nodeid)
@@ -127,13 +124,6 @@ func (s *Simulation) AddNode(cfg *NodeConfig) (*Node, error) {
 		cfg.X, cfg.Y, cfg.Z = s.nodePlacer.NextNodePosition(cfg.IsMtd || !cfg.IsRouter)
 	} else {
 		s.nodePlacer.UpdateReference(cfg.X, cfg.Y, cfg.Z)
-	}
-
-	// selection of Executable by simulation's policy, based on cfg
-	if len(cfg.Version) > 0 {
-		cfg.ExecutablePath = s.cfg.ExeConfigDefault.FindExecutableBasedOnConfig(cfg)
-	} else {
-		cfg.ExecutablePath = s.cfg.ExeConfig.FindExecutableBasedOnConfig(cfg)
 	}
 
 	// creation of the dispatcher and simulation nodes
@@ -245,56 +235,6 @@ func (s *Simulation) GetNodes() []NodeId {
 	}
 	sort.Ints(keys)
 	return keys
-}
-
-// ExportNetwork exports config info of network to a YAML-friendly object.
-func (s *Simulation) ExportNetwork() YamlNetworkConfig {
-	var rr *int = nil
-
-	// include radio-range if non-default
-	if s.cfg.NewNodeConfig.RadioRange != DefaultNodeConfig().RadioRange {
-		rr = &s.cfg.NewNodeConfig.RadioRange
-	}
-	res := YamlNetworkConfig{
-		Position:   []int{0, 0, 0}, // when exporting, always a 0-offset is used.
-		RadioRange: rr,
-	}
-	return res
-}
-
-// ExportNodes exports config/position info of all nodes to a YAML-friendly object.
-func (s *Simulation) ExportNodes(nwConfig *YamlNetworkConfig) []YamlNodeConfig {
-	nodes := s.GetNodes()
-	res := make([]YamlNodeConfig, 0)
-	defaultRr := DefaultNodeConfig().RadioRange
-
-	for _, nodeId := range nodes {
-		node := s.nodes[nodeId]
-		dNode := s.Dispatcher().GetNode(nodeId)
-		var rr *int = nil
-		var ver *string = nil
-
-		// include radio-range if non-default
-		if (nwConfig.RadioRange != nil && node.cfg.RadioRange != *nwConfig.RadioRange) ||
-			(nwConfig.RadioRange == nil && node.cfg.RadioRange != defaultRr) {
-			rr = &node.cfg.RadioRange
-		}
-
-		// include version if non-empty
-		if len(node.cfg.Version) > 0 {
-			ver = &node.cfg.Version
-		}
-
-		cfg := YamlNodeConfig{
-			ID:         nodeId,
-			Type:       node.cfg.Type,
-			Position:   []int{dNode.X, dNode.Y, dNode.Z},
-			RadioRange: rr,
-			Version:    ver,
-		}
-		res = append(res, cfg)
-	}
-	return res
 }
 
 func (s *Simulation) AutoGo() bool {

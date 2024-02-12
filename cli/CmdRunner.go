@@ -41,7 +41,6 @@ import (
 
 	"github.com/openthread/ot-ns/dispatcher"
 	"github.com/openthread/ot-ns/logger"
-	"github.com/openthread/ot-ns/prng"
 	"github.com/openthread/ot-ns/progctx"
 	"github.com/openthread/ot-ns/radiomodel"
 	"github.com/openthread/ot-ns/simulation"
@@ -382,6 +381,7 @@ func (rt *CmdRunner) executeAddNode(cc *CommandContext, cmd *AddCmd) {
 	simCfg := cc.rt.sim.GetConfig()
 	cfg := simCfg.NewNodeConfig // copy current new-node config for simulation, and modify it.
 
+	cfg.Type = cmd.Type.Val
 	if cmd.X != nil {
 		cfg.X = *cmd.X
 		cfg.IsAutoPlaced = false
@@ -394,42 +394,22 @@ func (rt *CmdRunner) executeAddNode(cc *CommandContext, cmd *AddCmd) {
 		cfg.Z = *cmd.Z
 		cfg.IsAutoPlaced = false
 	}
-
 	if cmd.Id != nil {
 		cfg.ID = cmd.Id.Val
 	}
-
 	if cmd.RadioRange != nil {
 		cfg.RadioRange = cmd.RadioRange.Val
 	}
-
-	cfg.Type = cmd.Type.Val
-	cfg.UpdateNodeConfigFromType()
-
-	if cmd.Executable != nil {
-		cfg.ExecutablePath = simCfg.ExeConfig.FindExecutable(cmd.Executable.Path)
-	} else if cmd.Version != nil {
+	cfg.Restore = cmd.Restore != nil
+	if cmd.Version != nil {
 		cfg.Version = cmd.Version.Val
 	}
-
-	cfg.Restore = cmd.Restore != nil
-
-	// in case of specified simulation random seed, each node gets a PRNG-predictable random seed assigned.
-	if simCfg.RandomSeed != 0 {
-		cfg.RandomSeed = prng.NewNodeRandomSeed()
-	}
-
-	// for a BR, do extra init steps to set prefix/routes/etc.
-	if cfg.IsBorderRouter {
-		cfg.InitScript = append(cfg.InitScript, simulation.DefaultBrScript...)
-	}
-
-	// for SSED, do extra CSL init command.
-	if cfg.Type == SSED {
-		cfg.InitScript = append(cfg.InitScript, simulation.DefaultCslScript...)
+	if cmd.Executable != nil {
+		cfg.ExecutablePath = cmd.Executable.Path
 	}
 
 	rt.postAsyncWait(cc, func(sim *simulation.Simulation) {
+		sim.NodeConfigFinalize(&cfg)
 		node, err := sim.AddNode(&cfg)
 		if err != nil {
 			cc.error(err)
@@ -1288,9 +1268,9 @@ func (rt *CmdRunner) executeSave(cc *CommandContext, cmd *SaveCmd) {
 		networkConfig := sim.ExportNetwork()
 		nodesConfig := sim.ExportNodes(&networkConfig)
 
-		root := map[string]interface{}{
-			"network": networkConfig,
-			"nodes":   nodesConfig,
+		root := simulation.YamlConfigFile{
+			NetworkConfig: networkConfig,
+			NodesList:     nodesConfig,
 		}
 		err = rootYaml.Encode(root)
 		logger.PanicIfError(err)
@@ -1306,8 +1286,6 @@ func (rt *CmdRunner) executeSave(cc *CommandContext, cmd *SaveCmd) {
 }
 
 func (rt *CmdRunner) executeLoad(cc *CommandContext, cmd *LoadCmd) {
-	var rootYaml map[string]interface{}
-
 	// test filename if valid
 	fileInfo, err := os.Stat(cmd.Filename)
 	if err != nil || fileInfo.IsDir() {
@@ -1321,16 +1299,16 @@ func (rt *CmdRunner) executeLoad(cc *CommandContext, cmd *LoadCmd) {
 			cc.errorf("Could not load file '%s': %v", cmd.Filename, err)
 			return
 		}
-		err = yaml.Unmarshal(b, rootYaml)
+		cfgFile := simulation.YamlConfigFile{}
+		err = yaml.Unmarshal(b, &cfgFile)
 		if err != nil {
 			cc.errorf("Error in YAML file: %v", err)
 			return
 		}
 
-		networkConfig := simulation.YamlNodeConfig(rootYaml["network"])
+		err = sim.ImportNodes(cfgFile.NetworkConfig, cfgFile.NodesList)
+		if err != nil {
+			cc.outputf("Warning: %v\n", err)
+		}
 	})
-
-	if err != nil {
-		cc.errorf("Error writing file '%s': %v", cmd.Filename, err)
-	}
 }
