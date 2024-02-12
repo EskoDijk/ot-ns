@@ -83,17 +83,21 @@ func (s *Simulation) ExportNodes(nwConfig *YamlNetworkConfig) []YamlNodeConfig {
 
 func (s *Simulation) ImportNodes(nwConfig YamlNetworkConfig, nodes []YamlNodeConfig) error {
 	allOk := true
-	rr := DefaultNodeConfig().RadioRange
+	rr := defaultRadioRange
 	if nwConfig.RadioRange != nil {
 		rr = *nwConfig.RadioRange
 	}
 	posOffset := nwConfig.Position
+	nodeIdOffset := 0
+	if nwConfig.BaseId != nil {
+		nodeIdOffset = *nwConfig.BaseId
+	}
 
 	for _, node := range nodes {
 		cfg := DefaultNodeConfig()
 
 		// fill config with entries from YAML 'node'
-		cfg.ID = node.ID
+		cfg.ID = node.ID + nodeIdOffset
 		if node.RadioRange != nil {
 			cfg.RadioRange = *node.RadioRange
 		} else {

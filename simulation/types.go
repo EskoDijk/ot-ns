@@ -30,6 +30,8 @@ import (
 	"fmt"
 	"io"
 	"regexp"
+
+	. "github.com/openthread/ot-ns/types"
 )
 
 var (
@@ -66,6 +68,7 @@ type YamlConfigFile struct {
 type YamlNetworkConfig struct {
 	Position   [3]int `yaml:"pos-shift,flow"`        // provides an optional 3D position shift of all nodes.
 	RadioRange *int   `yaml:"radio-range,omitempty"` // provides optional default radio-range.
+	BaseId     *int   `yaml:"base-id,omitempty"`     // provides an optional node ID base (offset) for all nodes.
 }
 
 // YamlNodeConfig is a node config that can be loaded/saved in YAML.
@@ -75,4 +78,14 @@ type YamlNodeConfig struct {
 	Version    *string `yaml:"version,omitempty"` // Thread version string or "" for default
 	Position   [3]int  `yaml:"pos,flow"`
 	RadioRange *int    `yaml:"radio-range,omitempty"`
+}
+
+func (yc *YamlConfigFile) MinNodeId() NodeId {
+	var m NodeId = 0
+	for _, n := range yc.NodesList {
+		if n.ID < m || m == 0 {
+			m = n.ID
+		}
+	}
+	return m
 }

@@ -1305,6 +1305,16 @@ func (rt *CmdRunner) executeLoad(cc *CommandContext, cmd *LoadCmd) {
 			cc.errorf("Error in YAML file: %v", err)
 			return
 		}
+		if len(cfgFile.NodesList) == 0 {
+			cc.errorf("No nodes defined in YAML file")
+			return
+		}
+
+		if cmd.Add != nil {
+			yamlMinNodeId := cfgFile.MinNodeId()
+			nodeIdOffset := sim.MaxNodeId() + 1 - yamlMinNodeId
+			cfgFile.NetworkConfig.BaseId = &nodeIdOffset
+		}
 
 		err = sim.ImportNodes(cfgFile.NetworkConfig, cfgFile.NodesList)
 		if err != nil {

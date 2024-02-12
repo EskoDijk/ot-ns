@@ -324,6 +324,11 @@ type MaxSpeedFlag struct {
 }
 
 // noinspection GoVetStructTag
+type AddFlag struct {
+	Dummy struct{} `"add"` //nolint
+}
+
+// noinspection GoVetStructTag
 type CoapsCmd struct {
 	Cmd    struct{}    `"coaps"` //nolint
 	Enable *EnableFlag `@@ ?`    //nolint
@@ -529,6 +534,7 @@ type KpiCmd struct {
 type LoadCmd struct {
 	Cmd      struct{} `"load"`  //nolint
 	Filename string   `@String` //nolint
+	Add      *AddFlag `[ @@ ]`  //nolint
 }
 
 // noinspection GoVetStructTag

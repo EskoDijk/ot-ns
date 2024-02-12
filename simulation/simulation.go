@@ -237,6 +237,17 @@ func (s *Simulation) GetNodes() []NodeId {
 	return keys
 }
 
+// MaxNodeId gets the largest Node Id of current nodes in the simulation.
+func (s *Simulation) MaxNodeId() NodeId {
+	m := 0
+	for nid := range s.nodes {
+		if nid > m || m == 0 {
+			m = nid
+		}
+	}
+	return m
+}
+
 func (s *Simulation) AutoGo() bool {
 	return s.autoGo
 }
