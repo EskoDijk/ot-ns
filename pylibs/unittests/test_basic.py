@@ -777,6 +777,7 @@ class BasicTests(OTNSTestCase):
         ns: OTNS = self.ns
         self.assertEqual(0,len(ns.nodes()))
         ns.add('router')
+        ns.go(10)
         ns.add('router')
         ns.add('router', version='v12')
         ns.add('router', version='v11')
@@ -793,7 +794,7 @@ class BasicTests(OTNSTestCase):
 
         ns.load('tmp/save_topology.yaml')
         self.assertEqual(5,len(ns.nodes()))
-        ns.go(25)
+        ns.go(125)
         self.assertFormPartitions(1)
 
 
