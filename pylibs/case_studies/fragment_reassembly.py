@@ -31,7 +31,7 @@ import logging
 from otns.cli import OTNS
 from otns.cli.errors import OTNSExitedError
 
-NUM_NODES = 3
+NUM_NODES = 4
 
 def ping_test(ns, datasz, count):
     id_src = 1
@@ -60,7 +60,7 @@ def main():
 
     # do tests and collect KPIs
     ns.kpi_start()
-    ping_test(ns, datasz=1000, count = 100)
+    ping_test(ns, datasz=1150, count = 100)
     ns.kpi_stop()
 
     ns.web_display()
