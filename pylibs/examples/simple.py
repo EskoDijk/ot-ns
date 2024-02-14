@@ -30,7 +30,7 @@ from otns.cli.errors import OTNSExitedError
 
 
 def main():
-    ns = OTNS(otns_args=["-log", "debug", "-no-logfile"])
+    ns = OTNS(otns_args=["-log", "debug", "-logfile", "none"])
     ns.set_title("Simple Example")
     ns.web()
 
