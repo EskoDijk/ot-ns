@@ -42,11 +42,8 @@ def ping_test(ns, datasz, count):
     ns.print_pings(ns.pings())
 
 def main():
-    ns = OTNS(otns_args=['-seed','550'])
+    ns = OTNS(otns_args=['-seed','550','-logfile', 'trace'])
     ns.speed = 1e6
-    ns.loglevel = 'warn'
-    ns.watch_default('trace')
-    ns.logconfig(logging.WARNING)
     #ns.radiomodel = 'MutualInterference' # 'MIDisc'
     ns.radiomodel = 'MIDisc'
     #ns.radiomodel = 'Ideal_Rssi'
