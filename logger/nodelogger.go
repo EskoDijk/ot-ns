@@ -221,7 +221,8 @@ func (nl *NodeLogger) DisplayPendingLogEntries(ts uint64) {
 			isSaveEntry := nl.fileLevel >= entry.Level
 			isDisplayEntry := nl.displayLevel >= entry.Level
 			logStr := tsStr + entry.Msg
-			if isSaveEntry && nl.isFileEnabled {
+			// whatever is displayed (watch), will also be logged to file.
+			if (isDisplayEntry || isSaveEntry) && nl.isFileEnabled {
 				if logStr[len(logStr)-1:] == "\n" { // remove duplicate newline chars
 					_ = nl.writeToLogFile(logStr[:len(logStr)-1])
 				} else {
