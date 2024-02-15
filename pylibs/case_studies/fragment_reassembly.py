@@ -38,14 +38,14 @@ def ping_test(ns, datasz, count):
     id_dst = max(ns.nodes())
     for i in range(0,count):
         ns.ping(id_src, id_dst, datasize=datasz)
-        ns.go(30)
+        ns.go(6)
     ns.print_pings(ns.pings())
 
 def main():
     ns = OTNS(otns_args=['-seed','550','-logfile', 'trace'])
     ns.speed = 1e6
-    #ns.radiomodel = 'MutualInterference'
-    ns.radiomodel = 'MIDisc'
+    ns.radiomodel = 'MutualInterference'
+    #ns.radiomodel = 'MIDisc'
     #ns.radiomodel = 'Ideal_Rssi'
     ns.set_radioparam('TimeFadingSigmaMaxDb', 0.0)
     ns.web()
