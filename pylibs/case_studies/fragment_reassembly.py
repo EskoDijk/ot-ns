@@ -44,14 +44,15 @@ def ping_test(ns, datasz, count):
 def main():
     ns = OTNS(otns_args=['-seed','550','-logfile', 'trace'])
     ns.speed = 1e6
-    #ns.radiomodel = 'MutualInterference' # 'MIDisc'
+    #ns.radiomodel = 'MutualInterference'
     ns.radiomodel = 'MIDisc'
     #ns.radiomodel = 'Ideal_Rssi'
+    ns.set_radioparam('TimeFadingSigmaMaxDb', 0.0)
     ns.web()
 
     # setup of line topology test network
     for i in range(0, NUM_NODES):
-        nid = ns.add("router", x=100 + 200 * i, y=100)
+        nid = ns.add("router", x=100 + 175 * i, y=100)
         if i == 0:
             ns.go(10) # Leader starts first
         print(f'Node {nid}: {ns.get_ipaddrs(nid,"mleid")[0]}' )
