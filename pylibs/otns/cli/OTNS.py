@@ -289,7 +289,7 @@ class OTNS(object):
                     raise_cli_err: bool = True,
                     output_donestrings: bool = False,
                     force_global_scope: bool = True) -> List[str]:
-        if cmd[0] != '!' and force_global_scope:
+        if force_global_scope and len(cmd)>0 and cmd[0] != '!':
             cmd = '!' + cmd
 
         with self._lock_otns_do_command:
