@@ -71,7 +71,7 @@ func NewSimulation(ctx *progctx.ProgCtx, cfg *Config, dispatcherCfg *dispatcher.
 		ctx:          ctx,
 		cfg:          cfg,
 		nodes:        map[NodeId]*Node{},
-		autoGo:       cfg.AutoGo,
+		autoGo:       cfg.AutoGo || cfg.Real,
 		autoGoChange: make(chan bool, 1),
 		networkInfo:  visualize.DefaultNetworkInfo(),
 		nodePlacer:   NewNodeAutoPlacer(),
@@ -85,7 +85,11 @@ func NewSimulation(ctx *progctx.ProgCtx, cfg *Config, dispatcherCfg *dispatcher.
 		dispatcherCfg = dispatcher.DefaultConfig()
 	}
 
-	dispatcherCfg.Speed = cfg.Speed
+	if cfg.Real {
+		dispatcherCfg.Speed = 1.0
+	} else {
+		dispatcherCfg.Speed = cfg.Speed
+	}
 	dispatcherCfg.Real = cfg.Real
 	dispatcherCfg.DumpPackets = cfg.DumpPackets
 
@@ -219,7 +223,7 @@ func (s *Simulation) genNodeId() NodeId {
 func (s *Simulation) Run() {
 	defer logger.Debugf("simulation exit.")
 
-	if s.cfg.AutoGo {
+	if s.autoGo {
 		s.autoGoChange <- true
 	}
 
@@ -264,6 +268,9 @@ func (s *Simulation) AutoGo() bool {
 }
 
 func (s *Simulation) SetAutoGo(isAuto bool) {
+	if s.cfg.Real {
+		return
+	}
 	if s.autoGo != isAuto {
 		s.autoGoChange <- isAuto
 		s.autoGo = isAuto
@@ -447,6 +454,9 @@ func (s *Simulation) ShowDemoLegend(x int, y int, title string) {
 }
 
 func (s *Simulation) SetSpeed(speed float64) {
+	if s.cfg.Real {
+		speed = 1.0
+	}
 	s.d.SetSpeed(speed)
 }
 

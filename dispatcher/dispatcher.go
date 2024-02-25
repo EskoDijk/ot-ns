@@ -497,13 +497,7 @@ func (d *Dispatcher) processNextEvent(simSpeed float64) bool {
 			}
 			time.Sleep(sleepTime)
 
-			if d.cfg.Real {
-				curTime := d.speedStartTime + uint64(float64(time.Since(d.speedStartRealTime)/time.Microsecond)*simSpeed)
-				if curTime > d.pauseTime {
-					curTime = d.pauseTime
-				}
-				d.advanceTime(curTime)
-			} else if time.Since(d.lastVizTime) >= d.cfg.VizUpdateTime {
+			if time.Since(d.lastVizTime) >= d.cfg.VizUpdateTime {
 				curTime := d.speedStartTime + uint64(float64(time.Since(d.speedStartRealTime)/time.Microsecond)*simSpeed)
 				if curTime > d.pauseTime {
 					curTime = d.pauseTime
@@ -659,11 +653,6 @@ func (d *Dispatcher) eventsReader() {
 func (d *Dispatcher) advanceNodeTime(node *Node, timestamp uint64, force bool) {
 	logger.AssertNotNil(node)
 
-	if d.cfg.Real {
-		node.CurTime = timestamp
-		return
-	}
-
 	oldTime := node.CurTime
 	if timestamp <= oldTime && !force {
 		// node time was already equal to or newer than the requested timestamp
@@ -808,9 +797,7 @@ func (d *Dispatcher) checkRadioReachable(src *Node, dst *Node) bool {
 		d.radioModel.CheckRadioReachable(src.RadioNode, dst.RadioNode)
 }
 
-func (d *Dispatcher) sendOneRadioFrame(evt *Event,
-	srcnode *Node, dstnode *Node) {
-	logger.AssertFalse(d.cfg.Real)
+func (d *Dispatcher) sendOneRadioFrame(evt *Event, srcnode *Node, dstnode *Node) {
 	logger.AssertTrue(EventTypeRadioCommStart == evt.Type || EventTypeRadioRxDone == evt.Type)
 	logger.AssertTrue(srcnode != dstnode)
 
@@ -843,7 +830,6 @@ func (d *Dispatcher) sendOneRadioFrame(evt *Event,
 }
 
 func (d *Dispatcher) setAlive(nodeid NodeId) {
-	logger.AssertFalse(d.cfg.Real)
 	logger.AssertFalse(d.isDeleted(nodeid))
 	d.aliveNodes[nodeid] = struct{}{}
 }
@@ -863,7 +849,6 @@ func (d *Dispatcher) isDeleted(nodeid NodeId) bool {
 }
 
 func (d *Dispatcher) setSleeping(nodeid NodeId) {
-	logger.AssertFalse(d.cfg.Real)
 	logger.AssertFalse(d.isDeleted(nodeid))
 	delete(d.aliveNodes, nodeid)
 }
@@ -1057,13 +1042,7 @@ func (d *Dispatcher) setNodeRloc16(srcid NodeId, rloc16 uint16) {
 func (d *Dispatcher) visStatusPushTransmit(srcnode *Node, s string) {
 	var fcf wpan.FrameControl
 
-	// only visualize `transmit` status emitting in real mode because simulation nodes already have radio events visualized
-	if !d.cfg.Real {
-		return
-	}
-
 	parts := strings.Split(s, ",")
-
 	if len(parts) < 3 {
 		logger.Panicf("invalid status push: transmit=%s", s)
 	}
@@ -1159,9 +1138,6 @@ func (d *Dispatcher) advanceTime(ts uint64) {
 	logger.AssertTrue(d.CurTime <= ts, "%v > %v", d.CurTime, ts)
 	if d.CurTime < ts {
 		d.CurTime = ts
-		if d.cfg.Real {
-			d.syncAllNodes()
-		}
 	}
 
 	if time.Since(d.lastVizTime) >= d.cfg.VizUpdateTime {
