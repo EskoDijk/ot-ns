@@ -912,7 +912,8 @@ func (d *Dispatcher) handleStatusPush(srcnode *Node, data string) {
 			continue
 		}
 		if sp[0] == "transmit" {
-			d.visStatusPushTransmit(srcnode, sp[1])
+			// 'transmit' status is currently not visualized: This is already done by OTNS based on
+			// radio frames transmitted.
 		} else if sp[0] == "role" {
 			role, err := strconv.Atoi(sp[1])
 			logger.PanicIfError(err)
@@ -989,7 +990,7 @@ func (d *Dispatcher) handleStatusPush(srcnode *Node, data string) {
 			mode := ParseNodeMode(sp[1])
 			d.vis.SetNodeMode(srcid, mode)
 		} else {
-			logger.Warnf("received unknown status push: %s=%s", sp[0], sp[1])
+			logger.Errorf("received unknown status push: %s=%s", sp[0], sp[1])
 		}
 	}
 }
@@ -1037,69 +1038,6 @@ func (d *Dispatcher) setNodeRloc16(srcid NodeId, rloc16 uint16) {
 	}
 
 	d.vis.SetNodeRloc16(srcid, rloc16)
-}
-
-func (d *Dispatcher) visStatusPushTransmit(srcnode *Node, s string) {
-	var fcf wpan.FrameControl
-
-	parts := strings.Split(s, ",")
-	if len(parts) < 3 {
-		logger.Panicf("invalid status push: transmit=%s", s)
-	}
-
-	channel, err := strconv.Atoi(parts[0])
-	logger.PanicIfError(err)
-	fcfval, err := strconv.ParseUint(parts[1], 16, 16)
-	logger.PanicIfError(err)
-	fcf = wpan.FrameControl(fcfval)
-
-	seq, err := strconv.Atoi(parts[2])
-	logger.PanicIfError(err)
-
-	dstAddrMode := fcf.DestAddrMode()
-
-	visInfo := &visualize.MsgVisualizeInfo{
-		Channel:      uint8(channel),
-		FrameControl: fcf,
-		Seq:          uint8(seq),
-	}
-
-	if dstAddrMode == wpan.AddrModeExtended {
-		dstExtend, err := strconv.ParseUint(parts[3], 16, 64)
-		logger.PanicIfError(err)
-
-		visInfo.DstAddrExtended = dstExtend
-
-		dstnode := d.extaddrMap[dstExtend]
-		if dstnode != srcnode && dstnode != nil {
-			d.visSend(srcnode.Id, dstnode.Id, visInfo)
-		} else {
-			d.visSend(srcnode.Id, InvalidNodeId, visInfo)
-		}
-	} else if dstAddrMode == wpan.AddrModeShort {
-		dstShortVal, err := strconv.ParseUint(parts[3], 16, 16)
-		logger.PanicIfError(err)
-
-		dstShort := uint16(dstShortVal)
-		visInfo.DstAddrShort = dstShort
-
-		if dstShort != BroadcastRloc16 {
-			// unicast message should only be dispatched to target node with the rloc16
-			dstnodes := d.rloc16Map[dstShort]
-
-			if len(dstnodes) > 0 {
-				for _, dstnode := range dstnodes {
-					d.visSend(srcnode.Id, dstnode.Id, visInfo)
-				}
-			} else {
-				d.visSend(srcnode.Id, InvalidNodeId, visInfo)
-			}
-		} else {
-			d.vis.Send(srcnode.Id, BroadcastNodeId, visInfo)
-		}
-	} else {
-		d.vis.Send(srcnode.Id, BroadcastNodeId, visInfo)
-	}
 }
 
 func (d *Dispatcher) visSendFrame(srcid NodeId, dstid NodeId, pktframe *wpan.MacFrame, commData RadioCommEventData) {
