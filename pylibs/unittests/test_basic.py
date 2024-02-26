@@ -810,7 +810,7 @@ class BasicTests(OTNSTestCase):
 
     def testRealtimeMode(self):
         self.tearDown()
-        with OTNS(otns_args=['-log', 'debug', '-real']) as ns:
+        with OTNS(otns_args=['-log', 'debug', '-realtime']) as ns:
             ns.add('router')
             ns.add('router')
             self.assertEqual(True, ns.autogo)
