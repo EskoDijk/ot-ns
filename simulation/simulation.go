@@ -71,26 +71,26 @@ func NewSimulation(ctx *progctx.ProgCtx, cfg *Config, dispatcherCfg *dispatcher.
 		ctx:          ctx,
 		cfg:          cfg,
 		nodes:        map[NodeId]*Node{},
-		autoGo:       cfg.AutoGo || cfg.Real,
+		autoGo:       cfg.AutoGo || cfg.Realtime,
 		autoGoChange: make(chan bool, 1),
 		networkInfo:  visualize.DefaultNetworkInfo(),
 		nodePlacer:   NewNodeAutoPlacer(),
 		kpiMgr:       NewKpiManager(),
 	}
 	s.SetLogLevel(cfg.LogLevel)
-	s.networkInfo.Real = cfg.Real
+	s.networkInfo.Real = cfg.Realtime
 
 	// start the dispatcher for virtual time
 	if dispatcherCfg == nil {
 		dispatcherCfg = dispatcher.DefaultConfig()
 	}
 
-	if cfg.Real {
+	if cfg.Realtime {
 		dispatcherCfg.Speed = 1.0
 	} else {
 		dispatcherCfg.Speed = cfg.Speed
 	}
-	dispatcherCfg.Real = cfg.Real
+	dispatcherCfg.Realtime = cfg.Realtime
 	dispatcherCfg.DumpPackets = cfg.DumpPackets
 
 	s.d = dispatcher.NewDispatcher(s.ctx, dispatcherCfg, s)
@@ -268,7 +268,7 @@ func (s *Simulation) AutoGo() bool {
 }
 
 func (s *Simulation) SetAutoGo(isAuto bool) {
-	if s.cfg.Real {
+	if s.cfg.Realtime {
 		return
 	}
 	if s.autoGo != isAuto {
@@ -454,7 +454,7 @@ func (s *Simulation) ShowDemoLegend(x int, y int, title string) {
 }
 
 func (s *Simulation) SetSpeed(speed float64) {
-	if s.cfg.Real {
+	if s.cfg.Realtime {
 		speed = 1.0
 	}
 	s.d.SetSpeed(speed)

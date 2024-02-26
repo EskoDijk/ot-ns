@@ -128,7 +128,7 @@ type Dispatcher struct {
 }
 
 func NewDispatcher(ctx *progctx.ProgCtx, cfg *Config, cbHandler CallbackHandler) *Dispatcher {
-	logger.AssertTrue(!cfg.Real || cfg.Speed == 1)
+	logger.AssertTrue(!cfg.Realtime || cfg.Speed == 1)
 	var err error
 	ln, unixSocketFile := newUnixSocket(cfg.SimulationId)
 	vis := visualize.NewNopVisualizer()
