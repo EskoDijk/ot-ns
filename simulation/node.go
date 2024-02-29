@@ -388,11 +388,10 @@ func (node *Node) SetChannel(ch ChannelId) {
 
 func (node *Node) GetRfSimParam(param RfSimParam) RfSimParamValue {
 	switch param {
-	case ParamRxSensitivity:
-		fallthrough
-	case ParamCslUncertainty:
-		fallthrough
-	case ParamCslAccuracy:
+	case ParamRxSensitivity,
+		ParamCslUncertainty,
+		ParamTxInterferer,
+		ParamCslAccuracy:
 		return node.getOrSetRfSimParam(false, param, 0) // TODO
 	case ParamCcaThreshold:
 		return node.GetCcaThreshold()
@@ -410,9 +409,9 @@ func (node *Node) SetRfSimParam(param RfSimParam, value RfSimParamValue) {
 			return
 		}
 		node.getOrSetRfSimParam(true, param, value)
-	case ParamCslAccuracy:
-		fallthrough
-	case ParamCslUncertainty:
+	case ParamCslAccuracy,
+		ParamCslUncertainty,
+		ParamTxInterferer:
 		if value < 0 || value > 255 {
 			node.error(fmt.Errorf("parameter out of range 0-255"))
 			return

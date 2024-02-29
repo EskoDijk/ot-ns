@@ -55,6 +55,7 @@ const (
 	BR     = "br"
 	MTD    = "mtd"
 	FTD    = "ftd"
+	WIFI   = "wifi" // Wi-Fi interferer node
 )
 
 func GetNodeName(id NodeId) string {
