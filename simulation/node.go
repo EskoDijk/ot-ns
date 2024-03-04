@@ -948,10 +948,15 @@ loop:
 }
 
 func (node *Node) onStart() {
-	node.Logger.Infof("started, panid=0x%04x, chan=%d, eui64=%#v, extaddr=%#v, state=%s, key=%#v, mode=%v",
-		node.GetPanid(), node.GetChannel(), node.GetEui64(), node.GetExtAddr(), node.GetState(),
-		node.GetNetworkKey(), node.GetMode())
-	node.Logger.Infof("         version=%s", node.GetVersion())
+	if node.Logger.IsLevelVisible(logger.InfoLevel) {
+		node.Logger.Infof("started, panid=0x%04x, chan=%d, eui64=%#v, extaddr=%#v, state=%s, key=%#v, mode=%v",
+			node.GetPanid(), node.GetChannel(), node.GetEui64(), node.GetExtAddr(), node.GetState(),
+			node.GetNetworkKey(), node.GetMode())
+		node.Logger.Infof("         version=%s", node.GetVersion())
+	}
+	if node.cfg.Type == WIFI {
+		node.SetRfSimParam(ParamTxInterferer, 10) // FIXME value default
+	}
 }
 
 func (node *Node) onProcessFailure() {

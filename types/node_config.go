@@ -80,7 +80,6 @@ func (cfg *NodeConfig) UpdateNodeConfigFromType() {
 		cfg.IsMtd = false
 		cfg.IsBorderRouter = false
 		cfg.RxOffWhenIdle = false
-		cfg.IsRaw = true
 	default:
 		panic("unknown node type cfg.Type")
 	}

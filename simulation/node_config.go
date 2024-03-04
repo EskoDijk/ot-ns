@@ -96,6 +96,10 @@ var defaultLegacyCslScript = []string{
 	fmt.Sprintf("csl period %d", DefaultCslPeriod),
 }
 
+var defaultWifiInterfererScript = []string{
+	"thread stop",
+}
+
 var defaultRadioRange = 220
 
 func DefaultNodeConfig() NodeConfig {
@@ -153,6 +157,11 @@ func (s *Simulation) NodeConfigFinalize(nodeCfg *NodeConfig) {
 			cslScript = defaultLegacyCslScript // older nodes use different parameter unit
 		}
 		nodeCfg.InitScript = append(nodeCfg.InitScript, cslScript...)
+	}
+
+	// for Wifi interferer, run specific script. FIXME set CCA threshold to wifi default
+	if nodeCfg.Type == WIFI {
+		nodeCfg.InitScript = defaultWifiInterfererScript
 	}
 }
 
