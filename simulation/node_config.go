@@ -97,7 +97,8 @@ var defaultLegacyCslScript = []string{
 }
 
 var defaultWifiInterfererScript = []string{
-	"thread stop",
+	"txpower 20",
+	"ccathreshold -75", // set at 20 dB above noise floor. TODO may adapt to noise floor.
 }
 
 var defaultRadioRange = 220
