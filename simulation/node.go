@@ -392,12 +392,12 @@ func (node *Node) GetRfSimParam(param RfSimParam) RfSimParamValue {
 		ParamCslUncertainty,
 		ParamTxInterferer,
 		ParamCslAccuracy:
-		return node.getOrSetRfSimParam(false, param, 0) // TODO
+		return node.getOrSetRfSimParam(false, param, 0)
 	case ParamCcaThreshold:
 		return node.GetCcaThreshold()
 	default:
 		node.error(fmt.Errorf("unknown RfSim parameter: %d", param))
-		return 0 // FIXME
+		return 0
 	}
 }
 
@@ -955,7 +955,7 @@ func (node *Node) onStart() {
 		node.Logger.Infof("         version=%s", node.GetVersion())
 	}
 	if node.cfg.Type == WIFI {
-		node.SetRfSimParam(ParamTxInterferer, 10) // FIXME value default
+		node.SetRfSimParam(ParamTxInterferer, defaultWiFiTxInterfererPercentage)
 	}
 }
 
