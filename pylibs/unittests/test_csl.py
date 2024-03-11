@@ -35,16 +35,6 @@ from otns.cli import errors, OTNS
 
 class CslTests(OTNSTestCase):
 
-    def verifyPings(self, pings, n, maxDelay=1000, maxFails=0):
-        self.assertEqual(n, len(pings))
-        nFails = 0
-        for srcid, dst, datasize, delay in pings:
-            if delay == OTNS.MAX_PING_DELAY:
-                nFails += 1
-            else:
-                self.assertTrue(delay <= maxDelay)
-        self.assertTrue(nFails <= maxFails)
-
     def testSsedConnectsToParent(self):
         ns = self.ns
 
@@ -63,7 +53,7 @@ class CslTests(OTNSTestCase):
         ns.go(1)
         ns.ping(1,2)
         ns.go(1)
-        self.verifyPings(ns.pings(), 2, maxDelay=2000, maxFails=1)
+        self.assertPings(ns.pings(), 2, max_delay=2000, max_fails=1)
 
     def testOneParentMultiCslChildren(self):
         ns = self.ns
@@ -97,7 +87,7 @@ class CslTests(OTNSTestCase):
                 ns.go(20)
 
             # test ping results
-            self.verifyPings(ns.pings(), N*4, maxDelay=3000, maxFails=1)
+            self.assertPings(ns.pings(), N*4, max_delay=3000, max_fails=1)
 
     def testCslReenable(self):
         ns = self.ns
@@ -114,13 +104,13 @@ class CslTests(OTNSTestCase):
         for n in range(0,15):
             ns.ping(2,1,datasize=n+10)
             ns.go(5)
-        self.verifyPings(ns.pings(), 15, maxDelay=3000, maxFails=1)
+        self.assertPings(ns.pings(), 15, max_delay=3000, max_fails=1)
 
         # parent pings SSED
         for n in range(0,15):
             ns.ping(1,2,datasize=n+10)
             ns.go(5)
-        self.verifyPings(ns.pings(), 15, maxDelay=3000, maxFails=1)
+        self.assertPings(ns.pings(), 15, max_delay=3000, max_fails=1)
 
         for k in range(0,4):
             # disable CSL
@@ -131,7 +121,7 @@ class CslTests(OTNSTestCase):
             for n in range(0,15):
                 ns.ping(2,1,datasize=n+10)
                 ns.go(5)
-            self.verifyPings(ns.pings(), 15, maxDelay=3000, maxFails=1)
+            self.assertPings(ns.pings(), 15, max_delay=3000, max_fails=1)
 
             # re-enable CSL
             ns.node_cmd(nodeid,"csl period 144000")
@@ -141,13 +131,13 @@ class CslTests(OTNSTestCase):
             for n in range(0,15):
                 ns.ping(2,1,datasize=n+10)
                 ns.go(5)
-            self.verifyPings(ns.pings(), 15, maxDelay=3000, maxFails=1)
+            self.assertPings(ns.pings(), 15, max_delay=3000, max_fails=1)
 
             # parent pings SSED
             for n in range(0,15):
                 ns.ping(1,2,datasize=n+10)
                 ns.go(5)
-            self.verifyPings(ns.pings(), 15, maxDelay=3000, maxFails=1)
+            self.assertPings(ns.pings(), 15, max_delay=3000, max_fails=1)
 
     def testCslParameters(self):
         ns: OTNS = self.ns

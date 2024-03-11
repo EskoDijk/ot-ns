@@ -127,13 +127,13 @@ class ExeVersionTests(OTNSTestCase):
         for n in range(2,6):
             ns.ping(n,1,datasize=n+10)
             ns.go(5)
-        self.verifyPings(ns.pings(), 4, maxDelay=3000, maxFails=1)
+        self.assertPings(ns.pings(), 4, max_delay=3000, max_fails=1)
 
         # parent pings SSED
         for n in range(2,6):
             ns.ping(1,n,datasize=n+10)
             ns.go(5)
-        self.verifyPings(ns.pings(), 4, maxDelay=3000, maxFails=1)
+        self.assertPings(ns.pings(), 4, max_delay=3000, max_fails=1)
 
     def testWifiInterferers(self):
         ns: OTNS = self.ns
