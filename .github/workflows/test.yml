@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2023, The OTNS Authors.
+# Copyright (c) 2020-2024, The OTNS Authors.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -83,6 +83,7 @@ jobs:
       - uses: actions/checkout@v3
       - name: Test
         run: |
+          ./script/test py-ver-unittests
           ./script/test py-unittests
 
   py-examples:
