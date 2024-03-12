@@ -146,6 +146,7 @@ stress_tests()
 {
     install_deps
     install_otns
+    build_openthread_br
     build_openthread
 
     python3 "$OTNSDIR"/pylibs/stress_tests/run_stress_suite.py "$@"
