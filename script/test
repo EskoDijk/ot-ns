@@ -104,7 +104,10 @@ py_unittests()
 
 py_versions_unittests()
 {
-    py_unittests
+    install_deps
+    python3 -m pip install --user -r "$OTNSDIR"/pylibs/unittests/requirements.txt
+    install_otns
+    build_openthread_versions
 
     python3 "$OTNSDIR"/pylibs/unittests/test_exe_versions.py
 }

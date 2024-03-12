@@ -81,9 +81,12 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - uses: actions/checkout@v3
-      - name: Test
+      - name: Test multiple OT-versions
         run: |
           ./script/test py-ver-unittests
+      - name: Test single OT-version
+        run: |
+          ./script/test py-unittests
 
   py-examples:
     name: Examples (${{ matrix.os }})
