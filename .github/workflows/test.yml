@@ -84,7 +84,6 @@ jobs:
       - name: Test
         run: |
           ./script/test py-ver-unittests
-          ./script/test py-unittests
 
   py-examples:
     name: Examples (${{ matrix.os }})

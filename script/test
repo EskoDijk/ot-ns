@@ -86,8 +86,8 @@ py_unittests()
     install_deps
     python3 -m pip install --user -r "$OTNSDIR"/pylibs/unittests/requirements.txt
     install_otns
-    build_openthread
     build_openthread_br
+    build_openthread
 
     python3 "$OTNSDIR"/pylibs/unittests/test_basic.py
     python3 "$OTNSDIR"/pylibs/unittests/test_ping.py
@@ -104,10 +104,7 @@ py_unittests()
 
 py_versions_unittests()
 {
-    install_deps
-    python3 -m pip install --user -r "$OTNSDIR"/pylibs/unittests/requirements.txt
-    install_otns
-    build_openthread_versions
+    py_unittests
 
     python3 "$OTNSDIR"/pylibs/unittests/test_exe_versions.py
 }
@@ -127,6 +124,7 @@ py_examples()
 {
     install_deps
     install_otns
+    build_openthread_br
     build_openthread
 
     check_py_example "$OTNSDIR"/pylibs/examples/simple.py
@@ -185,7 +183,6 @@ main()
                 ;;
             build-openthread)
                 build_openthread
-                build_openthread_br
                 shift 1
                 ;;
             build-openthread-versions)

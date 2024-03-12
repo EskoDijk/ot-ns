@@ -74,68 +74,45 @@ get_openthread_versions()
     fi
 }
 
+function get_build_options()
+{
+    local cov=${COVERAGE:-0}
+    if [[ $cov == 1 ]]; then
+        echo "-DOT_COVERAGE=ON"
+    else
+        # TODO: MacOS CI build fails for empty options. So we give one option here that is anyway set.
+        echo "-DOT_OTNS=ON"
+    fi
+}
+
 build_openthread()
 {
     get_openthread
     install_openthread_buildtools
-
     (
         cd ot-rfsim
-
-        # TODO: MacOS CI build fails for empty options. So we give one option here that is anyway set.
-        local options=("-DOT_OTNS=ON")
-
-        local COVERAGE=${COVERAGE:-0}
-        if [[ $COVERAGE == 1 ]]; then
-            options+=(
-                "-DOT_COVERAGE=ON"
-            )
-        fi
-
-        ./script/build_latest "${options[@]}"
+        ./script/build_latest "$(get_build_options)"
     )
 }
 
 build_openthread_br()
 {
-    get_openthread
-    install_openthread_buildtools
-
-    (
-        cd ot-rfsim
-
-        # TODO: MacOS CI build fails for empty options. So we give one option here that is anyway set.
-        local options=("-DOT_OTNS=ON")
-
-        local COVERAGE=${COVERAGE:-0}
-        if [[ $COVERAGE == 1 ]]; then
-            options+=(
-                "-DOT_COVERAGE=ON"
-            )
-        fi
-
-        ./script/build_br "${options[@]}"
-    )
+    if [[ ! -f ./ot-rfsim/ot-versions/ot-cli-ftd_br ]]; then
+        get_openthread
+        install_openthread_buildtools
+        (
+            cd ot-rfsim
+            ./script/build_br "$(get_build_options)"
+        )
+    fi
 }
 
 build_openthread_versions()
 {
     get_openthread_versions
     install_openthread_buildtools
-
     (
         cd ot-rfsim
-
-        # TODO: MacOS CI build fails for empty options. So we give one option here that is anyway set.
-        local options=("-DOT_OTNS=ON")
-
-        local COVERAGE=${COVERAGE:-0}
-        if [[ $COVERAGE == 1 ]]; then
-            options+=(
-                "-DOT_COVERAGE=ON"
-            )
-        fi
-
-        ./script/build_all "${options[@]}"
+        ./script/build_all "$(get_build_options)"
     )
 }
