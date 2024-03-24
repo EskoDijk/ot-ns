@@ -71,6 +71,7 @@ type Command struct {
 	Speed               *SpeedCmd               `| @@` //nolint
 	Time                *TimeCmd                `| @@` //nolint
 	Title               *TitleCmd               `| @@` //nolint
+	Traffic             *TrafficCmd             `| @@` //nolint
 	Unwatch             *UnwatchCmd             `| @@` //nolint
 	Watch               *WatchCmd               `| @@` //nolint
 	Web                 *WebCmd                 `| @@` //nolint
@@ -547,6 +548,20 @@ type SaveCmd struct {
 	Cmd       struct{} `"save"`                   //nolint
 	Filename  string   `@String`                  //nolint
 	Operation string   `[ @("all"|"topo"|"py") ]` //nolint
+}
+
+// noinspection GoVetStructTag
+type TrafficCmd struct {
+	Cmd       struct{}       `"traffic" `            //nolint
+	Protocol  string         `[ @("udp"|"group") ] ` //nolint
+	Multicast *string        `[ @("mcast") ]? `      //nolint
+	SrcId     int            ` @Int`                 //nolint
+	Nodes     []NodeSelector `( @@ )*`               //nolint
+	AddrType  *AddrTypeFlag  `  [ @@ ]`              //nolint
+	DataSize  *DataSizeFlag  `( @@`                  //nolint
+	Count     *CountFlag     `| @@`                  //nolint
+	Interval  *IntervalFlag  `| @@`                  //nolint
+	HopLimit  *HopLimitFlag  `| @@ )*`               //nolint
 }
 
 // noinspection GoVetStructTag
