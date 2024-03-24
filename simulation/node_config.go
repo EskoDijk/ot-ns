@@ -72,6 +72,7 @@ var defaultBrScript = []string{
 }
 
 // selfGenOmrBrScript is a script for a BR that detects no IPv6 infra and creates its own OMR prefix.
+/*
 var selfGenOmrBrScript = []string{
 	"routerselectionjitter 1",     // BR wants to become Router early on.
 	"routerdowngradethreshold 33", // BR never wants to downgrade.
@@ -81,6 +82,7 @@ var selfGenOmrBrScript = []string{
 	"br init 1 1",
 	"br enable",
 }
+*/
 
 var defaultCslScript = []string{
 	fmt.Sprintf("csl period %d", DefaultCslPeriodUs),
