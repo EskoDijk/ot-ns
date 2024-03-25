@@ -175,7 +175,8 @@ func TestParseBytes(t *testing.T) {
 		cmd.Traffic.Nodes != nil && len(cmd.Traffic.Nodes) == 7 && cmd.Traffic.Protocol == "group")
 
 	assert.True(t, parseBytes([]byte("watch"), &cmd) == nil && cmd.Watch != nil && cmd.Watch.Nodes == nil)
-	assert.True(t, parseBytes([]byte("watch all"), &cmd) == nil && cmd.Watch != nil && cmd.Watch.Nodes == nil && cmd.Watch.All == "all")
+	assert.True(t, parseBytes([]byte("watch all"), &cmd) == nil && cmd.Watch != nil && len(cmd.Watch.Nodes) == 1 &&
+		cmd.Watch.Nodes[0].All != nil)
 	assert.True(t, parseBytes([]byte("watch 2 5 6"), &cmd) == nil && cmd.Watch != nil && cmd.Watch.Nodes != nil)
 	assert.True(t, parseBytes([]byte("watch 1 2 5 6 debug"), &cmd) == nil && cmd.Watch != nil && cmd.Watch.Nodes != nil &&
 		len(cmd.Watch.Level) == 5)
@@ -287,6 +288,32 @@ func TestNodeSelectorUniqueSorted(t *testing.T) {
 
 	inp = []NodeSelector{{Id: 1}, {Id: 18}, {Id: 17}, {Id: 18}, {Id: 2}, {Id: 19}, {Id: 1}}
 	exp = []NodeSelector{{Id: 1}, {Id: 2}, {Id: 17}, {Id: 18}, {Id: 19}}
+	outp = getUniqueAndSorted(inp)
+	assert.Equal(t, exp, outp)
+
+	inp = []NodeSelector{{Id: 42}}
+	exp = []NodeSelector{{Id: 42}}
+	outp = getUniqueAndSorted(inp)
+	assert.Equal(t, exp, outp)
+
+	inp = []NodeSelector{}
+	exp = []NodeSelector{}
+	outp = getUniqueAndSorted(inp)
+	assert.Equal(t, exp, outp)
+
+	inp = []NodeSelector{{Id: 18, IdRange: 40}, {Id: 8}}
+	exp = []NodeSelector{{Id: 8}, {Id: 18, IdRange: 40}}
+	outp = getUniqueAndSorted(inp)
+	assert.Equal(t, exp, outp)
+
+	inp = []NodeSelector{{Id: 200, IdRange: 299}, {Id: 18, IdRange: 40}, {Id: 88}}
+	exp = []NodeSelector{{Id: 18, IdRange: 40}, {Id: 88}, {Id: 200, IdRange: 299}}
+	outp = getUniqueAndSorted(inp)
+	assert.Equal(t, exp, outp)
+
+	allStr := "all"
+	inp = []NodeSelector{{Id: 200, IdRange: 299}, {All: &allStr}, {Id: 88}}
+	exp = []NodeSelector{{All: &allStr}}
 	outp = getUniqueAndSorted(inp)
 	assert.Equal(t, exp, outp)
 }

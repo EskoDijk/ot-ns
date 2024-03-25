@@ -29,8 +29,6 @@ package cli
 import (
 	"regexp"
 	"sort"
-	"strconv"
-	"strings"
 )
 
 var (
@@ -55,11 +53,19 @@ func isBackgroundCommand(cmd *Command) bool {
 // getUniqueAndSorted returns a unique-ID'd and sorted version of []NodeSelector.
 func getUniqueAndSorted(input []NodeSelector) []NodeSelector {
 	u := make([]int, 0, len(input))
-	m := make(map[int]struct{})
+	m := make(map[int]NodeSelector, len(input))
 
 	// find unique integers
-	for _, n := range input {
-		m[n.Id] = struct{}{}
+	for _, ns := range input {
+		if ns.All != nil { // if 'all' nodes are selected, return only the 'all' selector.
+			return []NodeSelector{ns}
+		}
+		if nsExisting, ok := m[ns.Id]; ok {
+			if nsExisting.IdRange > 0 || ns.IdRange == 0 {
+				continue // only consider 1st occurrence of a given NodeId. Ranges have priority.
+			}
+		}
+		m[ns.Id] = ns
 	}
 
 	// sort
@@ -71,21 +77,8 @@ func getUniqueAndSorted(input []NodeSelector) []NodeSelector {
 	// output as []NodeSelector
 	n := make([]NodeSelector, 0, len(u))
 	for _, id := range u {
-		n = append(n, NodeSelector{Id: id})
+		n = append(n, m[id])
 	}
 
 	return n
-}
-
-func (ns *NodeSelector) xString() string {
-	return strconv.Itoa(ns.Id)
-}
-
-func (ns NodeSelectorSlice) String() string {
-	var line strings.Builder
-	for _, n := range ns {
-		line.WriteString(strconv.Itoa(n.Id))
-		line.WriteRune(' ')
-	}
-	return line.String()
 }

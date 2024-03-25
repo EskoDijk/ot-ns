@@ -189,6 +189,24 @@ func (rt *CmdRunner) GetPrompt() string {
 	}
 }
 
+// expandNodeSelector expands an []NodeSelector into the array of NodeIds being selected by the expression.
+func (rt *CmdRunner) expandNodeSelector(nss []NodeSelector) []NodeId {
+	nodeIds := make([]NodeId, 0, len(nss))
+	for _, ns := range getUniqueAndSorted(nss) {
+		if ns.All != nil {
+			return rt.sim.GetNodes()
+		}
+		if ns.IdRange > 0 {
+			for j := ns.Id; j <= ns.IdRange; j++ {
+				nodeIds = append(nodeIds, j)
+			}
+			continue
+		}
+		nodeIds = append(nodeIds, ns.Id)
+	}
+	return nodeIds
+}
+
 func (rt *CmdRunner) execute(cmd *Command, output io.Writer) {
 	cc := &CommandContext{
 		Command:         cmd,
@@ -431,16 +449,16 @@ func (rt *CmdRunner) executeAddNode(cc *CommandContext, cmd *AddCmd) {
 
 func (rt *CmdRunner) executeDelNode(cc *CommandContext, cmd *DelCmd) {
 	rt.postAsyncWait(cc, func(sim *simulation.Simulation) {
-		for _, sel := range getUniqueAndSorted(cmd.Nodes) {
-			node, _ := rt.getNode(sim, sel)
+		for _, nodeId := range rt.expandNodeSelector(cmd.Nodes) {
+			node := rt.sim.Nodes()[nodeId]
 			if node == nil {
-				cc.outputf("Warn: node %d not found, skipping\n", sel.Id)
+				cc.outputf("Warn: node %d not found, skipping\n", nodeId)
 				continue
 			}
 
 			err := sim.DeleteNode(node.Id)
 			if err != nil {
-				cc.errorf("node %d, %+v", sel.Id, err)
+				cc.errorf("node %d, %+v", nodeId, err)
 			}
 		}
 	})
@@ -961,19 +979,19 @@ func (rt *CmdRunner) executeWatch(cc *CommandContext, cmd *WatchCmd) {
 				return
 			}
 		}
-		nodesToWatch := getUniqueAndSorted(cmd.Nodes)
+		nodesToWatch := rt.expandNodeSelector(cmd.Nodes)
 
-		if len(nodesToWatch) == 0 && len(cmd.All) == 0 && len(cmd.Default) == 0 && len(cmd.Level) == 0 {
+		if len(nodesToWatch) == 0 && len(cmd.Default) == 0 && len(cmd.Level) == 0 {
 			// variant: 'watch'
 			watchedList := strings.Trim(fmt.Sprintf("%v", sim.Dispatcher().GetWatchingNodes()), "[]")
 			cc.outputf("%v\n", watchedList)
 			return
-		} else if len(nodesToWatch) == 0 && len(cmd.All) == 0 && len(cmd.Default) > 0 && len(cmd.Level) > 0 {
+		} else if len(nodesToWatch) == 0 && len(cmd.Default) > 0 && len(cmd.Level) > 0 {
 			// variant: 'watch default <level>'
 			sim.Dispatcher().GetConfig().DefaultWatchOn = cmd.Level != logger.OffLevelString && cmd.Level != logger.NoneLevelString
 			sim.Dispatcher().GetConfig().DefaultWatchLevel = cmd.Level
 			return
-		} else if len(nodesToWatch) == 0 && len(cmd.All) == 0 && len(cmd.Default) > 0 && len(cmd.Level) == 0 {
+		} else if len(nodesToWatch) == 0 && len(cmd.Default) > 0 && len(cmd.Level) == 0 {
 			// variant: 'watch default'
 			watchLevelDefault := logger.DefaultLevelString
 			if sim.Dispatcher().GetConfig().DefaultWatchOn {
@@ -981,15 +999,10 @@ func (rt *CmdRunner) executeWatch(cc *CommandContext, cmd *WatchCmd) {
 			}
 			cc.outputf("%s\n", watchLevelDefault)
 			return
-		} else if len(nodesToWatch) == 0 && len(cmd.All) > 0 && len(cmd.Default) == 0 {
-			// variant: 'watch all [<level>]'
-			for nodeid := range sim.Nodes() {
-				nodesToWatch = append(nodesToWatch, NodeSelector{Id: nodeid})
-			}
-		} else if len(nodesToWatch) > 0 && len(cmd.All) == 0 && len(cmd.Default) == 0 {
+		} else if len(nodesToWatch) > 0 && len(cmd.Default) == 0 {
 			// variant: 'watch <nodeid> [<nodeid> ...] [<level>]'
 			// Do nothing here. Will iterate over nodes below.
-		} else if len(nodesToWatch) == 0 && len(cmd.All) == 0 && len(cmd.Default) == 0 && len(cmd.Level) > 0 {
+		} else if len(nodesToWatch) == 0 && len(cmd.Default) == 0 && len(cmd.Level) > 0 {
 			// variant: 'watch <level>'
 			// Do nothing here. <level> was processed above already.
 		} else {
@@ -997,10 +1010,10 @@ func (rt *CmdRunner) executeWatch(cc *CommandContext, cmd *WatchCmd) {
 			return
 		}
 
-		for _, sel := range nodesToWatch {
-			node, _ := rt.getNode(sim, sel)
+		for _, nodeId := range nodesToWatch {
+			node := rt.sim.Nodes()[nodeId]
 			if node == nil {
-				cc.errorf("node %d not found", sel.Id)
+				cc.errorf("node %d not found", nodeId)
 				continue
 			}
 			sim.Dispatcher().WatchNode(node.Id, level)
@@ -1011,16 +1024,16 @@ func (rt *CmdRunner) executeWatch(cc *CommandContext, cmd *WatchCmd) {
 func (rt *CmdRunner) executeUnwatch(cc *CommandContext, cmd *UnwatchCmd) {
 	rt.postAsyncWait(cc, func(sim *simulation.Simulation) {
 		// if no node-number(s) given, unwatch all.
-		nodesToUnwatch := getUniqueAndSorted(cmd.Nodes)
+		nodesToUnwatch := rt.expandNodeSelector(cmd.Nodes)
 		if len(nodesToUnwatch) == 0 {
 			for _, n := range sim.Dispatcher().GetWatchingNodes() {
 				sim.Dispatcher().UnwatchNode(n)
 			}
 		} else {
-			for _, sel := range nodesToUnwatch {
-				node, _ := rt.getNode(sim, sel)
+			for _, nodeId := range nodesToUnwatch {
+				node := rt.sim.Nodes()[nodeId]
 				if node == nil {
-					cc.outputf("Warn: node %d not found, skipping\n", sel.Id)
+					cc.outputf("Warn: node %d not found, skipping\n", nodeId)
 					continue
 				}
 				sim.Dispatcher().UnwatchNode(node.Id)

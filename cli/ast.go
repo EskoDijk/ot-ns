@@ -27,6 +27,9 @@
 package cli
 
 import (
+	"strconv"
+	"strings"
+
 	"github.com/alecthomas/participle"
 
 	. "github.com/openthread/ot-ns/types"
@@ -125,10 +128,32 @@ type GoCmd struct {
 
 // noinspection GoVetStructTag
 type NodeSelector struct {
-	Id int `@Int` //nolint
+	Id      int     `( @Int`       //nolint
+	All     *string `| @"all" )`   //nolint
+	IdRange int     `[ "-" @Int ]` //nolint
 }
 
 type NodeSelectorSlice []NodeSelector
+
+func (ns *NodeSelector) String() string {
+	if ns.All != nil {
+		return "all"
+	}
+	if ns.IdRange > 0 {
+		return strconv.Itoa(ns.Id) + "-" + strconv.Itoa(ns.IdRange)
+	}
+	return strconv.Itoa(ns.Id)
+}
+
+// String creates a string of NodeID numbers from a []NodeSelector.
+func (ns NodeSelectorSlice) String() string {
+	var line strings.Builder
+	for _, n := range ns {
+		line.WriteString(n.String())
+		line.WriteRune(' ')
+	}
+	return line.String()
+}
 
 // noinspection GoVetStructTag
 type Ipv6Address struct {
@@ -508,15 +533,14 @@ type LogLevelCmd struct {
 type WatchCmd struct {
 	Cmd     struct{}       `"watch"`                                                                                             //nolint
 	Default string         `[ @("default"|"def") ]`                                                                              //nolint
-	All     string         `[ @"all" ]`                                                                                          //nolint
 	Nodes   []NodeSelector `[ ( @@ )+ ]`                                                                                         //nolint
 	Level   string         `[@( "trace"|"debug"|"info"|"note"|"warn"|"error"|"crit"|"off"|"none"|"T"|"D"|"I"|"N"|"W"|"E"|"C" )]` //nolint
 }
 
 // noinspection GoVetStructTag
 type UnwatchCmd struct {
-	Cmd   struct{}       `"unwatch"`           //nolint
-	Nodes []NodeSelector `( "all" | ( @@ )+ )` //nolint
+	Cmd   struct{}       `"unwatch"` //nolint
+	Nodes []NodeSelector `( @@ )+`   //nolint
 }
 
 // noinspection GoVetStructTag
