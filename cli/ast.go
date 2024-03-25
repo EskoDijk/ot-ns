@@ -27,8 +27,6 @@
 package cli
 
 import (
-	"strconv"
-
 	"github.com/alecthomas/participle"
 
 	. "github.com/openthread/ot-ns/types"
@@ -130,9 +128,7 @@ type NodeSelector struct {
 	Id int `@Int` //nolint
 }
 
-func (ns *NodeSelector) String() string {
-	return strconv.Itoa(ns.Id)
-}
+type NodeSelectorSlice []NodeSelector
 
 // noinspection GoVetStructTag
 type Ipv6Address struct {

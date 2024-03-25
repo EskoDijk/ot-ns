@@ -53,6 +53,8 @@ const (
 	Prompt = "> "
 )
 
+type GroupId int
+
 type CommandContext struct {
 	context.Context
 	*Command
@@ -125,6 +127,7 @@ type CmdRunner struct {
 	ctx           *progctx.ProgCtx
 	contextNodeId NodeId
 	help          Help
+	trafficGroups map[GroupId][]NodeSelector
 }
 
 func NewCmdRunner(ctx *progctx.ProgCtx, sim *simulation.Simulation) *CmdRunner {
@@ -133,6 +136,7 @@ func NewCmdRunner(ctx *progctx.ProgCtx, sim *simulation.Simulation) *CmdRunner {
 		sim:           sim,
 		contextNodeId: InvalidNodeId,
 		help:          newHelp(),
+		trafficGroups: make(map[GroupId][]NodeSelector),
 	}
 	sim.SetCmdRunner(cr)
 	return cr
@@ -290,6 +294,8 @@ func (rt *CmdRunner) execute(cmd *Command, output io.Writer) {
 		rt.executeLoad(cc, cmd.Load)
 	} else if cmd.Save != nil {
 		rt.executeSave(cc, cmd.Save)
+	} else if cmd.Traffic != nil {
+		rt.executeTraffic(cc, cmd.Traffic)
 	} else {
 		logger.Panicf("unimplemented command: %#v", cmd)
 	}
@@ -425,7 +431,7 @@ func (rt *CmdRunner) executeAddNode(cc *CommandContext, cmd *AddCmd) {
 
 func (rt *CmdRunner) executeDelNode(cc *CommandContext, cmd *DelCmd) {
 	rt.postAsyncWait(cc, func(sim *simulation.Simulation) {
-		for _, sel := range cmd.Nodes {
+		for _, sel := range getUniqueAndSorted(cmd.Nodes) {
 			node, _ := rt.getNode(sim, sel)
 			if node == nil {
 				cc.outputf("Warn: node %d not found, skipping\n", sel.Id)
@@ -955,19 +961,19 @@ func (rt *CmdRunner) executeWatch(cc *CommandContext, cmd *WatchCmd) {
 				return
 			}
 		}
-		nodesToWatch := cmd.Nodes
+		nodesToWatch := getUniqueAndSorted(cmd.Nodes)
 
-		if len(cmd.Nodes) == 0 && len(cmd.All) == 0 && len(cmd.Default) == 0 && len(cmd.Level) == 0 {
+		if len(nodesToWatch) == 0 && len(cmd.All) == 0 && len(cmd.Default) == 0 && len(cmd.Level) == 0 {
 			// variant: 'watch'
 			watchedList := strings.Trim(fmt.Sprintf("%v", sim.Dispatcher().GetWatchingNodes()), "[]")
 			cc.outputf("%v\n", watchedList)
 			return
-		} else if len(cmd.Nodes) == 0 && len(cmd.All) == 0 && len(cmd.Default) > 0 && len(cmd.Level) > 0 {
+		} else if len(nodesToWatch) == 0 && len(cmd.All) == 0 && len(cmd.Default) > 0 && len(cmd.Level) > 0 {
 			// variant: 'watch default <level>'
 			sim.Dispatcher().GetConfig().DefaultWatchOn = cmd.Level != logger.OffLevelString && cmd.Level != logger.NoneLevelString
 			sim.Dispatcher().GetConfig().DefaultWatchLevel = cmd.Level
 			return
-		} else if len(cmd.Nodes) == 0 && len(cmd.All) == 0 && len(cmd.Default) > 0 && len(cmd.Level) == 0 {
+		} else if len(nodesToWatch) == 0 && len(cmd.All) == 0 && len(cmd.Default) > 0 && len(cmd.Level) == 0 {
 			// variant: 'watch default'
 			watchLevelDefault := logger.DefaultLevelString
 			if sim.Dispatcher().GetConfig().DefaultWatchOn {
@@ -975,15 +981,15 @@ func (rt *CmdRunner) executeWatch(cc *CommandContext, cmd *WatchCmd) {
 			}
 			cc.outputf("%s\n", watchLevelDefault)
 			return
-		} else if len(cmd.Nodes) == 0 && len(cmd.All) > 0 && len(cmd.Default) == 0 {
+		} else if len(nodesToWatch) == 0 && len(cmd.All) > 0 && len(cmd.Default) == 0 {
 			// variant: 'watch all [<level>]'
 			for nodeid := range sim.Nodes() {
 				nodesToWatch = append(nodesToWatch, NodeSelector{Id: nodeid})
 			}
-		} else if len(cmd.Nodes) > 0 && len(cmd.All) == 0 && len(cmd.Default) == 0 {
+		} else if len(nodesToWatch) > 0 && len(cmd.All) == 0 && len(cmd.Default) == 0 {
 			// variant: 'watch <nodeid> [<nodeid> ...] [<level>]'
 			// Do nothing here. Will iterate over nodes below.
-		} else if len(cmd.Nodes) == 0 && len(cmd.All) == 0 && len(cmd.Default) == 0 && len(cmd.Level) > 0 {
+		} else if len(nodesToWatch) == 0 && len(cmd.All) == 0 && len(cmd.Default) == 0 && len(cmd.Level) > 0 {
 			// variant: 'watch <level>'
 			// Do nothing here. <level> was processed above already.
 		} else {
@@ -1005,12 +1011,13 @@ func (rt *CmdRunner) executeWatch(cc *CommandContext, cmd *WatchCmd) {
 func (rt *CmdRunner) executeUnwatch(cc *CommandContext, cmd *UnwatchCmd) {
 	rt.postAsyncWait(cc, func(sim *simulation.Simulation) {
 		// if no node-number(s) given, unwatch all.
-		if len(cmd.Nodes) == 0 {
+		nodesToUnwatch := getUniqueAndSorted(cmd.Nodes)
+		if len(nodesToUnwatch) == 0 {
 			for _, n := range sim.Dispatcher().GetWatchingNodes() {
 				sim.Dispatcher().UnwatchNode(n)
 			}
 		} else {
-			for _, sel := range cmd.Nodes {
+			for _, sel := range nodesToUnwatch {
 				node, _ := rt.getNode(sim, sel)
 				if node == nil {
 					cc.outputf("Warn: node %d not found, skipping\n", sel.Id)
@@ -1331,4 +1338,25 @@ func (rt *CmdRunner) executeLoad(cc *CommandContext, cmd *LoadCmd) {
 			cc.outputf("Warning: %v\n", err)
 		}
 	})
+}
+
+func (rt *CmdRunner) executeTraffic(cc *CommandContext, cmd *TrafficCmd) {
+	switch cmd.Protocol {
+	case "udp":
+	case "group":
+		gId := GroupId(cmd.SrcId)
+		nodesInGroup := NodeSelectorSlice(getUniqueAndSorted(cmd.Nodes))
+		if len(nodesInGroup) == 0 { // no nodes to add - display current group
+			if ns, ok := cc.rt.trafficGroups[gId]; ok {
+				nodesInGroup = ns
+				cc.outputf("%s\n", nodesInGroup.String())
+			} else { // group doesn't exist
+				cc.errorf("traffic group %d not defined", gId)
+			}
+		} else {
+			cc.rt.trafficGroups[gId] = nodesInGroup
+		}
+	default:
+		logger.Panicf("Unknown traffic protocol argument: %s", cmd.Protocol)
+	}
 }

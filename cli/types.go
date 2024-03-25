@@ -1,4 +1,4 @@
-// Copyright (c) 2020-2023, The OTNS Authors.
+// Copyright (c) 2020-2024, The OTNS Authors.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -28,6 +28,9 @@ package cli
 
 import (
 	"regexp"
+	"sort"
+	"strconv"
+	"strings"
 )
 
 var (
@@ -47,4 +50,42 @@ func isBackgroundCommand(cmd *Command) bool {
 		return true
 	}
 	return false
+}
+
+// getUniqueAndSorted returns a unique-ID'd and sorted version of []NodeSelector.
+func getUniqueAndSorted(input []NodeSelector) []NodeSelector {
+	u := make([]int, 0, len(input))
+	m := make(map[int]struct{})
+
+	// find unique integers
+	for _, n := range input {
+		m[n.Id] = struct{}{}
+	}
+
+	// sort
+	for id := range m {
+		u = append(u, id)
+	}
+	sort.Ints(u)
+
+	// output as []NodeSelector
+	n := make([]NodeSelector, 0, len(u))
+	for _, id := range u {
+		n = append(n, NodeSelector{Id: id})
+	}
+
+	return n
+}
+
+func (ns *NodeSelector) xString() string {
+	return strconv.Itoa(ns.Id)
+}
+
+func (ns NodeSelectorSlice) String() string {
+	var line strings.Builder
+	for _, n := range ns {
+		line.WriteString(strconv.Itoa(n.Id))
+		line.WriteRune(' ')
+	}
+	return line.String()
 }

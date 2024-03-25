@@ -276,3 +276,17 @@ func TestCliCommandNotDefined(t *testing.T) {
 
 	Cli.Stop() // calling Stop() after CLI has already exited.
 }
+
+func TestNodeSelectorUniqueSorted(t *testing.T) {
+	var inp, outp, exp []NodeSelector
+
+	inp = []NodeSelector{{Id: 3}, {Id: 3}, {Id: 1}, {Id: 2}, {Id: 1234}}
+	exp = []NodeSelector{{Id: 1}, {Id: 2}, {Id: 3}, {Id: 1234}}
+	outp = getUniqueAndSorted(inp)
+	assert.Equal(t, exp, outp)
+
+	inp = []NodeSelector{{Id: 1}, {Id: 18}, {Id: 17}, {Id: 18}, {Id: 2}, {Id: 19}, {Id: 1}}
+	exp = []NodeSelector{{Id: 1}, {Id: 2}, {Id: 17}, {Id: 18}, {Id: 19}}
+	outp = getUniqueAndSorted(inp)
+	assert.Equal(t, exp, outp)
+}
