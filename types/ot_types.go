@@ -24,6 +24,8 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
+// OpenThread-specific types and definitions.
+
 package types
 
 // OT_ERROR_* error codes from OpenThread that can be sent by OT-NS to the OT nodes.

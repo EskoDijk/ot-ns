@@ -24,6 +24,8 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
+// OT-RFSIM-platform-specific types and definitions.
+
 package types
 
 import "math"
