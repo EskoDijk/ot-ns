@@ -166,10 +166,10 @@ func TestParseBytes(t *testing.T) {
 
 	assert.True(t, parseBytes([]byte("time"), &cmd) == nil && cmd.Time != nil)
 
-	assert.True(t, parseBytes([]byte("traffic udp 12 54 mleid datasize 123"), &cmd) == nil && cmd.Traffic != nil &&
-		len(cmd.Traffic.DstId) == 1 && cmd.Traffic.DstId[0].Id == 54 && cmd.Traffic.AddrType.Type == AddrTypeMleid)
-	assert.True(t, parseBytes([]byte("traffic udp 2 13-18 27-39 ds 123"), &cmd) == nil && cmd.Traffic != nil &&
-		len(cmd.Traffic.DstId) == 2 && cmd.Traffic.DstId[0].Id == 13 && cmd.Traffic.DataSize.Val == 123)
+	assert.True(t, parseBytes([]byte("send udp 12 54 mleid datasize 123"), &cmd) == nil && cmd.Send != nil &&
+		len(cmd.Send.DstId) == 1 && cmd.Send.DstId[0].Id == 54 && cmd.Send.AddrType.Type == AddrTypeMleid)
+	assert.True(t, parseBytes([]byte("send udp 2 13-18 27-39 ds 123"), &cmd) == nil && cmd.Send != nil &&
+		len(cmd.Send.DstId) == 2 && cmd.Send.DstId[0].Id == 13 && cmd.Send.DataSize.Val == 123)
 
 	assert.True(t, parseBytes([]byte("watch"), &cmd) == nil && cmd.Watch != nil && cmd.Watch.Nodes == nil)
 	assert.True(t, parseBytes([]byte("watch all"), &cmd) == nil && cmd.Watch != nil && len(cmd.Watch.Nodes) == 1 &&
