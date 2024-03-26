@@ -476,7 +476,7 @@ func (rt *CmdRunner) executeExit(cc *CommandContext, cmd *ExitCmd) {
 func (rt *CmdRunner) executePing(cc *CommandContext, cmd *PingCmd) {
 	logger.Debugf("ping %#v", cmd)
 	rt.postAsyncWait(cc, func(sim *simulation.Simulation) {
-		src, _ := rt.getNode(sim, cmd.Src)
+		src, _ := rt.getNode(cmd.Src)
 		if src == nil {
 			cc.errorf("src node not found")
 			return
@@ -484,7 +484,7 @@ func (rt *CmdRunner) executePing(cc *CommandContext, cmd *PingCmd) {
 
 		var dstaddr string
 		if cmd.Dst != nil {
-			dst, _ := rt.getNode(sim, *cmd.Dst)
+			dst, _ := rt.getNode(*cmd.Dst)
 
 			if dst == nil {
 				cc.errorf("dst node not found")
@@ -528,17 +528,20 @@ func (rt *CmdRunner) executePing(cc *CommandContext, cmd *PingCmd) {
 	})
 }
 
-func (rt *CmdRunner) getNode(sim *simulation.Simulation, sel NodeSelector) (*simulation.Node, *dispatcher.Node) {
-	if sel.Id > 0 {
+func (rt *CmdRunner) getNodeById(nodeId NodeId) (*simulation.Node, *dispatcher.Node) {
+	if nodeId > 0 {
 		var dnode *dispatcher.Node
-		node := sim.Nodes()[sel.Id]
+		node := rt.sim.Nodes()[nodeId]
 		if node != nil {
 			dnode = node.DNode
 		}
 		return node, dnode
 	}
-
 	return nil, nil
+}
+
+func (rt *CmdRunner) getNode(sel NodeSelector) (*simulation.Node, *dispatcher.Node) {
+	return rt.getNodeById(sel.Id)
 }
 
 func (rt *CmdRunner) getAddrs(node *simulation.Node, addrType *AddrTypeFlag) []string {
@@ -590,7 +593,7 @@ func (rt *CmdRunner) executeDebug(cc *CommandContext, cmd *DebugCmd) {
 func (rt *CmdRunner) executeNode(cc *CommandContext, cmd *NodeCmd) {
 	contextNodeId := InvalidNodeId
 	rt.postAsyncWait(cc, func(sim *simulation.Simulation) {
-		node, _ := rt.getNode(sim, cmd.Node)
+		node, _ := rt.getNode(cmd.Node)
 		if node == nil {
 			if cmd.Node.Id == 0 && rt.contextNodeId != InvalidNodeId && rt.enterNodeContext(InvalidNodeId) {
 				// the 'node 0' command will exit node context, only when inside a node-context.
@@ -659,10 +662,10 @@ func (rt *CmdRunner) executeCountDown(cc *CommandContext, cmd *CountDownCmd) {
 
 func (rt *CmdRunner) executeRadio(cc *CommandContext, radio *RadioCmd) {
 	rt.postAsyncWait(cc, func(sim *simulation.Simulation) {
-		for _, sel := range radio.Nodes {
-			node, dnode := rt.getNode(sim, sel)
+		for _, nodeId := range rt.expandNodeSelector(radio.Nodes) {
+			node, dnode := rt.getNodeById(nodeId)
 			if node == nil {
-				cc.errorf("node %d not found", sel.Id)
+				cc.errorf("node %d not found", nodeId)
 				continue
 			}
 
@@ -694,11 +697,10 @@ func (rt *CmdRunner) executeMoveNode(cc *CommandContext, cmd *MoveCmd) {
 
 func (rt *CmdRunner) executeLsNodes(cc *CommandContext, cmd *NodesCmd) {
 	rt.postAsyncWait(cc, func(sim *simulation.Simulation) {
-		for _, nodeid := range sim.GetNodes() {
-			snode := sim.Nodes()[nodeid]
-			dnode := sim.Dispatcher().GetNode(nodeid)
+		for _, nodeId := range sim.GetNodes() {
+			snode, dnode := rt.getNodeById(nodeId)
 			var line strings.Builder
-			line.WriteString(fmt.Sprintf("id=%d\ttype=%-6s  extaddr=%016x  rloc16=%04x  x=%-2d\ty=%-3d\tz=%-3d\tstate=%s\tfailed=%v", nodeid, dnode.Type, dnode.ExtAddr, dnode.Rloc16,
+			line.WriteString(fmt.Sprintf("id=%d\ttype=%-6s  extaddr=%016x  rloc16=%04x  x=%-2d\ty=%-3d\tz=%-3d\tstate=%s\tfailed=%v", nodeId, dnode.Type, dnode.ExtAddr, dnode.Rloc16,
 				dnode.X, dnode.Y, dnode.Z, dnode.Role, dnode.IsFailed()))
 			line.WriteString(fmt.Sprintf("\texe=%s", snode.GetExecutableName()))
 			cc.outputf("%s\n", line.String())
@@ -716,13 +718,13 @@ func (rt *CmdRunner) executeLsPartitions(cc *CommandContext) {
 		}
 	})
 
-	for parid, nodeids := range pars {
+	for parid, nodeIds := range pars {
 		cc.outputf("partition=%08x\tnodes=", parid)
-		for i, nodeid := range nodeids {
+		for i, nodeId := range nodeIds {
 			if i > 0 {
 				cc.outputf(",")
 			}
-			cc.outputf("%d", nodeid)
+			cc.outputf("%d", nodeId)
 		}
 		cc.outputf("\n")
 	}
@@ -740,9 +742,9 @@ func (rt *CmdRunner) executeCollectPings(cc *CommandContext, pings *PingsCmd) {
 		}
 	})
 
-	for nodeid, pings := range allPings {
+	for nodeId, pings := range allPings {
 		for _, ping := range pings {
-			cc.outputf("node=%-4d dst=%-40s datasize=%-3d delay=%.3fms\n", nodeid, ping.Dst, ping.DataSize, float64(ping.Delay)/1000)
+			cc.outputf("node=%-4d dst=%-40s datasize=%-3d delay=%.3fms\n", nodeId, ping.Dst, ping.DataSize, float64(ping.Delay)/1000)
 		}
 	}
 }
@@ -760,9 +762,9 @@ func (rt *CmdRunner) executeCollectJoins(cc *CommandContext, joins *JoinsCmd) {
 		}
 	})
 
-	for nodeid, joins := range allJoins {
+	for nodeId, joins := range allJoins {
 		for _, join := range joins {
-			cc.outputf("node=%-4d join=%.3fs session=%.3fs\n", nodeid, float64(join.JoinDuration)/1000000, float64(join.SessionDuration)/1000000)
+			cc.outputf("node=%-4d join=%.3fs session=%.3fs\n", nodeId, float64(join.JoinDuration)/1000000, float64(join.SessionDuration)/1000000)
 		}
 	}
 }
@@ -905,7 +907,7 @@ func (rt *CmdRunner) executeRadioParam(cc *CommandContext, cmd *RadioParamCmd) {
 
 func (rt *CmdRunner) executeRfSim(cc *CommandContext, cmd *RfSimCmd) {
 	rt.postAsyncWait(cc, func(sim *simulation.Simulation) {
-		node, _ := rt.getNode(sim, cmd.Id)
+		node, _ := rt.getNode(cmd.Id)
 		if node == nil {
 			cc.errorf("node not found")
 			return
@@ -1011,7 +1013,7 @@ func (rt *CmdRunner) executeWatch(cc *CommandContext, cmd *WatchCmd) {
 		}
 
 		for _, nodeId := range nodesToWatch {
-			node := rt.sim.Nodes()[nodeId]
+			node, _ := rt.getNodeById(nodeId)
 			if node == nil {
 				cc.errorf("node %d not found", nodeId)
 				continue
@@ -1031,7 +1033,7 @@ func (rt *CmdRunner) executeUnwatch(cc *CommandContext, cmd *UnwatchCmd) {
 			}
 		} else {
 			for _, nodeId := range nodesToUnwatch {
-				node := rt.sim.Nodes()[nodeId]
+				node, _ := rt.getNodeById(nodeId)
 				if node == nil {
 					cc.outputf("Warn: node %d not found, skipping\n", nodeId)
 					continue
@@ -1064,7 +1066,7 @@ func (rt *CmdRunner) executePlr(cc *CommandContext, cmd *PlrCmd) {
 
 func (rt *CmdRunner) executeScan(cc *CommandContext, cmd *ScanCmd) {
 	rt.postAsyncWait(cc, func(sim *simulation.Simulation) {
-		node, _ := rt.getNode(sim, cmd.Node)
+		node, _ := rt.getNode(cmd.Node)
 		if node == nil {
 			cc.errorf("node %d not found", cmd.Node.Id)
 			return
@@ -1121,13 +1123,13 @@ func (rt *CmdRunner) executeConfigVisualization(cc *CommandContext, cmd *ConfigV
 	cc.outputf("ctb=%s\n", bool_to_onoroff(opts.ChildTable))
 }
 
-func (rt *CmdRunner) enterNodeContext(nodeid NodeId) bool {
-	logger.AssertTrue(nodeid == InvalidNodeId || nodeid > 0)
-	if rt.contextNodeId == nodeid {
+func (rt *CmdRunner) enterNodeContext(nodeId NodeId) bool {
+	logger.AssertTrue(nodeId == InvalidNodeId || nodeId > 0)
+	if rt.contextNodeId == nodeId {
 		return false
 	}
 
-	rt.contextNodeId = nodeid
+	rt.contextNodeId = nodeId
 	return true
 }
 
