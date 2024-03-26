@@ -69,10 +69,10 @@ type Command struct {
 	RfSim               *RfSimCmd               `| @@` //nolint
 	Save                *SaveCmd                `| @@` //nolint
 	Scan                *ScanCmd                `| @@` //nolint
+	Send                *SendCmd                `| @@` //nolint
 	Speed               *SpeedCmd               `| @@` //nolint
 	Time                *TimeCmd                `| @@` //nolint
 	Title               *TitleCmd               `| @@` //nolint
-	Traffic             *TrafficCmd             `| @@` //nolint
 	Unwatch             *UnwatchCmd             `| @@` //nolint
 	Watch               *WatchCmd               `| @@` //nolint
 	Web                 *WebCmd                 `| @@` //nolint
@@ -571,17 +571,13 @@ type SaveCmd struct {
 }
 
 // noinspection GoVetStructTag
-type TrafficCmd struct {
-	Cmd       struct{}       `"traffic" `            //nolint
-	Protocol  string         `[ @("udp"|"group") ] ` //nolint
-	Multicast *string        `[ @("mcast") ]? `      //nolint
-	SrcId     int            ` @Int`                 //nolint
-	Nodes     []NodeSelector `( @@ )*`               //nolint
-	AddrType  *AddrTypeFlag  `  [ @@ ]`              //nolint
-	DataSize  *DataSizeFlag  `( @@`                  //nolint
-	Count     *CountFlag     `| @@`                  //nolint
-	Interval  *IntervalFlag  `| @@`                  //nolint
-	HopLimit  *HopLimitFlag  `| @@ )*`               //nolint
+type SendCmd struct {
+	Cmd      struct{}       `"send"`                //nolint
+	Protocol string         `@("udp"|"tcp"|"coap")` //nolint
+	SrcId    int            `@Int`                  //nolint
+	DstId    []NodeSelector `( @@ )+`               //nolint
+	AddrType *AddrTypeFlag  `[ @@ ]`                //nolint
+	DataSize *DataSizeFlag  `[ @@ ]`                //nolint
 }
 
 // noinspection GoVetStructTag

@@ -58,7 +58,6 @@ type GroupId int
 type CommandContext struct {
 	context.Context
 	*Command
-	rt              *CmdRunner
 	err             error
 	output          io.Writer
 	isBackgroundCmd bool
@@ -68,9 +67,9 @@ func (cc *CommandContext) outputStr(msg string) {
 	_, _ = fmt.Fprint(cc.output, msg)
 }
 
-func (cc *CommandContext) outputStrArray(msg []string) {
+func (cc *CommandContext) outputStrArray(msg []string, prefix string) {
 	for _, line := range msg {
-		_, _ = fmt.Fprint(cc.output, line+"\n")
+		_, _ = fmt.Fprint(cc.output, prefix+line+"\n")
 	}
 }
 
@@ -127,7 +126,7 @@ type CmdRunner struct {
 	ctx           *progctx.ProgCtx
 	contextNodeId NodeId
 	help          Help
-	trafficGroups map[GroupId][]NodeSelector
+	trafficId     int
 }
 
 func NewCmdRunner(ctx *progctx.ProgCtx, sim *simulation.Simulation) *CmdRunner {
@@ -136,7 +135,7 @@ func NewCmdRunner(ctx *progctx.ProgCtx, sim *simulation.Simulation) *CmdRunner {
 		sim:           sim,
 		contextNodeId: InvalidNodeId,
 		help:          newHelp(),
-		trafficGroups: make(map[GroupId][]NodeSelector),
+		trafficId:     1,
 	}
 	sim.SetCmdRunner(cr)
 	return cr
@@ -160,6 +159,10 @@ func (rt *CmdRunner) RunCommand(cmdline string, output io.Writer) error {
 		}
 	}
 	return rt.ctx.Err()
+}
+
+func (rt *CmdRunner) GetNodeContext() NodeId {
+	return rt.contextNodeId
 }
 
 func (rt *CmdRunner) HandleCommand(cmdline string, output io.Writer) error {
@@ -210,7 +213,6 @@ func (rt *CmdRunner) expandNodeSelector(nss []NodeSelector) []NodeId {
 func (rt *CmdRunner) execute(cmd *Command, output io.Writer) {
 	cc := &CommandContext{
 		Command:         cmd,
-		rt:              rt,
 		output:          output,
 		isBackgroundCmd: isBackgroundCommand(cmd),
 	}
@@ -312,8 +314,8 @@ func (rt *CmdRunner) execute(cmd *Command, output io.Writer) {
 		rt.executeLoad(cc, cmd.Load)
 	} else if cmd.Save != nil {
 		rt.executeSave(cc, cmd.Save)
-	} else if cmd.Traffic != nil {
-		rt.executeTraffic(cc, cmd.Traffic)
+	} else if cmd.Send != nil {
+		rt.executeSend(cc, cmd.Send)
 	} else {
 		logger.Panicf("unimplemented command: %#v", cmd)
 	}
@@ -402,7 +404,7 @@ func (rt *CmdRunner) postAsyncWait(cc *CommandContext, f func(sim *simulation.Si
 
 func (rt *CmdRunner) executeAddNode(cc *CommandContext, cmd *AddCmd) {
 	logger.Debugf("Add: %#v", *cmd)
-	simCfg := cc.rt.sim.GetConfig()
+	simCfg := rt.sim.GetConfig()
 	cfg := simCfg.NewNodeConfig // copy current new-node config for simulation, and modify it.
 
 	cfg.Type = cmd.Type.Val
@@ -450,7 +452,7 @@ func (rt *CmdRunner) executeAddNode(cc *CommandContext, cmd *AddCmd) {
 func (rt *CmdRunner) executeDelNode(cc *CommandContext, cmd *DelCmd) {
 	rt.postAsyncWait(cc, func(sim *simulation.Simulation) {
 		for _, nodeId := range rt.expandNodeSelector(cmd.Nodes) {
-			node := rt.sim.Nodes()[nodeId]
+			node, _ := rt.getNodeById(nodeId)
 			if node == nil {
 				cc.outputf("Warn: node %d not found, skipping\n", nodeId)
 				continue
@@ -475,6 +477,7 @@ func (rt *CmdRunner) executeExit(cc *CommandContext, cmd *ExitCmd) {
 
 func (rt *CmdRunner) executePing(cc *CommandContext, cmd *PingCmd) {
 	logger.Debugf("ping %#v", cmd)
+
 	rt.postAsyncWait(cc, func(sim *simulation.Simulation) {
 		src, _ := rt.getNode(cmd.Src)
 		if src == nil {
@@ -592,6 +595,7 @@ func (rt *CmdRunner) executeDebug(cc *CommandContext, cmd *DebugCmd) {
 
 func (rt *CmdRunner) executeNode(cc *CommandContext, cmd *NodeCmd) {
 	contextNodeId := InvalidNodeId
+
 	rt.postAsyncWait(cc, func(sim *simulation.Simulation) {
 		node, _ := rt.getNode(cmd.Node)
 		if node == nil {
@@ -612,10 +616,9 @@ func (rt *CmdRunner) executeNode(cc *CommandContext, cmd *NodeCmd) {
 
 		if cmd.Command != nil {
 			var output []string
-			prefix := ""
+
 			if cc.isBackgroundCmd {
 				output = node.CommandNoDone(*cmd.Command, simulation.DefaultCommandTimeout)
-				prefix = "  "
 			} else {
 				output = node.Command(*cmd.Command, simulation.DefaultCommandTimeout)
 			}
@@ -626,9 +629,7 @@ func (rt *CmdRunner) executeNode(cc *CommandContext, cmd *NodeCmd) {
 			if cc.isBackgroundCmd && err == nil {
 				cc.outputf("Started\n")
 			}
-			for _, line := range output {
-				cc.outputf("%s%s\n", prefix, line)
-			}
+			cc.outputStrArray(output, "")
 
 			if err != nil {
 				cc.error(err)
@@ -732,6 +733,7 @@ func (rt *CmdRunner) executeLsPartitions(cc *CommandContext) {
 
 func (rt *CmdRunner) executeCollectPings(cc *CommandContext, pings *PingsCmd) {
 	allPings := make(map[NodeId][]*dispatcher.PingResult)
+
 	rt.postAsyncWait(cc, func(sim *simulation.Simulation) {
 		d := sim.Dispatcher()
 		for _, node := range d.Nodes() {
@@ -1077,12 +1079,13 @@ func (rt *CmdRunner) executeScan(cc *CommandContext, cmd *ScanCmd) {
 		if err == nil {
 			cc.outputf("Started\n")
 		}
-		cc.outputStrArray(output)
+		cc.outputStrArray(output, node.String())
 	})
 }
 
 func (rt *CmdRunner) executeConfigVisualization(cc *CommandContext, cmd *ConfigVisualizationCmd) {
 	var opts dispatcher.VisualizationOptions
+
 	rt.postAsyncWait(cc, func(sim *simulation.Simulation) {
 		opts = sim.Dispatcher().GetVisualizationOptions()
 
@@ -1154,6 +1157,7 @@ func (rt *CmdRunner) executeTitle(cc *CommandContext, cmd *TitleCmd) {
 
 func (rt *CmdRunner) executeTime(cc *CommandContext, cmd *TimeCmd) {
 	var dispTime uint64
+
 	rt.postAsyncWait(cc, func(sim *simulation.Simulation) {
 		dispTime = sim.Dispatcher().CurTime
 	})
@@ -1355,23 +1359,81 @@ func (rt *CmdRunner) executeLoad(cc *CommandContext, cmd *LoadCmd) {
 	})
 }
 
-func (rt *CmdRunner) executeTraffic(cc *CommandContext, cmd *TrafficCmd) {
-	switch cmd.Protocol {
-	case "udp":
-	case "group":
-		gId := GroupId(cmd.SrcId)
-		nodesInGroup := NodeSelectorSlice(getUniqueAndSorted(cmd.Nodes))
-		if len(nodesInGroup) == 0 { // no nodes to add - display current group
-			if ns, ok := cc.rt.trafficGroups[gId]; ok {
-				nodesInGroup = ns
-				cc.outputf("%s\n", nodesInGroup.String())
-			} else { // group doesn't exist
-				cc.errorf("traffic group %d not defined", gId)
+func (rt *CmdRunner) executeSend(cc *CommandContext, cmd *SendCmd) {
+	rt.postAsyncWait(cc, func(sim *simulation.Simulation) {
+		switch cmd.Protocol {
+		case "udp":
+			if len(cmd.DstId) < 1 {
+				cc.errorf("destination <node-id(s)> parameter missing")
+				return
 			}
-		} else {
-			cc.rt.trafficGroups[gId] = nodesInGroup
+			src, _ := rt.getNodeById(cmd.SrcId)
+			dst, _ := rt.getNode(cmd.DstId[0])                // unicast destination
+			dstGrpNodeIds := rt.expandNodeSelector(cmd.DstId) // multicast destination node IDs
+			isMulticast := len(dstGrpNodeIds) > 1
+
+			if src == nil {
+				cc.errorf("source node %d not found", cmd.SrcId)
+				return
+			}
+			if dst == nil && !isMulticast {
+				cc.errorf("destination node %d not found", cmd.DstId[0])
+				return
+			}
+
+			err := src.UdpOpen()
+			if err != nil {
+				cc.errorf("source 'udp open' failed")
+				return
+			}
+
+			udpPort := 10000 + rt.trafficId // port used as identifier for msg
+			rt.trafficId++
+			if rt.trafficId > 60000 { // FIXME constants
+				rt.trafficId = 1
+			}
+			err = src.UdpBindAny(udpPort)
+			if err != nil {
+				cc.errorf("source node %d 'udp bind' failed", cmd.SrcId)
+				return
+			}
+
+			for _, nodeId := range dstGrpNodeIds {
+				dst, _ = rt.getNodeById(nodeId)
+				if dst == nil {
+					continue // TODO maybe print a warning here.
+				}
+
+				err = dst.UdpOpen()
+				if err != nil {
+					cc.errorf("destination node %d 'udp open' failed", nodeId)
+					return
+				}
+				err = dst.UdpBindAny(udpPort)
+				if err != nil {
+					cc.errorf("destination node %d 'udp bind' failed", nodeId)
+					return
+				}
+			}
+
+			dstAddr := "ff03::1" // mesh-local-all-nodes to reach all, without configuring mcast memberships.
+			if !isMulticast {
+				dstaddrs := rt.getAddrs(dst, cmd.AddrType)
+				if len(dstaddrs) <= 0 {
+					cc.errorf("dst addr not found")
+					return
+				}
+				dstAddr = dstaddrs[0]
+			}
+
+			datasz := 32
+			if cmd.DataSize != nil {
+				datasz = cmd.DataSize.Val
+			}
+			src.UdpSendRandomData(dstAddr, udpPort, datasz)
+
+		default:
+			logger.Panicf("send: protocol not implemented: %s", cmd.Protocol)
 		}
-	default:
-		logger.Panicf("Unknown traffic protocol argument: %s", cmd.Protocol)
-	}
+	})
 }

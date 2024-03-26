@@ -29,6 +29,7 @@ package simulation
 import (
 	"bufio"
 	"context"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"os"
@@ -65,6 +66,7 @@ type Node struct {
 	cmdErr        error // store the last CLI command error; nil if none.
 	version       string
 	threadVersion uint16
+	isUdpOpen     bool
 
 	pendingLines  chan string       // OT node CLI output lines, pending processing.
 	pendingEvents chan *event.Event // OT node emitted events to be processed.
@@ -844,6 +846,33 @@ func (node *Node) ThreadStop() {
 	node.Command("thread stop", DefaultCommandTimeout)
 }
 
+func (node *Node) UdpOpen() error {
+	if node.isUdpOpen {
+		return nil
+	}
+	node.Command("udp open", DefaultCommandTimeout)
+	if node.CommandResult() == nil {
+		node.isUdpOpen = true
+	}
+	return node.CommandResult()
+}
+
+func (node *Node) UdpSend(addr string, port int, data []byte) {
+	cmd := fmt.Sprintf("udp send %s %d -x %s", addr, port, hex.EncodeToString(data))
+	node.Command(cmd, DefaultCommandTimeout)
+}
+
+func (node *Node) UdpSendRandomData(addr string, port int, dataSize int) {
+	cmd := fmt.Sprintf("udp send %s %d -s %d", addr, port, dataSize)
+	node.Command(cmd, DefaultCommandTimeout)
+}
+
+func (node *Node) UdpBindAny(port int) error {
+	cmd := fmt.Sprintf("udp bind :: %d", port)
+	node.Command(cmd, DefaultCommandTimeout)
+	return node.CommandResult()
+}
+
 // GetThreadVersion gets the Thread version integer of the OpenThread node.
 func (node *Node) GetThreadVersion() uint16 {
 	if node.threadVersion == 0 {
@@ -1131,11 +1160,15 @@ func (node *Node) setupMode() {
 }
 
 func (node *Node) DisplayPendingLines() {
+	prefix := ""
 loop:
 	for {
 		select {
 		case line := <-node.pendingLines:
-			logger.Println("  " + line)
+			if len(prefix) == 0 && node.S.cmdRunner.GetNodeContext() != node.Id {
+				prefix = node.String() // lazy init of node-specific prefix
+			}
+			logger.Println(prefix + line)
 		default:
 			break loop
 		}
