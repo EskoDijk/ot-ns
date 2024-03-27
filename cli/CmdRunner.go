@@ -50,7 +50,8 @@ import (
 )
 
 const (
-	Prompt = "> "
+	prompt         = "> "
+	maxSendGroupId = 1024
 )
 
 type GroupId int
@@ -84,6 +85,10 @@ func (cc *CommandContext) outputErr(err error) {
 
 func (cc *CommandContext) outputf(format string, args ...interface{}) {
 	_, _ = fmt.Fprintf(cc.output, format, args...)
+}
+
+func (cc *CommandContext) warnf(format string, args ...interface{}) {
+	cc.outputf("Warn: "+format+"\n", args...)
 }
 
 func (cc *CommandContext) errorf(format string, args ...interface{}) {
@@ -126,7 +131,7 @@ type CmdRunner struct {
 	ctx           *progctx.ProgCtx
 	contextNodeId NodeId
 	help          Help
-	trafficId     int
+	sendGroupId   int
 }
 
 func NewCmdRunner(ctx *progctx.ProgCtx, sim *simulation.Simulation) *CmdRunner {
@@ -135,7 +140,7 @@ func NewCmdRunner(ctx *progctx.ProgCtx, sim *simulation.Simulation) *CmdRunner {
 		sim:           sim,
 		contextNodeId: InvalidNodeId,
 		help:          newHelp(),
-		trafficId:     1,
+		sendGroupId:   0,
 	}
 	sim.SetCmdRunner(cr)
 	return cr
@@ -186,9 +191,9 @@ func (rt *CmdRunner) HandleCommand(cmdline string, output io.Writer) error {
 
 func (rt *CmdRunner) GetPrompt() string {
 	if rt.contextNodeId == InvalidNodeId {
-		return Prompt
+		return prompt
 	} else {
-		return fmt.Sprintf("node %d%s", rt.contextNodeId, Prompt)
+		return fmt.Sprintf("node %d%s", rt.contextNodeId, prompt)
 	}
 }
 
@@ -454,7 +459,7 @@ func (rt *CmdRunner) executeDelNode(cc *CommandContext, cmd *DelCmd) {
 		for _, nodeId := range rt.expandNodeSelector(cmd.Nodes) {
 			node, _ := rt.getNodeById(nodeId)
 			if node == nil {
-				cc.outputf("Warn: node %d not found, skipping\n", nodeId)
+				cc.warnf("node %d not found, skipping", nodeId)
 				continue
 			}
 
@@ -511,7 +516,7 @@ func (rt *CmdRunner) executePing(cc *CommandContext, cmd *PingCmd) {
 		if cmd.DataSize != nil {
 			datasize = cmd.DataSize.Val
 			if datasize < 4 {
-				logger.Warnf("Ping with datasize < 4 is ignored by OT-NS statistics code.")
+				cc.warnf("ping with datasize < 4 is ignored by OT-NS statistics code")
 			}
 		}
 
@@ -582,7 +587,7 @@ func (rt *CmdRunner) getAddrs(node *simulation.Node, addrType *AddrTypeFlag) []s
 }
 
 func (rt *CmdRunner) executeDebug(cc *CommandContext, cmd *DebugCmd) {
-	logger.Infof("debug %#v", *cmd)
+	logger.Debugf("debug %#v", *cmd)
 
 	if cmd.Echo != nil {
 		cc.outputf("%s\n", *cmd.Echo)
@@ -618,9 +623,9 @@ func (rt *CmdRunner) executeNode(cc *CommandContext, cmd *NodeCmd) {
 			var output []string
 
 			if cc.isBackgroundCmd {
-				output = node.CommandNoDone(*cmd.Command, simulation.DefaultCommandTimeout)
+				output = node.CommandNoDone(*cmd.Command)
 			} else {
-				output = node.Command(*cmd.Command, simulation.DefaultCommandTimeout)
+				output = node.Command(*cmd.Command)
 			}
 
 			err := node.CommandResult()
@@ -1037,7 +1042,7 @@ func (rt *CmdRunner) executeUnwatch(cc *CommandContext, cmd *UnwatchCmd) {
 			for _, nodeId := range nodesToUnwatch {
 				node, _ := rt.getNodeById(nodeId)
 				if node == nil {
-					cc.outputf("Warn: node %d not found, skipping\n", nodeId)
+					cc.warnf("node %d not found, skipping", nodeId)
 					continue
 				}
 				sim.Dispatcher().UnwatchNode(node.Id)
@@ -1073,7 +1078,7 @@ func (rt *CmdRunner) executeScan(cc *CommandContext, cmd *ScanCmd) {
 			cc.errorf("node %d not found", cmd.Node.Id)
 			return
 		}
-		output := node.CommandNoDone("scan", simulation.DefaultCommandTimeout)
+		output := node.CommandNoDone("scan")
 		err := node.CommandResult()
 		cc.error(err)
 		if err == nil {
@@ -1354,86 +1359,111 @@ func (rt *CmdRunner) executeLoad(cc *CommandContext, cmd *LoadCmd) {
 
 		err = sim.ImportNodes(cfgFile.NetworkConfig, cfgFile.NodesList)
 		if err != nil {
-			cc.outputf("Warning: %v\n", err)
+			cc.warnf("%v", err)
 		}
 	})
 }
 
 func (rt *CmdRunner) executeSend(cc *CommandContext, cmd *SendCmd) {
 	rt.postAsyncWait(cc, func(sim *simulation.Simulation) {
-		switch cmd.Protocol {
-		case "udp":
-			if len(cmd.DstId) < 1 {
-				cc.errorf("destination <node-id(s)> parameter missing")
-				return
-			}
-			src, _ := rt.getNodeById(cmd.SrcId)
-			dst, _ := rt.getNode(cmd.DstId[0])                // unicast destination
-			dstGrpNodeIds := rt.expandNodeSelector(cmd.DstId) // multicast destination node IDs
-			isMulticast := len(dstGrpNodeIds) > 1
+		src, _ := rt.getNode(cmd.SrcId)
 
-			if src == nil {
-				cc.errorf("source node %d not found", cmd.SrcId)
-				return
+		if cmd.Protocol == "reset" {
+			if cmd.SrcId.All == nil {
+				cc.warnf("preferably use 'send reset all' to reset state on all nodes")
 			}
-			if dst == nil && !isMulticast {
-				cc.errorf("destination node %d not found", cmd.DstId[0])
-				return
-			}
-
-			err := src.UdpOpen()
-			if err != nil {
-				cc.errorf("source 'udp open' failed")
-				return
-			}
-
-			udpPort := 10000 + rt.trafficId // port used as identifier for msg
-			rt.trafficId++
-			if rt.trafficId > 60000 { // FIXME constants
-				rt.trafficId = 1
-			}
-			err = src.UdpBindAny(udpPort)
-			if err != nil {
-				cc.errorf("source node %d 'udp bind' failed", cmd.SrcId)
-				return
-			}
-
-			for _, nodeId := range dstGrpNodeIds {
-				dst, _ = rt.getNodeById(nodeId)
-				if dst == nil {
-					continue // TODO maybe print a warning here.
-				}
-
-				err = dst.UdpOpen()
+			for _, nodeId := range rt.expandNodeSelector([]NodeSelector{cmd.SrcId}) {
+				node, _ := rt.getNodeById(nodeId)
+				err := node.SendReset()
 				if err != nil {
-					cc.errorf("destination node %d 'udp open' failed", nodeId)
-					return
+					cc.error(err)
 				}
-				err = dst.UdpBindAny(udpPort)
-				if err != nil {
-					cc.errorf("destination node %d 'udp bind' failed", nodeId)
+			}
+			rt.sendGroupId = 1
+			return
+		}
+		if len(cmd.DstId) == 0 {
+			cc.errorf("missing dest node ID parameter(s)")
+			return
+		}
+
+		dst, _ := rt.getNode(cmd.DstId[0])                // unicast destination
+		dstGrpNodeIds := rt.expandNodeSelector(cmd.DstId) // multicast destination node IDs
+		isMulticast := len(dstGrpNodeIds) > 1
+		isUdp := cmd.Protocol == "udp"
+		isCoap := cmd.Protocol == "coap"
+		isCoapCon := cmd.ProtoParam == "con"
+
+		if !isUdp && !isCoap {
+			cc.errorf("unsupported protocol: %s", cmd.Protocol)
+			return
+		}
+		if src == nil {
+			cc.errorf("source node %d not found", cmd.SrcId.Id)
+			return
+		}
+		if dst == nil && !isMulticast {
+			cc.errorf("destination node %d not found", cmd.DstId[0].Id)
+			return
+		}
+
+		if err := src.SendInit(); err != nil {
+			cc.errorf("source node init failed: %v", err)
+			return
+		}
+
+		if isMulticast {
+			if rt.sendGroupId >= maxSendGroupId {
+				cc.errorf("'send' reached max multicast group ID %d, run 'send reset' to reset back to %d", maxSendGroupId, rt.sendGroupId)
+				return
+			}
+			rt.sendGroupId++
+		}
+
+		for _, nodeId := range dstGrpNodeIds {
+			dst, _ = rt.getNodeById(nodeId)
+			if dst == nil {
+				cc.warnf("destination node %d not found, skipping", nodeId)
+				continue
+			}
+
+			if err := dst.SendInit(); err != nil {
+				cc.errorf("destination node %d send-init failed: %v", nodeId, err)
+				return
+			}
+			if isMulticast {
+				if err := dst.SendGroupMembership(rt.sendGroupId, true); err != nil {
+					cc.error(err)
 					return
 				}
 			}
+		}
 
-			dstAddr := "ff03::1" // mesh-local-all-nodes to reach all, without configuring mcast memberships.
-			if !isMulticast {
-				dstaddrs := rt.getAddrs(dst, cmd.AddrType)
-				if len(dstaddrs) <= 0 {
-					cc.errorf("dst addr not found")
-					return
-				}
-				dstAddr = dstaddrs[0]
+		var dstAddr string
+		if !isMulticast {
+			dstaddrs := rt.getAddrs(dst, cmd.AddrType)
+			if len(dstaddrs) <= 0 {
+				cc.errorf("dst addr not found")
+				return
 			}
+			dstAddr = dstaddrs[0]
+		} else {
+			dstAddr = fmt.Sprintf("%s:%x", simulation.SendMcastPrefix, rt.sendGroupId)
+		}
 
-			datasz := 32
-			if cmd.DataSize != nil {
-				datasz = cmd.DataSize.Val
-			}
-			src.UdpSendRandomData(dstAddr, udpPort, datasz)
+		datasz := 32
+		if cmd.DataSize != nil {
+			datasz = cmd.DataSize.Val
+		}
 
-		default:
-			logger.Panicf("send: protocol not implemented: %s", cmd.Protocol)
+		var err error
+		if isUdp {
+			err = src.UdpSendTestData(dstAddr, simulation.SendUdpPort, datasz)
+		} else if isCoap {
+			err = src.CoapPostTestData(dstAddr, simulation.SendCoapResourceName, isCoapCon, datasz)
+		}
+		if err != nil {
+			cc.error(err)
 		}
 	})
 }

@@ -572,12 +572,13 @@ type SaveCmd struct {
 
 // noinspection GoVetStructTag
 type SendCmd struct {
-	Cmd      struct{}       `"send"`                //nolint
-	Protocol string         `@("udp"|"tcp"|"coap")` //nolint
-	SrcId    int            `@Int`                  //nolint
-	DstId    []NodeSelector `( @@ )+`               //nolint
-	AddrType *AddrTypeFlag  `[ @@ ]`                //nolint
-	DataSize *DataSizeFlag  `[ @@ ]`                //nolint
+	Cmd        struct{}       `"send"`                        //nolint
+	Protocol   string         `@("udp"|"tcp"|"coap"|"reset")` //nolint
+	ProtoParam string         `[ @("non"|"con") ]?`           //nolint
+	SrcId      NodeSelector   `@@`                            //nolint
+	DstId      []NodeSelector `( @@ )*`                       //nolint
+	AddrType   *AddrTypeFlag  `[ @@ ]`                        //nolint
+	DataSize   *DataSizeFlag  `[ @@ ]`                        //nolint
 }
 
 // noinspection GoVetStructTag

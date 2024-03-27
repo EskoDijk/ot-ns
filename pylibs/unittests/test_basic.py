@@ -824,6 +824,56 @@ class BasicTests(OTNSTestCase):
         ns.go(24*3600) # simulate 1 full day - to test the 'uptime' parsing of day values.
         self.assertEqual(n2_uptime + 24*3600.0, ns.get_node_uptime(2))
 
+    def testSendUdp(self):
+        ns: OTNS = self.ns
+
+        with self.assertRaises(errors.OTNSCliError):
+            ns.cmd('send udp 1 2')
+        ns.cmd('send reset all')
+
+        ns.add('router')
+        ns.add('router')
+        ns.add('router')
+        ns.add('router')
+        ns.add('router')
+
+        ns.go(60)
+
+        with self.assertRaises(errors.OTNSCliError):
+            ns.cmd('send udp 1 22')
+
+        ns.cmd('send udp 1 2')
+        ns.go(0.001)
+        ns.cmd('send udp 5 1-4')
+        ns.go(3)
+        ns.cmd('send udp 4 all')
+        ns.go(3)
+
+        ns.cmd('send coap 2 3-5')
+        ns.go(0.002)
+        ns.cmd('send coap con 5 2')
+        ns.go(3)
+        ns.cmd('send coap 5 2-3 1 4')
+        ns.go(3)
+
+        with self.assertRaises(errors.OTNSCliError):
+            ns.cmd('send udp 1 22')
+
+        # check group memberships
+        for j in ns.nodes():
+            addrs = ns.node_cmd(j, 'ipmaddr')
+            is_member = False
+            for a in addrs:
+                if a.startswith("ff13"): # see Go simulation.SendMcastPrefix
+                    is_member = True
+            self.assertTrue(is_member)
+
+        ns.cmd('send reset all')
+        # check no more group memberships
+        for j in ns.nodes():
+            addrs = ns.node_cmd(j, 'ipmaddr')
+            for a in addrs:
+                self.assertFalse(a.startswith("ff13")) # see Go simulation.SendMcastPrefix
 
 if __name__ == '__main__':
     unittest.main()

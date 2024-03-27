@@ -37,10 +37,10 @@ Python libraries use the CLI to manage simulations.
 * [rfsim](#rfsim)
 * [save](#save)
 * [scan](#scan)
+* [send](#send)
 * [speed](#speed)
 * [time](#time)
 * [title](#title)
-* [traffic](#traffic)
 * [unwatch](#unwatch)
 * [watch](#watch)
 * [web](#web)
@@ -518,7 +518,7 @@ Sets information about OpenThread version and commit used for simulation nodes. 
 shown in the GUI, whenever a node is not selected. When a node is 
 selected, the node-specific version/commit information will be used instead.
 
-In the GUI, when the version/commit message is clicked, a web browser tab will be opened with the Github code for 
+In the GUI, when the version/commit message is clicked, a web browser tab will be opened with the GitHub code for 
 the particular OpenThread version/commit. 
 
 ```bash
@@ -729,7 +729,7 @@ characteristics applicable to all nodes). Or set the model to another model by p
 the model. Current models supported:
 
 * `Ideal` (alias `I` or `1`) - has perfect radio reception within disc radius with constant good RSSI. CCA always finds the channel clear. 
-  There can be infinite parallel transmissions over the RF channel. If the OT node would request a transmission while one 
+  There can be infinite parallel transmissions over the RF channel. If the OT node requests a transmission while one 
  is already ongoing, it would be granted.
 * `Ideal_Rssi` (alias `IR` or `2`) - has perfect radio reception within disc radius with decreasing RSSI over distance. CCA is like
   in the Ideal model.
@@ -739,7 +739,7 @@ the model. Current models supported:
  on the OT node on a per-node basis using the `ccathreshold` CLI command.)  Concurrent transmissions will interfere and 
  if the interferer signal is sufficiently strong, it will fail the radio frame transmission with FCS error. Only one 
  transmission can occur at a time by a given node; if an additional transmission is requested by OT then the radio will 
- report the ABORT failure. Also CCA failure is reported if transmit is requested while the radio is receiving a frame.
+ report the ABORT failure. Also, CCA failure is reported if transmit is requested while the radio is receiving a frame.
 * `MIDisc` (alias `MID` or `4`) - same as `MutualInterference` but limits transmissions/interference to a disc range 
  equal to the node's radio-range parameter.
 * `Outdoor` (alias `5`) - experimental outdoor propagation model. It assumes Line-of-Sight (LoS).
@@ -867,7 +867,7 @@ save "<filename.yaml>"
 ```
 
 Information about a node that will be saved in the file: type, position, and Thread version. Any 
-internal state like 802.15.4 addresses, IP addresses, routing information, flash, counters etc is not 
+internal state like 802.15.4 addresses, IP addresses, routing information, flash, counters etc. is not 
 saved. The saved YAML file can be loaded again with [`load`](#load)
 
 ```bash
@@ -899,26 +899,30 @@ Done
 Send unicast and/or multicast data traffic between nodes, for testing purposes.
 
 ```shell
-send udp <src-id> <dst-id(s)> [<addr-type>] [datasize <sz>]
+send udp|coap [non|con] <src-id> <dst-id(s)> [<addr-type>] [datasize <sz>]
+send reset all
 ```
 
 As node IDs for `<dst-id(s)>`, individual nodes, or ranges, or a combination, or "all" can be
 used, as shown in more detail in the [del](#del) command. If more than one node is selected in this way, a
 multicast message will be sent automatically. If it is one destination node, it will be unicast.
-In the present implementation, each subsequent `send` message will be sent to a new UDP destination port so that 
-datagram latency can be tracked for each individual message; and also for the multicast case only the intended set of 
-recipients will respond. For simplicity, the multicast destination IPv6 address is always `ff03::1` to reach any 
-nodes on the mesh without having to configure multicast group addresses.
+In the present implementation, each subsequent multicast `send` message will be sent to a new IPv6 multicast group so 
+that only the intended set of recipients will receive the message. This causes the number of multicast group memberships 
+to grow over time, potentially. To reset all such memberships back to original state, `send reset all` can be used. 
+This reset also stops any CoAP/UDP server active on all nodes and starts the numbering of multicast groups again at 1.
+
+As protocol, `udp` or `coap` can be selected. For `coap`, also `non` (Non-Confirmable) or `con` (Confirmable) 
+transmission can be chosen. If absent, `non` is assumed. For multicast, `non` is specified by RFC 7252 but for testing 
+purposes also `con` can be used here. Note that CoAP responses are currently not generated for `non` (future addition 
+may address this). Traffic protocols like tcp, tls, or coaps are currently not implemented.
+For ICMPv6 traffic see [ping](#ping).
 
 The optional `<addr-type>` allows to specify the unicast address type to use (see [ping](#ping) for details).
-The optional `datasize` (or `ds`) argument sets the payload data size in bytes, between 0-~1220. 
+The optional `datasize` (or `ds`) argument sets the payload data size in bytes, between 0-~1220 for `udp` and a 
+smaller range for `coap` of 0-~580 due to CLI line length limits. 
 
 Concurrent traffic can be generated by issuing multiple `traffic` commands from a Python script, or from the CLI while
-the simulation is paused.
-
-
-Traffic protocols other than `udp` like tcp, tls, coap, or coaps are currently not implemented.
-For ICMPv6 traffic see [ping](#ping).
+the simulation is paused or running with slow [speed](#speed).
 
 ```bash
 > send udp 1 2
@@ -938,6 +942,29 @@ Node<2>  32 bytes from fdde:ad00:beef:0:5f0e:224f:aa33:f5f2 10022 0123456789ABCD
 Node<3>  32 bytes from fdde:ad00:beef:0:5f0e:224f:aa33:f5f2 10022 0123456789ABCDEFGHIJKLMNOPQRSTUV
 Node<4>  32 bytes from fdde:ad00:beef:0:5f0e:224f:aa33:f5f2 10022 0123456789ABCDEFGHIJKLMNOPQRSTUV
 Node<5>  32 bytes from fdde:ad00:beef:0:5f0e:224f:aa33:f5f2 10022 0123456789ABCDEFGHIJKLMNOPQRSTUV
+> send coap 2 5
+Done
+Node<5>  coap request from fdde:ad00:beef:0:f5cc:a5:9fc:b417 POST with payload: 6c4648535159434755636e4d6664775653493669564b4166584744435762304d
+>
+```
+
+For `coap`, message statistics/info/latency can be tracked by using [coaps](#coaps) as shown in the below example.
+
+```bash
+> coaps enable
+Done
+> send coap 2 3-5
+Done
+Node<3>  coap request from fdde:ad00:beef:0:f5cc:a5:9fc:b417 POST with payload: 64757479795a374a7569313654414947636a5a6f344e54364b667051756d3254
+Node<4>  coap request from fdde:ad00:beef:0:f5cc:a5:9fc:b417 POST with payload: 64757479795a374a7569313654414947636a5a6f344e54364b667051756d3254
+Node<5>  coap request from fdde:ad00:beef:0:f5cc:a5:9fc:b417 POST with payload: 64757479795a374a7569313654414947636a5a6f344e54364b667051756d3254
+> coaps
+- {time: 1151062448, src: 2, id: 65467, type: 1, code: 2, uri: t, dst_addr: 'ff13:0:0:0:0:0:deed:6', dst_port: 5683, 
+   receivers: [
+   {time: 1151068024, dst: 3, src_addr: 'fdde:ad00:beef:0:f5cc:a5:9fc:b417', src_port: 5683}, 
+   {time: 1151068024, dst: 4, src_addr: 'fdde:ad00:beef:0:f5cc:a5:9fc:b417', src_port: 5683}, 
+   {time: 1151076032, dst: 5, src_addr: 'fdde:ad00:beef:0:f5cc:a5:9fc:b417', src_port: 5683}]}
+Done
 >
 ```
 
@@ -1035,7 +1062,7 @@ watch default [<LogLevel>]
 ```
 
 The log entries of nodes are displayed in the CLI. This can be useful for interactive debugging or inspection of a 
-node's behavior. The watch function is mostly independent from the OT node's log file: entries that are not displayed, 
+node's behavior. The watch function is mostly independent of the OT node's log file: entries that are not displayed, 
 are typically still written to the OT node log file.
 
 Node IDs to watch can be selected using individual node(s), range(s) of nodes, "all" nodes, or a combination. See 
