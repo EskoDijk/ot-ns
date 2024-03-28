@@ -426,11 +426,12 @@ kpi [ start | stop ]
 kpi save [ "<filename>" ]
 ```
 
-By default, a simulation will start data recording for KPIs at time t=0 and automatically stop at simulation exit. The 
-KPI data is saved to a JSON file `?_kpi.json` in the simulation's output folder. This command can be used to change the 
-default operation: `kpi start` will start/restart KPI data recording at the current simulation time.
-`kpi stop` will stop the KPI data recording again at the current simulation time.
-And `kpi save` can be used at any moment, whether KPI data recording is active or not, to save the latest set of 
+Use `kpi start` to start/restart KPI data recording at the current simulation time. KPI data recording will automatically 
+stop at simulation exit. The KPI data is saved to a default JSON file `?_kpi.json` in the simulation's output folder. 
+`kpi stop` will stop the KPI data recording at the current simulation time; this will also save results to the 
+default file.
+
+`kpi save` can be used at any moment, whether KPI data recording is active or not, to save the latest set of 
 recorded KPI data to a file. If a filename is not provided, the default JSON file is used/overwritten.
 `kpi` without arguments inspects the state of the KPI collection.
 
@@ -454,6 +455,9 @@ Done
 
 NOTE: if any counters of nodes are reset using the OT CLI command `counters <type> reset` while KPI collection is ongoing, 
 the results of KPI collection will become incorrect.
+
+NOTE: KPI recording makes use of the [coaps](#coaps) command to enable CoAP message statistics. This may interfere 
+with a user's ongoing CoAP message statistics collection, if any.
 
 ### load
 

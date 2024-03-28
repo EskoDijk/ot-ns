@@ -1190,7 +1190,7 @@ func (rt *CmdRunner) executeCoaps(cc *CommandContext, cmd *CoapsCmd) {
 	} else {
 		var coapMessages []*dispatcher.CoapMessage
 		rt.postAsyncWait(cc, func(sim *simulation.Simulation) {
-			coapMessages = sim.Dispatcher().CollectCoapMessages()
+			coapMessages = sim.Dispatcher().CollectCoapMessages(true)
 		})
 
 		cc.outputItemsAsYaml(coapMessages)

@@ -710,13 +710,14 @@ class BasicTests(OTNSTestCase):
     def testKpi(self):
         ns: OTNS = self.ns
 
-        self.assertTrue(ns.kpi())
+        self.assertFalse(ns.kpi())
         ns.add('router')
         ns.add('router')
         ns.add('router')
         ns.go(50)
 
-        ns.kpi_start() # restart KPIs
+        self.assertFalse(ns.kpi())
+        ns.kpi_start()
         self.assertTrue(ns.kpi())
         kpi_data = ns.kpi_save()
         self.assertEqual(0, kpi_data["time_sec"]["duration"])

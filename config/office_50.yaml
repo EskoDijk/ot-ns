@@ -154,6 +154,3 @@ nodes:
     - id: 50
       type: router
       pos: [449, 468, 0]
-    - id: 51
-      type: router
-      pos: [538, 429, 0]

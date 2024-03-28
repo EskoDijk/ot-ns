@@ -38,13 +38,24 @@ def build_topology(ns):
 def main():
     ns = OTNS()
     ns.radiomodel = 'MutualInterference'
+    ns.web('stats')
     ns.web('main')
-    #ns.web('stats')
 
     build_topology(ns)
     ns.go(30)
-
+    ns.set_title('starting data traffic test')
     ns.speed = 1
+
+    # send unicast and multicast traffic over mesh
+    ns.kpi_start()
+    ns.cmd("send coap con 1 50 ds 64") # unicast from BR to node
+    ns.go(0.002)
+    ns.cmd("send coap 48 31-50") # sensor triggers lights of lower group
+    ns.go(5)
+    ns.kpi_save('tmp/cs_traffic_patterns.json')
+    ns.kpi_save()
+
+    ns.set_title('data traffic test done')
     ns.interactive_cli()
     ns.web_display()
 
