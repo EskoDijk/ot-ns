@@ -824,7 +824,7 @@ class BasicTests(OTNSTestCase):
         ns.go(24*3600) # simulate 1 full day - to test the 'uptime' parsing of day values.
         self.assertEqual(n2_uptime + 24*3600.0, ns.get_node_uptime(2))
 
-    def testSendUdp(self):
+    def testSendUdpCoap(self):
         ns: OTNS = self.ns
 
         with self.assertRaises(errors.OTNSCliError):
@@ -874,6 +874,7 @@ class BasicTests(OTNSTestCase):
             addrs = ns.node_cmd(j, 'ipmaddr')
             for a in addrs:
                 self.assertFalse(a.startswith("ff13")) # see Go simulation.SendMcastPrefix
+
 
 if __name__ == '__main__':
     unittest.main()
