@@ -528,10 +528,6 @@ func (node *Node) GetChildList() (childlist []int) {
 	return
 }
 
-func (node *Node) GetChildTable() {
-	// todo: not implemented yet
-}
-
 func (node *Node) GetChildTimeout() int {
 	return node.CommandExpectInt("childtimeout")
 }
@@ -603,19 +599,16 @@ func (node *Node) IfconfigDown() {
 }
 
 func (node *Node) GetIpAddr() []string {
-	// todo: parse IPv6 addresses
 	addrs := node.Command("ipaddr")
 	return addrs
 }
 
 func (node *Node) GetIpAddrLinkLocal() []string {
-	// todo: parse IPv6 addresses
 	addrs := node.Command("ipaddr linklocal")
 	return addrs
 }
 
 func (node *Node) GetIpAddrMleid() []string {
-	// todo: parse IPv6 addresses
 	addrs := node.Command("ipaddr mleid")
 	return addrs
 }
@@ -638,7 +631,6 @@ func (node *Node) GetIpAddrSlaac() []string {
 }
 
 func (node *Node) GetIpMaddr() []string {
-	// todo: parse IPv6 addresses
 	addrs := node.Command("ipmaddr")
 	return addrs
 }
@@ -743,20 +735,12 @@ func (node *Node) GetLeaderData() (leaderData LeaderData) {
 	return
 }
 
-func (node *Node) GetLeaderPartitionId() int {
-	return node.CommandExpectInt("leaderpartitionid")
-}
-
-func (node *Node) SetLeaderPartitionId(partitionid int) {
-	node.Command(fmt.Sprintf("leaderpartitionid 0x%x", partitionid))
-}
-
 func (node *Node) GetLeaderWeight() int {
 	return node.CommandExpectInt("leaderweight")
 }
 
 func (node *Node) SetLeaderWeight(weight int) {
-	node.Command(fmt.Sprintf("leaderweight 0x%x", weight))
+	node.Command(fmt.Sprintf("leaderweight %d", weight))
 }
 
 func (node *Node) FactoryReset() {
@@ -802,7 +786,7 @@ func (node *Node) SetNetworkKey(key string) {
 }
 
 func (node *Node) GetMode() string {
-	// todo: return Mode type rather than just string
+	// TODO: return Mode type rather than just string
 	return node.CommandExpectString("mode")
 }
 
@@ -811,7 +795,6 @@ func (node *Node) SetMode(mode string) {
 }
 
 func (node *Node) GetPanid() uint16 {
-	// todo: return Mode type rather than just string
 	return uint16(node.CommandExpectInt("panid"))
 }
 
@@ -902,6 +885,7 @@ func (node *Node) SendReset() error {
 	return nil
 }
 
+// SendGroupMembership modifies multicast group membership for the groups used by the OTNS 'send' command.
 func (node *Node) SendGroupMembership(groupId int, isMember bool) error {
 	addOrDel := "del"
 	if isMember {
@@ -946,8 +930,7 @@ func (node *Node) CoapPostTestData(addr string, uri string, confirmable bool, da
 		conNonStr = "con"
 	}
 	cmd := fmt.Sprintf("coap post %s %s %s %s", addr, uri, conNonStr, payloadStr)
-	node.Command(cmd)
-	return node.CommandResult()
+	return node.CommandChecked(cmd)
 }
 
 // GetThreadVersion gets the Thread version integer of the OpenThread node.
