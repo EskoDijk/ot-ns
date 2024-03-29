@@ -35,9 +35,9 @@ OT_OPTIONS=(
 )
 readonly OT_OPTIONS
 
-cd openthread
+cd ../openthread
 git checkout thread-reference-20230119
-cd ..
+cd ../ot-rfsim
 rm -rf build
 ./script/build "${OT_OPTIONS[@]}"
 git submodule update

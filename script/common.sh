@@ -62,14 +62,14 @@ go_install()
 
 get_openthread()
 {
-    if [[ ! -f ./ot-rfsim/script/build ]]; then
+    if [[ ! -f ./openthread/script/bootstrap ]]; then
         git submodule update --init --recursive --depth 1
     fi
 }
 
 get_openthread_versions()
 {
-    if [[ ! -f ./ot-rfsim/script/build ]]; then
+    if [[ ! -f ./openthread/script/bootstrap ]]; then
         git submodule update --init --recursive
     fi
 }

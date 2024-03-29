@@ -37,6 +37,11 @@ coverage.txt
 /web/site/js/proto/*_pb.js
 /web/site/static/js/*.js
 
+# ot-rfsim build items
+ot-rfsim/build/
+ot-rfsim/ot-versions/ot-cli-*
+ot-rfsim/ot-versions/ot-rcp*
+
 # pylibs installation files
 pylibs/build/
 pylibs/dist/
