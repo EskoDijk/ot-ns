@@ -46,7 +46,9 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin)
 
 add_definitions( -DRFSIM_SW_VERSION="${CMAKE_PROJECT_VERSION}" )
 
-add_subdirectory(${OT_DIR} ${PROJECT_BINARY_DIR}/openthread)
+# an external openthread repo may be defined - its build files are stored in there, so that coverage info
+# collection will work.
+add_subdirectory(${OT_DIR} ${OT_DIR}/build/ot-rfsim)
 
 target_compile_definitions(ot-config INTERFACE
     OPENTHREAD_CONFIG_FILE="openthread-core-rfsim-config.h"
