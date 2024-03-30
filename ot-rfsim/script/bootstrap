@@ -28,7 +28,7 @@
 #
 #    Description:
 #      This file installs all needed dependencies and toolchains needed for
-#      example compilation and programming.
+#      ot-rfsim compilation and programming.
 #
 
 set -euxo pipefail
