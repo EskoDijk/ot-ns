@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-#  Copyright (c) 2017-2023, The OpenThread Authors.
+#  Copyright (c) 2017-2024, The OpenThread Authors.
 #  All rights reserved.
 #
 #  Redistribution and use in source and binary forms, with or without
@@ -88,8 +88,8 @@ install_packages()
 
 main()
 {
-    if [ "$EUID" -ne 0 ]
-        then echo "Please run as root user, e.g. 'sudo ./script/bootstrap'." && false
+    if [ "$EUID" -ne 0 ]; then
+        echo "Please run as root user, e.g. 'sudo ./script/bootstrap'." && false
     fi
     install_packages
     echo 'bootstrap for ot-rfsim completed successfully.'
