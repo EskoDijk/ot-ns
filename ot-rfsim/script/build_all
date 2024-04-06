@@ -44,11 +44,11 @@ main()
         fi
 
         if [ -f $FTDNAME ]; then
-            printf "\n$VER: file $FTDNAME is present, skipping this version build.\n\n"
+            printf '\n%s: file %s is present, skipping this version build.\n\n' "${VER}" "${FTDNAME}"
         else
-            echo "$VER: building $FTDNAME"
+            printf '%s: building %s' "${VER}" "${FTDNAME}"
             ${SCRIPTNAME} "${options[@]}" || printf \
-                "\n********************\n  Failed build script: ${SCRIPTNAME} - skipping.\n********************\n\n"
+                '\n********************\n  Failed build script: %s - skipping.\n********************\n\n' "${SCRIPTNAME}"
         fi
     done
 }
