@@ -48,7 +48,7 @@ main()
         else
             echo "$VER: building $FTDNAME"
             ${SCRIPTNAME} "${options[@]}" || printf \
-               "\n********************\n  Failed build script: ${SCRIPTNAME} - skipping.\n********************\n\n"
+                "\n********************\n  Failed build script: ${SCRIPTNAME} - skipping.\n********************\n\n"
         fi
     done
 }
