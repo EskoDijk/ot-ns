@@ -27,10 +27,9 @@
 package visualize_statslog
 
 import (
+	"fmt"
 	"os"
 	"time"
-
-	"fmt"
 
 	"github.com/openthread/ot-ns/energy"
 	"github.com/openthread/ot-ns/logger"
@@ -172,14 +171,11 @@ func (sv *statslogVisualizer) SetNodePartitionId(nodeid NodeId, parid uint32) {
 
 func (sv *statslogVisualizer) AdvanceTime(ts uint64, speed float64) {
 	if sv.changed && sv.checkLogEntryChange() {
-		if sv.timestampUs >= sv.logTimestampUs+1000e3 {
-			sv.writeLogEntry(sv.timestampUs-100e3, sv.oldStats) // extra entry to aid good graph plotting from csv data
-		}
 		sv.writeLogEntry(sv.timestampUs, sv.stats)
 		sv.logTimestampUs = sv.timestampUs
 		sv.oldStats = sv.stats
 	}
-	sv.changed = false
+	sv.changed = false // this is kept to avoid sv.calcStats() call every time.
 	sv.timestampUs = ts
 }
 
