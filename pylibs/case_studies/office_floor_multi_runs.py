@@ -37,7 +37,7 @@ from otns.cli import OTNS
 from otns.cli.errors import OTNSExitedError
 
 NUM_RUNS = 50
-MAX_SIM_TIME = 1 #20*60
+MAX_SIM_TIME = 20*60
 
 
 def build_topology(ns):
