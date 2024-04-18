@@ -135,6 +135,7 @@ func (sv *statslogVisualizer) Stop() {
 	// add a final entry with final status
 	sv.writeLogEntry(sv.timestampUs, sv.calcStats())
 	sv.close()
+	logger.Debugf("statslogVisualizer stopped and CSV log file closed.")
 }
 
 func (sv *statslogVisualizer) AddNode(nodeid NodeId, cfg *NodeConfig) {
@@ -246,6 +247,7 @@ func (sv *statslogVisualizer) writeLogEntry(ts uint64, stats nodeStats) {
 		stats.numLeaders, stats.numRouters, stats.numEndDevices, stats.numDetached, stats.numDisabled,
 		stats.numSleepy, stats.numFailed)
 	_ = sv.writeToLogFile(entry)
+	logger.Debugf("statslog entry added: %s", entry)
 }
 
 func (sv *statslogVisualizer) writeToLogFile(line string) error {
