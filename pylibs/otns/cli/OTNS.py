@@ -1033,17 +1033,37 @@ class OTNS(object):
         """
         self.node_cmd(nodeid, f"joiner start {pwd}")
 
+    def ccm_joiner_start(self, nodeid: int) -> None:
+        """
+        Start CCM joiner.
+
+        :param nodeid: joiner node ID
+        """
+        self.node_cmd(nodeid, f"joiner ccm")
+
     def commissioner_joiner_add(self, nodeid: int, usr: str, pwd: str, timeout=None) -> None:
         """
         Add joiner to commissioner.
 
         :param nodeid: commissioner node ID
-        :param usr: commissioning user
+        :param usr: joiner EUI-64 or discerner (id) or '*' for any joiners
         :param pwd: commissioning password
         :param timeout: commissioning session timeout
         """
         timeout_s = f" {timeout}" if timeout is not None else ""
         self.node_cmd(nodeid, f"commissioner joiner add {usr} {pwd}{timeout_s}")
+
+    def commissioner_ccm_joiner_add(self, nodeid: int, usr: str, timeout=None) -> None:
+        """
+        Add CCM joiner to commissioner.
+
+        :param nodeid: commissioner node ID
+        :param usr: joiner EUI-64 or discerner (id) or '*' for any joiners
+        :param pwd: commissioning password
+        :param timeout: commissioning session timeout
+        """
+        timeout_s = f" {timeout}" if timeout is not None else ""
+        self.node_cmd(nodeid, f"commissioner joiner add {usr} CCMCCM{timeout_s}")
 
     def config_visualization(self, broadcast_message: bool = None, unicast_message: bool = None,
                              ack_message: bool = None, router_table: bool = None, child_table: bool = None) \
