@@ -43,15 +43,18 @@ class CommissioningTests(OTNSTestCase):
     def setFirstNodeDataset(self, n1) -> None:
         self.ns.node_cmd(n1, "dataset init new")
         self.ns.node_cmd(n1, "dataset networkkey 00112233445566778899aabbccddeeff") # allow easy Wireshark dissecting
+        self.ns.node_cmd(n1, "dataset securitypolicy 672 orcCR 3") # enable CCM-commissioning flag in secpolicy
         self.ns.node_cmd(n1, "dataset commit active")
 
     def testCommissioningOneHop(self):
         ns = self.ns
         ns.web()
-        ns.radiomodel = 'MIDisc'
+        ns.coaps_enable()
+        ns.radiomodel = 'MIDisc' # enforce strict line topologies for testing
 
-        n1 = ns.add("br", radio_range = 110)
-        n2 = ns.add("router", radio_range = 110)
+        n1 = ns.add("br", x = 100, y = 100, radio_range = 120)
+        n2 = ns.add("router", x = 100, y = 200, radio_range = 120)
+        n3 = ns.add("router", x = 200, y = 100, radio_range = 120)
 
         self.setFirstNodeDataset(n1)
         ns.ifconfig_up(n1)
@@ -59,10 +62,11 @@ class CommissioningTests(OTNSTestCase):
         self.go(35)
         self.assertTrue(ns.get_state(n1) == "leader")
         ns.commissioner_start(n1)
-        ns.commissioner_ccm_joiner_add(n1, "*")
 
+        # n2 joins as regular joiner
+        ns.commissioner_joiner_add(n1, "*", "TEST123")
         ns.ifconfig_up(n2)
-        ns.ccm_joiner_start(n2)
+        ns.joiner_start(n2, "TEST123")
         self.go(20)
         ns.thread_start(n2)
         self.go(100)
@@ -70,10 +74,24 @@ class CommissioningTests(OTNSTestCase):
         print('counters', c)
         joins = ns.joins()
         print('joins', joins)
+        self.assertFormPartitionsIgnoreOrphans(1)
+        self.assertTrue(joins and joins[0][1] > 0)  # assert join success
 
+        # n3 joins as CCM  joiner
+        ns.commissioner_ccm_joiner_add(n1, "*")
+        ns.ifconfig_up(n3)
+        ns.ccm_joiner_start(n3)
+        self.go(20)
+        ns.thread_start(n3)
+        self.go(100)
+        c = ns.counters()
+        print('counters', c)
+        joins = ns.joins()
+        print('joins', joins)
         ns.interactive_cli()
         self.assertFormPartitions(1)
         self.assertTrue(joins and joins[0][1] > 0)  # assert join success
+
 
 if __name__ == '__main__':
     unittest.main()
