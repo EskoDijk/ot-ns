@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2022-2023, The OpenThread Authors.
+ *  Copyright (c) 2022-2024, The OpenThread Authors.
  *  All rights reserved.
  *
  *  Redistribution and use in source and binary forms, with or without
@@ -168,6 +168,15 @@ void otSimSendRfSimParamRespEvent(uint8_t param, int32_t value) {
     event.mDelay      = 0;
     event.mDataLength = sizeof(int32_t) + 1;
 
+    otSimSendEvent(&event);
+}
+
+void otSimSendUdpAilEvent(struct UdpAilEventData *aEventData) {
+    struct Event event;
+    event.mEvent = OT_SIM_EVENT_UDP_TO_AIL;
+    event.mDelay = 0;
+    memcpy(event.mData, aEventData, sizeof(struct UdpAilEventData));
+    event.mDataLength = sizeof(struct UdpAilEventData);
     otSimSendEvent(&event);
 }
 

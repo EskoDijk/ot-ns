@@ -43,6 +43,7 @@ OTBR_OPTIONS=(
     "-DOT_NAT64_BORDER_ROUTING=ON"
     "-DOT_BORDER_AGENT=ON"
     "-DOT_MLR=ON"
+    "-DOT_UDP_FORWARD=ON"
     "-DOT_COAP_BLOCK=ON"
     "-DOT_DNSSD_SERVER=ON"
     "-DOT_NETDATA_PUBLISHER=ON"
@@ -60,7 +61,13 @@ main()
     local options=()
     options+=("${OTBR_OPTIONS[@]}" "$@")
 
+<<<<<<< HEAD
     ./script/build "${options[@]}"
+=======
+    #git submodule update
+    #rm -rf build
+    ./script/build "${options[@]}" ot-cli-ftd
+>>>>>>> 3862892 (Added event type for UdpToAil forwarding - sending the Udp pkt to simulator.)
     cp ./build/bin/ot-cli-ftd ./ot-versions/ot-cli-ftd_br
 }
 

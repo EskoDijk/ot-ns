@@ -58,6 +58,8 @@
 #include <unistd.h>
 
 #include <openthread/instance.h>
+#include <openthread/message.h>
+#include <openthread/ip6.h>
 
 #include "event-sim.h"
 
@@ -220,6 +222,22 @@ bool platformRadioIsTransmitPending(void);
  * only sent if a change occurred w.r.t. the previous report event.
  */
 void platformRadioReportStateToSimulator(bool force);
+
+/**
+ * Callback that gets called when OT stack has a UDP message that needs to go to
+ * the host interface.
+ *
+ * @param aMessage
+ * @param aPeerPort
+ * @param aPeerAddr
+ * @param aSockPort
+ * @param aContext
+ */
+void platformUdpForwarder(otMessage *aMessage,
+                          uint16_t aPeerPort,
+                          otIp6Address *aPeerAddr,
+                          uint16_t aSockPort,
+                          void *aContext);
 
 /**
  * checks if the radio is busy performing some task such as transmission,

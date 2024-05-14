@@ -233,6 +233,16 @@ func TestDeserializeRfSimRspEvent(t *testing.T) {
 	assert.Equal(t, int32(1234), ev.RfSimParamData.Value)
 }
 
+func TestDeserializeUdpToAilEvent(t *testing.T) {
+	data, _ := hex.DecodeString("000000000000000013040000000000000002003316")
+	var ev Event
+	ev.Deserialize(data)
+	assert.True(t, 0 == ev.Delay)
+	assert.Equal(t, EventTypeUdpToAil, ev.Type)
+	assert.Equal(t, uint64(4), ev.MsgId)
+	assert.Equal(t, uint16(5683), ev.UdpAilData.DestPort)
+}
+
 func TestEventCopy(t *testing.T) {
 	ev := &Event{
 		Type:  EventTypeRadioRxDone,

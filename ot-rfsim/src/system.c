@@ -29,7 +29,8 @@
 /**
  * @file
  * @brief
- *   This file includes the platform-specific OT system initializers and processing.
+ *   This file includes the platform-specific OT system initializers and processing
+ *   for the OT-RFSIM simulation platform.
  */
 
 #include "platform-rfsim.h"
@@ -40,6 +41,7 @@
 #include <sys/un.h>
 
 #include <openthread/tasklet.h>
+#include <openthread/udp.h>
 
 extern void platformReceiveEvent(otInstance *aInstance);
 
@@ -52,8 +54,8 @@ static void handleSignal(int aSignal);
 volatile bool gTerminate = false;
 uint32_t gNodeId = 0;
 int gSockFd = 0;
-uint16_t sPortBase = 9000;
-uint16_t sPortOffset;
+
+static uint16_t sIsInstanceInitDone = false;
 
 void otSysInit(int argc, char *argv[]) {
     char *endptr;
@@ -95,7 +97,7 @@ void otSysInit(int argc, char *argv[]) {
 
     platformLoggingInit(argv[0]);
     socket_init(argv[2]);
-    platformAlarmInit(1);
+    platformAlarmInit();
     platformRadioInit();
     platformRandomInit(randomSeed);
 
@@ -120,6 +122,14 @@ void otSysProcessDrivers(otInstance *aInstance) {
 
     if (gTerminate) {
         platformExit(EXIT_SUCCESS);
+    }
+
+    // on the first call, perform any init that requires the aInstance.
+    if (!sIsInstanceInitDone) {
+#if OPENTHREAD_CONFIG_UDP_FORWARD_ENABLE && OPENTHREAD_CONFIG_BORDER_ROUTING_ENABLE
+        otUdpForwardSetForwarder(aInstance, platformUdpForwarder, aInstance);
+#endif
+        sIsInstanceInitDone = true;
     }
 
     FD_ZERO(&read_fds);

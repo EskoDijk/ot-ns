@@ -29,7 +29,8 @@
 /**
  * @file
  * @brief
- *   This file includes the platform-specific initializers and processing functions.
+ *   This file includes the platform-specific initializers and processing functions
+ *   to let the simulated OT node communicate with the simulator.
  */
 
 #include "platform-rfsim.h"
@@ -41,6 +42,7 @@
 #include <stdlib.h>
 
 #include <openthread/tasklet.h>
+
 #include "common/debug.hpp"
 
 #include "event-sim.h"
@@ -158,3 +160,16 @@ void otPlatOtnsStatus(const char *aStatus)
     }
     otSimSendOtnsStatusPushEvent(aStatus, statusLength);
 }
+
+#if OPENTHREAD_CONFIG_UDP_FORWARD_ENABLE
+void platformUdpForwarder(otMessage *aMessage,
+                          uint16_t aPeerPort,
+                          otIp6Address *aPeerAddr,
+                          uint16_t aSockPort,
+                          void *aContext)
+{
+    struct UdpAilEventData evData;
+    evData.mDestPort = aPeerPort;
+    otSimSendUdpAilEvent(&evData);
+}
+#endif

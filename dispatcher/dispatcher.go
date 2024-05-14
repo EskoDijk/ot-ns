@@ -428,6 +428,8 @@ func (d *Dispatcher) handleRecvEvent(evt *Event) {
 		logger.Debugf("%s socket disconnected.", node)
 		d.setSleeping(node.Id)
 		d.alarmMgr.SetTimestamp(node.Id, Ever)
+	case EventTypeUdpToAil:
+		logger.Warnf("FIXME got UdpToAil: %d", evt.UdpAilData.DestPort)
 	default:
 		d.Counters.OtherEvents += 1
 		d.cbHandler.OnRfSimEvent(node.Id, evt)

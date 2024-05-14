@@ -61,6 +61,7 @@ const (
 	EventTypeRadioRfSimParamSet EventType = 17
 	EventTypeRadioRfSimParamRsp EventType = 18
 	EventTypeLogWrite           EventType = 19
+	EventTypeUdpToAil           EventType = 20
 )
 
 const (
@@ -87,6 +88,7 @@ type Event struct {
 	RadioStateData RadioStateEventData
 	NodeInfoData   NodeInfoEventData
 	RfSimParamData RfSimParamEventData
+	UdpAilData     UdpAilEventData
 }
 
 // All ...EventData formats below only used by OT nodes supporting advanced
@@ -119,6 +121,11 @@ const rfSimParamEventDataHeaderLen = 5 // from OT-RFSIM platform
 type RfSimParamEventData struct {
 	Param types.RfSimParam
 	Value int32
+}
+
+const udpAilEventDataHeaderLen = 2 // from OT-RFSIM platform
+type UdpAilEventData struct {
+	DestPort uint16
 }
 
 /*
@@ -207,6 +214,8 @@ func (e *Event) Deserialize(data []byte) int {
 		payloadOffset += nodeInfoEventDataHeaderLen
 	case EventTypeRadioRfSimParamRsp:
 		e.RfSimParamData = deserializeRfSimParamData(e.Data)
+	case EventTypeUdpToAil:
+		e.UdpAilData = deserializeUdpAilData(e.Data)
 	default:
 		break
 	}
@@ -259,6 +268,14 @@ func deserializeRfSimParamData(data []byte) RfSimParamEventData {
 	s := RfSimParamEventData{
 		Param: types.RfSimParam(data[0]),
 		Value: int32(binary.LittleEndian.Uint32(data[1:5])),
+	}
+	return s
+}
+
+func deserializeUdpAilData(data []byte) UdpAilEventData {
+	logger.AssertTrue(len(data) >= udpAilEventDataHeaderLen)
+	s := UdpAilEventData{
+		DestPort: binary.LittleEndian.Uint16(data[0:2]),
 	}
 	return s
 }

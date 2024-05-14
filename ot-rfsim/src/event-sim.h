@@ -1,5 +1,5 @@
 /*
-*  Copyright (c) 2020-2023, The OpenThread Authors.
+*  Copyright (c) 2020-2024, The OpenThread Authors.
 *  All rights reserved.
 *
 *  Redistribution and use in source and binary forms, with or without
@@ -65,6 +65,7 @@ enum
     OT_SIM_EVENT_RFSIM_PARAM_SET     = 17,
     OT_SIM_EVENT_RFSIM_PARAM_RSP     = 18,
     OT_SIM_EVENT_LOG_WRITE           = 19,
+    OT_SIM_EVENT_UDP_TO_AIL          = 20,
 };
 
 #define OT_EVENT_DATA_MAX_SIZE 1024
@@ -114,6 +115,12 @@ struct RfSimParamEventData
 {
     uint8_t mParam;
     int32_t mValue;
+} OT_TOOL_PACKED_END;
+
+OT_TOOL_PACKED_BEGIN
+struct UdpAilEventData
+{
+    uint16_t mDestPort;
 } OT_TOOL_PACKED_END;
 
 /**
@@ -205,5 +212,8 @@ void otSimSendNodeInfoEvent(uint32_t nodeId);
 
 // TODO
 void otSimSendRfSimParamRespEvent(uint8_t param, int32_t value);
+
+// TODO
+void otSimSendUdpAilEvent(struct UdpAilEventData *aEventData);
 
 #endif // PLATFORM_RFSIM_EVENT_SIM_H
