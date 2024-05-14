@@ -40,6 +40,7 @@ import (
 	"sync"
 	"time"
 
+	"encoding/hex"
 	"github.com/openthread/ot-ns/dissectpkt"
 	"github.com/openthread/ot-ns/dissectpkt/wpan"
 	"github.com/openthread/ot-ns/energy"
@@ -429,7 +430,8 @@ func (d *Dispatcher) handleRecvEvent(evt *Event) {
 		d.setSleeping(node.Id)
 		d.alarmMgr.SetTimestamp(node.Id, Ever)
 	case EventTypeUdpToAil:
-		logger.Warnf("FIXME got UdpToAil: %d", evt.UdpAilData.DestPort)
+		logger.Warnf("FIXME got UdpToAil: %+v", evt.UdpAilData)
+		logger.Warnf(" msg = %s", hex.EncodeToString(evt.Data))
 	default:
 		d.Counters.OtherEvents += 1
 		d.cbHandler.OnRfSimEvent(node.Id, evt)

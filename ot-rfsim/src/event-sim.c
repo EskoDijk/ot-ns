@@ -171,12 +171,17 @@ void otSimSendRfSimParamRespEvent(uint8_t param, int32_t value) {
     otSimSendEvent(&event);
 }
 
-void otSimSendUdpAilEvent(struct UdpAilEventData *aEventData) {
+void otSimSendUdpAilEvent(struct UdpAilEventData *aEventData, uint8_t *aMsgBytes, size_t aMsgLen) {
+    const size_t evDataSz = sizeof(struct UdpAilEventData);
+    OT_ASSERT(aMsgLen <= OT_EVENT_DATA_MAX_SIZE - evDataSz);
+
     struct Event event;
     event.mEvent = OT_SIM_EVENT_UDP_TO_AIL;
     event.mDelay = 0;
-    memcpy(event.mData, aEventData, sizeof(struct UdpAilEventData));
-    event.mDataLength = sizeof(struct UdpAilEventData);
+    memcpy(event.mData, aEventData, evDataSz);
+    memcpy(event.mData + evDataSz, aMsgBytes, aMsgLen);
+    event.mDataLength = evDataSz + aMsgLen;
+
     otSimSendEvent(&event);
 }
 

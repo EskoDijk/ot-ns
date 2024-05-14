@@ -44,6 +44,7 @@
 #include <openthread/tasklet.h>
 
 #include "common/debug.hpp"
+#include "utils/code_utils.h"
 
 #include "event-sim.h"
 #include "utils/uart.h"
@@ -168,8 +169,79 @@ void platformUdpForwarder(otMessage *aMessage,
                           uint16_t aSockPort,
                           void *aContext)
 {
+    OT_UNUSED_VARIABLE(aContext);
+
     struct UdpAilEventData evData;
+    uint8_t buf[OPENTHREAD_CONFIG_IP6_MAX_DATAGRAM_LENGTH]; // FIXME size
+    size_t msgLen = otMessageGetLength(aMessage);
+
+    if (msgLen > sizeof(buf)) {
+        fprintf(stderr, "platformUdpForwarder: buffer too small");
+        platformExit(EXIT_FAILURE);
+    }
+
     evData.mDestPort = aPeerPort;
-    otSimSendUdpAilEvent(&evData);
+    evData.mSrcPort = aSockPort;
+    memcpy(evData.mDestIp6, aPeerAddr, OT_IP6_ADDRESS_SIZE);
+    otMessageRead(aMessage, 0, buf, msgLen);
+
+    otSimSendUdpAilEvent(&evData, &buf[0], msgLen);
 }
 #endif
+
+void platformIp6Receiver(otMessage *aMessage, void *aContext)
+{
+    OT_UNUSED_VARIABLE(aContext);
+
+    struct UdpAilEventData evData;
+    uint8_t buf[OPENTHREAD_CONFIG_IP6_MAX_DATAGRAM_LENGTH];
+    const uint8_t dstAddr[OT_IP6_ADDRESS_SIZE] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+    size_t msgLen;
+
+    // determine if IPv6 datagram must go to host/AIL.
+    // otGet
+    otEXPECT(otMessageIsLoopbackToHostAllowed(aMessage));
+
+
+    msgLen = otMessageGetLength(aMessage);
+    if (msgLen > sizeof(buf)) {
+        fprintf(stderr, "platformIp6Receiver: buffer too small");
+        platformExit(EXIT_FAILURE);
+    }
+
+    evData.mDestPort = 0; // FIXME - get from aMessage?
+    evData.mSrcPort = 0;
+    memcpy(evData.mDestIp6, dstAddr, OT_IP6_ADDRESS_SIZE);
+    otMessageRead(aMessage, 0, buf, msgLen);
+
+    otPlatLog(OT_LOG_LEVEL_DEBG,OT_LOG_REGION_PLATFORM,
+              "Sending IPv6 datagram to simulator");
+    otSimSendUdpAilEvent(&evData, &buf[0], msgLen);
+
+exit:
+    otMessageFree(aMessage);
+}
+
+void platformNetifSetUp(otInstance *aInstance)
+{
+    assert(aInstance != NULL);
+
+    otIp6SetReceiveFilterEnabled(aInstance, true); // FIXME - needed?
+    //otIcmp6SetEchoMode(gInstance, OT_ICMP6_ECHO_HANDLER_ALL); // TODO
+    //otIcmp6SetEchoMode(gInstance, OT_ICMP6_ECHO_HANDLER_DISABLED);
+    otIp6SetReceiveCallback(aInstance, platformIp6Receiver, aInstance);
+#if OPENTHREAD_CONFIG_NAT64_TRANSLATOR_ENABLE
+    // We can use the same function for IPv6 and translated IPv4 messages.
+    // otNat64SetReceiveIp4Callback(gInstance, processReceive, gInstance);
+#endif
+    //otIp6SetAddressCallback(aInstance, processAddressChange, aInstance);
+#if OPENTHREAD_POSIX_MULTICAST_PROMISCUOUS_REQUIRED
+    //otIp6SetMulticastPromiscuousEnabled(aInstance, true);
+#endif
+#if OPENTHREAD_CONFIG_NAT64_TRANSLATOR_ENABLE
+    //nat64Init();
+#endif
+#if OPENTHREAD_CONFIG_DNS_UPSTREAM_QUERY_ENABLE
+    //gResolver.Init();
+#endif
+}

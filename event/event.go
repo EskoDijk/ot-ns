@@ -123,9 +123,11 @@ type RfSimParamEventData struct {
 	Value int32
 }
 
-const udpAilEventDataHeaderLen = 2 // from OT-RFSIM platform
+const udpAilEventDataHeaderLen = 20 // from OT-RFSIM platform
 type UdpAilEventData struct {
-	DestPort uint16
+	SrcPort        uint16
+	DestPort       uint16
+	DestIp6Address [16]byte
 }
 
 /*
@@ -214,8 +216,10 @@ func (e *Event) Deserialize(data []byte) int {
 		payloadOffset += nodeInfoEventDataHeaderLen
 	case EventTypeRadioRfSimParamRsp:
 		e.RfSimParamData = deserializeRfSimParamData(e.Data)
+		payloadOffset += rfSimParamEventDataHeaderLen
 	case EventTypeUdpToAil:
 		e.UdpAilData = deserializeUdpAilData(e.Data)
+		payloadOffset += udpAilEventDataHeaderLen
 	default:
 		break
 	}
@@ -274,8 +278,12 @@ func deserializeRfSimParamData(data []byte) RfSimParamEventData {
 
 func deserializeUdpAilData(data []byte) UdpAilEventData {
 	logger.AssertTrue(len(data) >= udpAilEventDataHeaderLen)
+	ip6Addr := [16]byte{}
+	copy(ip6Addr[:], data[4:20])
 	s := UdpAilEventData{
-		DestPort: binary.LittleEndian.Uint16(data[0:2]),
+		SrcPort:        binary.LittleEndian.Uint16(data[0:2]),
+		DestPort:       binary.LittleEndian.Uint16(data[2:4]),
+		DestIp6Address: ip6Addr,
 	}
 	return s
 }

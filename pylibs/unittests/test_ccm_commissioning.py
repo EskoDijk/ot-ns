@@ -77,6 +77,11 @@ class CommissioningTests(OTNSTestCase):
         self.assertFormPartitionsIgnoreOrphans(1)
         self.assertTrue(joins and joins[0][1] > 0)  # assert join success
 
+        # n2 sends a coap message to AIL, to test AIL connectivity
+        ns.node_cmd(n2, "coap start")
+        ns.node_cmd(n2, "coap get fc00::1234 info") # dest addr must match an external route of the BR
+        self.go(10)
+
         # n3 joins as CCM  joiner
         ns.commissioner_ccm_joiner_add(n1, "*")
         ns.ifconfig_up(n3)

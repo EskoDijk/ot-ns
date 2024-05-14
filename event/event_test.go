@@ -234,13 +234,16 @@ func TestDeserializeRfSimRspEvent(t *testing.T) {
 }
 
 func TestDeserializeUdpToAilEvent(t *testing.T) {
-	data, _ := hex.DecodeString("000000000000000013040000000000000002003316")
+	data, _ := hex.DecodeString("00000000000000001304000000000000001900efbe3316fe8000000000000000000000000012340102030405")
+	testIp6Addr, _ := hex.DecodeString("fe800000000000000000000000001234")
 	var ev Event
 	ev.Deserialize(data)
 	assert.True(t, 0 == ev.Delay)
 	assert.Equal(t, EventTypeUdpToAil, ev.Type)
 	assert.Equal(t, uint64(4), ev.MsgId)
+	assert.Equal(t, uint16(48879), ev.UdpAilData.SrcPort)
 	assert.Equal(t, uint16(5683), ev.UdpAilData.DestPort)
+	assert.Equal(t, testIp6Addr, ev.UdpAilData.DestIp6Address[:])
 }
 
 func TestEventCopy(t *testing.T) {

@@ -227,7 +227,7 @@ void platformRadioReportStateToSimulator(bool force);
  * Callback that gets called when OT stack has a UDP message that needs to go to
  * the host interface.
  *
- * @param aMessage
+ * @param aMessage TODO
  * @param aPeerPort
  * @param aPeerAddr
  * @param aSockPort
@@ -238,6 +238,23 @@ void platformUdpForwarder(otMessage *aMessage,
                           otIp6Address *aPeerAddr,
                           uint16_t aSockPort,
                           void *aContext);
+
+/**
+ * Callback for node receiving an IPv6 datagram. When the datagram is destined for the upper-layer host
+ * or to the simulated AIL, this callback is used to send the datagram to the simulator for further processing.
+ *
+ * @param aMessage
+ * @param aContext
+ */
+void platformIp6Receiver(otMessage *aMessage, void *aContext);
+
+/**
+ * Setup any simulated non-Thread interfaces. For example, an interface to a host process or
+ * an AIL interface.
+ *
+ * @param aInstance TODO
+ */
+void platformNetifSetUp(otInstance *aInstance);
 
 /**
  * checks if the radio is busy performing some task such as transmission,

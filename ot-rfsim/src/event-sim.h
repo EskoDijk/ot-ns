@@ -120,7 +120,9 @@ struct RfSimParamEventData
 OT_TOOL_PACKED_BEGIN
 struct UdpAilEventData
 {
+    uint16_t mSrcPort;
     uint16_t mDestPort;
+    uint8_t  mDestIp6[OT_IP6_ADDRESS_SIZE];
 } OT_TOOL_PACKED_END;
 
 /**
@@ -214,6 +216,6 @@ void otSimSendNodeInfoEvent(uint32_t nodeId);
 void otSimSendRfSimParamRespEvent(uint8_t param, int32_t value);
 
 // TODO
-void otSimSendUdpAilEvent(struct UdpAilEventData *aEventData);
+void otSimSendUdpAilEvent(struct UdpAilEventData *aEventData, uint8_t *aMsgBytes, size_t aMsgLen);
 
 #endif // PLATFORM_RFSIM_EVENT_SIM_H

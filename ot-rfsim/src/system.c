@@ -125,10 +125,11 @@ void otSysProcessDrivers(otInstance *aInstance) {
     }
 
     // on the first call, perform any init that requires the aInstance.
-    if (!sIsInstanceInitDone) {
+    if (!sIsInstanceInitDone) { // TODO move to own function
 #if OPENTHREAD_CONFIG_UDP_FORWARD_ENABLE && OPENTHREAD_CONFIG_BORDER_ROUTING_ENABLE
         otUdpForwardSetForwarder(aInstance, platformUdpForwarder, aInstance);
 #endif
+        platformNetifSetUp(aInstance);
         sIsInstanceInitDone = true;
     }
 
