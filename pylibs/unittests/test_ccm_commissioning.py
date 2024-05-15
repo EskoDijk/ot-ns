@@ -48,7 +48,7 @@ class CommissioningTests(OTNSTestCase):
 
     def testCommissioningOneHop(self):
         ns = self.ns
-        ns.web()
+        # ns.web()
         ns.coaps_enable()
         ns.radiomodel = 'MIDisc' # enforce strict line topologies for testing
 
@@ -93,7 +93,7 @@ class CommissioningTests(OTNSTestCase):
         print('counters', c)
         joins = ns.joins()
         print('joins', joins)
-        ns.interactive_cli()
+        # ns.interactive_cli()
         self.assertFormPartitions(1)
         self.assertTrue(joins and joins[0][1] > 0)  # assert join success
 

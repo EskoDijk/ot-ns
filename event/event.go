@@ -123,10 +123,11 @@ type RfSimParamEventData struct {
 	Value int32
 }
 
-const udpAilEventDataHeaderLen = 20 // from OT-RFSIM platform
+const udpAilEventDataHeaderLen = 36 // from OT-RFSIM platform
 type UdpAilEventData struct {
 	SrcPort        uint16
 	DestPort       uint16
+	SrcIp6Address  [16]byte
 	DestIp6Address [16]byte
 }
 
@@ -279,10 +280,14 @@ func deserializeRfSimParamData(data []byte) RfSimParamEventData {
 func deserializeUdpAilData(data []byte) UdpAilEventData {
 	logger.AssertTrue(len(data) >= udpAilEventDataHeaderLen)
 	ip6Addr := [16]byte{}
-	copy(ip6Addr[:], data[4:20])
+	srcIp6 := [16]byte{}
+	copy(srcIp6[:], data[4:20])
+	copy(ip6Addr[:], data[20:36])
+
 	s := UdpAilEventData{
 		SrcPort:        binary.LittleEndian.Uint16(data[0:2]),
 		DestPort:       binary.LittleEndian.Uint16(data[2:4]),
+		SrcIp6Address:  srcIp6,
 		DestIp6Address: ip6Addr,
 	}
 	return s

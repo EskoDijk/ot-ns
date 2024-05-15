@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2018-2023, The OpenThread Authors.
+ *  Copyright (c) 2018-2024, The OpenThread Authors.
  *  All rights reserved.
  *
  *  Redistribution and use in source and binary forms, with or without
@@ -55,6 +55,13 @@ extern int gSockFd;
 
 uint64_t gLastMsgId = 0;
 struct Event gLastRecvEvent;
+static otIp6Address unspecifiedIp6Address;
+
+void platformRfsimInit(void) {
+    if(otIp6AddressFromString("::", &unspecifiedIp6Address) != OT_ERROR_NONE) {
+        platformExit(EXIT_FAILURE);
+    }
+}
 
 void platformExit(int exitCode) {
     gTerminate = true;
@@ -74,28 +81,20 @@ void platformReceiveEvent(otInstance *aInstance)
         perror("recvfrom");
         platformExit(EXIT_FAILURE);
     }
-    else if ((uint16_t)rval < sizeof(struct EventHeader)) {
-        fprintf(stderr, "incomplete event received, len=%li", rval);
-        platformExit(EXIT_FAILURE);
-    }
+    OT_ASSERT(rval >= sizeof(struct EventHeader));
 
     // read the rest of data (payload data - optional).
     uint16_t payloadLen = event.mDataLength;
     if (payloadLen > 0) {
-        if (payloadLen > sizeof(event.mData)) {
-            fprintf(stderr, "too-large event payload detected, len=%u, expected <= %lu", payloadLen, sizeof(event.mData));
-            platformExit(EXIT_FAILURE);
-        }
+        OT_ASSERT(payloadLen <= OT_EVENT_DATA_MAX_SIZE);
+
         rval = recvfrom(gSockFd, (char *)&event.mData, payloadLen, 0, NULL, NULL);
         if (rval < 0)
         {
             perror("recvfrom");
             platformExit(EXIT_FAILURE);
         }
-        else if ((uint16_t)rval < payloadLen) {
-            fprintf(stderr, "incomplete event payload received, len=%li, expected=%u", rval, payloadLen);
-            platformExit(EXIT_FAILURE);
-        }
+        OT_ASSERT(rval == (ssize_t) payloadLen);
     }
 
     gLastRecvEvent = event;
@@ -172,22 +171,26 @@ void platformUdpForwarder(otMessage *aMessage,
     OT_UNUSED_VARIABLE(aContext);
 
     struct UdpAilEventData evData;
-    uint8_t buf[OPENTHREAD_CONFIG_IP6_MAX_DATAGRAM_LENGTH]; // FIXME size
+    uint8_t buf[OPENTHREAD_CONFIG_IP6_MAX_DATAGRAM_LENGTH];
     size_t msgLen = otMessageGetLength(aMessage);
 
-    if (msgLen > sizeof(buf)) {
-        fprintf(stderr, "platformUdpForwarder: buffer too small");
-        platformExit(EXIT_FAILURE);
-    }
+    OT_ASSERT(msgLen <= sizeof(buf));
 
-    evData.mDestPort = aPeerPort;
     evData.mSrcPort = aSockPort;
-    memcpy(evData.mDestIp6, aPeerAddr, OT_IP6_ADDRESS_SIZE);
+    evData.mDstPort = aPeerPort;
+    memcpy(evData.mSrcIp6, &unspecifiedIp6Address, OT_IP6_ADDRESS_SIZE);
+    memcpy(evData.mDstIp6, aPeerAddr, OT_IP6_ADDRESS_SIZE);
     otMessageRead(aMessage, 0, buf, msgLen);
 
     otSimSendUdpAilEvent(&evData, &buf[0], msgLen);
 }
 #endif
+
+static bool isLinkLocal(otIp6Address *addr)
+{
+    return (addr->mFields.m8[0] == 0xfe && (addr->mFields.m8[1] & 0b11000000) == 0x80)
+           || (addr->mFields.m8[0] == 0xff && (addr->mFields.m8[1] & 0b00001111) == 0x02);
+}
 
 void platformIp6Receiver(otMessage *aMessage, void *aContext)
 {
@@ -195,27 +198,31 @@ void platformIp6Receiver(otMessage *aMessage, void *aContext)
 
     struct UdpAilEventData evData;
     uint8_t buf[OPENTHREAD_CONFIG_IP6_MAX_DATAGRAM_LENGTH];
-    const uint8_t dstAddr[OT_IP6_ADDRESS_SIZE] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+    const uint8_t dstAddrZero[OT_IP6_ADDRESS_SIZE] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
     size_t msgLen;
-
-    // determine if IPv6 datagram must go to host/AIL.
-    // otGet
-    otEXPECT(otMessageIsLoopbackToHostAllowed(aMessage));
-
+    otMessageInfo ip6Info;
+    otError error = OT_ERROR_NONE;
 
     msgLen = otMessageGetLength(aMessage);
-    if (msgLen > sizeof(buf)) {
-        fprintf(stderr, "platformIp6Receiver: buffer too small");
-        platformExit(EXIT_FAILURE);
-    }
+    OT_ASSERT(msgLen <= sizeof(buf));
 
-    evData.mDestPort = 0; // FIXME - get from aMessage?
-    evData.mSrcPort = 0;
-    memcpy(evData.mDestIp6, dstAddr, OT_IP6_ADDRESS_SIZE);
+    // parse IPv6 message
+    error = platformParseIp6(aMessage, &ip6Info);
+    OT_ASSERT(error == OT_ERROR_NONE);
+
+    // determine if IPv6 datagram must go to host/AIL.
+    otEXPECT(!isLinkLocal(&ip6Info.mPeerAddr) && !isLinkLocal(&ip6Info.mSockAddr));
+    otEXPECT(otMessageIsLoopbackToHostAllowed(aMessage));
+
+    // create simulator event
+    evData.mSrcPort = ip6Info.mSockPort;
+    evData.mDstPort = ip6Info.mPeerPort;
+    memcpy(evData.mSrcIp6, &ip6Info.mSockAddr, OT_IP6_ADDRESS_SIZE);
+    memcpy(evData.mDstIp6, &ip6Info.mPeerAddr, OT_IP6_ADDRESS_SIZE);
     otMessageRead(aMessage, 0, buf, msgLen);
 
     otPlatLog(OT_LOG_LEVEL_DEBG,OT_LOG_REGION_PLATFORM,
-              "Sending IPv6 datagram to simulator");
+              "FIXME Sending IPv6 datagram to simulator");
     otSimSendUdpAilEvent(&evData, &buf[0], msgLen);
 
 exit:

@@ -121,8 +121,9 @@ OT_TOOL_PACKED_BEGIN
 struct UdpAilEventData
 {
     uint16_t mSrcPort;
-    uint16_t mDestPort;
-    uint8_t  mDestIp6[OT_IP6_ADDRESS_SIZE];
+    uint16_t mDstPort;
+    uint8_t  mSrcIp6[OT_IP6_ADDRESS_SIZE];
+    uint8_t  mDstIp6[OT_IP6_ADDRESS_SIZE];
 } OT_TOOL_PACKED_END;
 
 /**

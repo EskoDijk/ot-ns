@@ -199,6 +199,12 @@ void platformLoggingInit(char *processName);
 void platformUartRestore(void);
 
 /**
+ * initializes the OT-RFSIM simulator communications.
+ *
+ */
+void platformRfsimInit(void);
+
+/**
  * exits the simulated-node's process with the specific exit code.
  *
  * @param exitCode  The exit code (status) to end the program with: EXIT_FAILURE
@@ -247,6 +253,15 @@ void platformUdpForwarder(otMessage *aMessage,
  * @param aContext
  */
 void platformIp6Receiver(otMessage *aMessage, void *aContext);
+
+/**
+ * TODO
+ *
+ * @param aMessage
+ * @param ip6Addr
+ * @return
+ */
+otError platformParseIp6(otMessage *aMessage,  otMessageInfo *ip6Info);
 
 /**
  * Setup any simulated non-Thread interfaces. For example, an interface to a host process or

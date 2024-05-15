@@ -44,17 +44,14 @@
 #include <openthread/udp.h>
 
 extern void platformReceiveEvent(otInstance *aInstance);
-
 extern bool gPlatformPseudoResetWasRequested;
 
 static void socket_init(char *socketFilePath);
-
 static void handleSignal(int aSignal);
 
 volatile bool gTerminate = false;
 uint32_t gNodeId = 0;
 int gSockFd = 0;
-
 static uint16_t sIsInstanceInitDone = false;
 
 void otSysInit(int argc, char *argv[]) {
@@ -96,10 +93,11 @@ void otSysInit(int argc, char *argv[]) {
     }
 
     platformLoggingInit(argv[0]);
+    platformRandomInit(randomSeed);
     socket_init(argv[2]);
     platformAlarmInit();
     platformRadioInit();
-    platformRandomInit(randomSeed);
+    platformRfsimInit();
 
     otSimSendNodeInfoEvent(gNodeId);
 }

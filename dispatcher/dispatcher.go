@@ -431,7 +431,8 @@ func (d *Dispatcher) handleRecvEvent(evt *Event) {
 		d.alarmMgr.SetTimestamp(node.Id, Ever)
 	case EventTypeUdpToAil:
 		logger.Warnf("FIXME got UdpToAil: %+v", evt.UdpAilData)
-		logger.Warnf(" msg = %s", hex.EncodeToString(evt.Data))
+		logger.Warnf(" msg     = %s", hex.EncodeToString(evt.Data))
+		logger.Warnf(" dstIpv6 = %s", hex.EncodeToString(evt.UdpAilData.DestIp6Address[:]))
 	default:
 		d.Counters.OtherEvents += 1
 		d.cbHandler.OnRfSimEvent(node.Id, evt)
