@@ -39,9 +39,9 @@ class SimHostsTests(OTNSTestCase):
     def testConfigureSimHosts(self):
         ns = self.ns
         ns.cmd('host add "myserver.example.com" "fc00::1234" 5683 5683')
-        with self.assertRaises(errors.OTNSCliError): # too long IPv6 address
+        with self.assertRaises(errors.OTNSCliError):  # too-long IPv6 address
             ns.cmd('host add "myserver.example.com" "fd12:1234:5678:abcd:1234:5678:abcd:2020:3030" 5684 65300')
-        with self.assertRaises(errors.OTNSCliError): # missing port-mapped
+        with self.assertRaises(errors.OTNSCliError):  # missing port-mapped
             ns.cmd('host add "myserver.example.com" "fd12:1234:5678:abcd::5678:abcd:2020" 5684')
         ns.cmd('host add "myserver.example.com" "fd12:1234:5678:abcd:1234:5678:abcd:2020" 5684 65300')
         ns.cmd('host add "bad.example.com" "910b::f00d" 3 4')
@@ -67,12 +67,12 @@ class SimHostsTests(OTNSTestCase):
 
         # n2 sends a coap message to AIL, to test AIL connectivity
         ns.node_cmd(n2, "coap start")
-        ns.node_cmd(n2, "coap get fc00::1234 info") # dest addr must match an external route of the BR
+        ns.node_cmd(n2, "coap get fc00::1234 info")  # dest addr must match an external route of the BR
         self.go(10)
 
         hosts_list = ns.cmd('host list')
         self.assertEqual(1+1, len(hosts_list))
-        self.assertEqual("11        0", hosts_list[1][-11:]) # number of Rx bytes == 11
+        self.assertEqual("11        0", hosts_list[1][-11:])  # number of Rx bytes == 11
 
     def testResponseFromSimHost(self):
         asyncio.run(self.asyncResponseFromSimHost())
@@ -89,21 +89,13 @@ class SimHostsTests(OTNSTestCase):
 
         # n2 sends a coap message to AIL, to test AIL connectivity
         ns.node_cmd(n2, "coap start")
-        ns.node_cmd(n2, "coap get fc00::1234 hello") # dest addr must match an external route of the BR
+        ns.node_cmd(n2, "coap get fc00::1234 hello")  # dest addr must match an external route of the BR
         self.go(10)
-
-        #await asyncio.get_running_loop().create_future()
-        await asyncio.sleep(10)
+        await asyncio.sleep(3)
 
         hosts_list = ns.cmd('host list')
         self.assertEqual(1+1, len(hosts_list))
-        self.assertEqual("12       11", hosts_list[1][-11:]) # number of Rx bytes == 11
-
-        #await asynciocoap_server_main()
-
-
-
-
+        self.assertEqual("12       19", hosts_list[1][-11:])  # number of Rx bytes == 11, Tx == 19
 
 
 class HelloResource(resource.Resource):

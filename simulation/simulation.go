@@ -413,7 +413,7 @@ func (s *Simulation) OnIp6ToHost(nodeid NodeId, ip6Metadata *event.MsgToHostEven
 		return
 	}
 
-	s.simHosts.handleIp6(ip6Metadata, ip6Data)
+	s.simHosts.handleIp6FromNode(node, ip6Metadata, ip6Data)
 }
 
 // PostAsync will post an asynchronous simulation task in the queue for execution

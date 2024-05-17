@@ -441,9 +441,8 @@ func (d *Dispatcher) handleRecvEvent(evt *Event) {
 	case EventTypeIp6ToHost:
 		d.Counters.OtherEvents += 1
 		d.cbHandler.OnIp6ToHost(node.Id, &evt.MsgToHostData, evt.Data)
-	case EventTypeUdpFromHost:
-		fallthrough
-	case EventTypeIp6FromHost:
+	case EventTypeUdpFromHost,
+		EventTypeIp6FromHost:
 		d.Counters.OtherEvents += 1
 		evt.MustDispatch = true // asap resend again to the target (BR) node.
 		d.eventQueue.Add(evt)
@@ -589,9 +588,8 @@ func (d *Dispatcher) processNextEvent(simSpeed float64) bool {
 						d.sendRadioCommRxStartEvents(node, evt)
 					case EventTypeRadioRxDone:
 						d.sendRadioCommRxDoneEvents(node, evt)
-					case EventTypeUdpFromHost:
-						fallthrough
-					case EventTypeIp6FromHost:
+					case EventTypeUdpFromHost,
+						EventTypeIp6FromHost:
 						node.sendEvent(evt) // TODO no loss on external network is simulated currently.
 					default:
 						if d.radioModel.OnEventDispatch(node.RadioNode, node.RadioNode, evt) {

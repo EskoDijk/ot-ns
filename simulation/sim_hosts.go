@@ -184,7 +184,7 @@ func (sh *SimHosts) udpReaderFunc(simConn *SimConn) {
 	}
 }
 
-func (sh *SimHosts) handleIp6(ip6Metadata *event.MsgToHostEventData, ip6Data []byte) {
+func (sh *SimHosts) handleIp6FromNode(node *Node, ip6Metadata *event.MsgToHostEventData, ip6Data []byte) {
 	var ip6Header *ipv6.Header
 	var err error
 
@@ -195,6 +195,6 @@ func (sh *SimHosts) handleIp6(ip6Metadata *event.MsgToHostEventData, ip6Data []b
 	}
 	if ip6Header.Version == 6 && ip6Header.NextHeader == protocolUdp && len(ip6Data) > ipv6.HeaderLen+udpHeaderLen {
 		udpData := ip6Data[ipv6.HeaderLen+udpHeaderLen:]
-		sh.handleUdp(ip6Metadata, udpData)
+		sh.handleUdpFromNode(node, ip6Metadata, udpData)
 	}
 }
