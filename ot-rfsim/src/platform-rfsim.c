@@ -45,9 +45,9 @@
 
 #include "common/debug.hpp"
 #include "utils/code_utils.h"
+#include "utils/uart.h"
 
 #include "event-sim.h"
-#include "utils/uart.h"
 
 #define VERIFY_EVENT_SIZE(X) OT_ASSERT( (payloadLen >= sizeof(X)) && "received event payload too small" );
 
@@ -170,7 +170,7 @@ void platformUdpForwarder(otMessage *aMessage,
 {
     OT_UNUSED_VARIABLE(aContext);
 
-    struct UdpAilEventData evData;
+    struct MsgToHostEventData evData;
     uint8_t buf[OPENTHREAD_CONFIG_IP6_MAX_DATAGRAM_LENGTH];
     size_t msgLen = otMessageGetLength(aMessage);
 
@@ -182,21 +182,30 @@ void platformUdpForwarder(otMessage *aMessage,
     memcpy(evData.mDstIp6, aPeerAddr, OT_IP6_ADDRESS_SIZE);
     otMessageRead(aMessage, 0, buf, msgLen);
 
-    otSimSendUdpAilEvent(&evData, &buf[0], msgLen);
+    otSimSendMsgToHostEvent(OT_SIM_EVENT_UDP_TO_HOST, &evData, &buf[0], msgLen);
 }
 #endif
 
+// utility function to check IPv6 address for fe80::/10 or ffx2::/16 prefix -> link-local.
 static bool isLinkLocal(otIp6Address *addr)
 {
     return (addr->mFields.m8[0] == 0xfe && (addr->mFields.m8[1] & 0b11000000) == 0x80)
            || (addr->mFields.m8[0] == 0xff && (addr->mFields.m8[1] & 0b00001111) == 0x02);
 }
 
+// utility function that returns IPv6 address' multicast scope 0x0-0xf or 0xff for parse-error.
+static uint8_t ip6McastScope(otIp6Address  *addr)
+{
+    if (addr->mFields.m8[0] != 0xff)
+        return 0xff;
+    return addr->mFields.m8[0] & 0x0f;
+}
+
 void platformIp6Receiver(otMessage *aMessage, void *aContext)
 {
     OT_UNUSED_VARIABLE(aContext);
 
-    struct UdpAilEventData evData;
+    struct MsgToHostEventData evData;
     uint8_t buf[OPENTHREAD_CONFIG_IP6_MAX_DATAGRAM_LENGTH];
     const uint8_t dstAddrZero[OT_IP6_ADDRESS_SIZE] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
     size_t msgLen;
@@ -210,9 +219,11 @@ void platformIp6Receiver(otMessage *aMessage, void *aContext)
     error = platformParseIp6(aMessage, &ip6Info);
     OT_ASSERT(error == OT_ERROR_NONE);
 
-    // determine if IPv6 datagram must go to host/AIL.
-    otEXPECT(!isLinkLocal(&ip6Info.mPeerAddr) && !isLinkLocal(&ip6Info.mSockAddr));
-    otEXPECT(otMessageIsLoopbackToHostAllowed(aMessage));
+    // determine if IPv6 datagram must go to AIL. This implements simulation-specific BR packet filtering.
+    otEXPECT(otMessageIsLoopbackToHostAllowed(aMessage) &&
+             !isLinkLocal(&ip6Info.mPeerAddr) &&
+             !isLinkLocal(&ip6Info.mSockAddr) &&
+             ip6McastScope(&ip6Info.mPeerAddr) >= 0x4);
 
     // create simulator event
     evData.mSrcPort = ip6Info.mSockPort;
@@ -221,9 +232,8 @@ void platformIp6Receiver(otMessage *aMessage, void *aContext)
     memcpy(evData.mDstIp6, &ip6Info.mPeerAddr, OT_IP6_ADDRESS_SIZE);
     otMessageRead(aMessage, 0, buf, msgLen);
 
-    otPlatLog(OT_LOG_LEVEL_DEBG,OT_LOG_REGION_PLATFORM,
-              "FIXME Sending IPv6 datagram to simulator");
-    otSimSendUdpAilEvent(&evData, &buf[0], msgLen);
+    otPlatLog(OT_LOG_LEVEL_INFO, OT_LOG_REGION_PLATFORM, "Delivering msg to host for AIL forwarding");
+    otSimSendMsgToHostEvent(OT_SIM_EVENT_IP6_TO_HOST, &evData, &buf[0], msgLen);
 
 exit:
     otMessageFree(aMessage);

@@ -40,7 +40,6 @@ import (
 	"sync"
 	"time"
 
-	"encoding/hex"
 	"github.com/openthread/ot-ns/dissectpkt"
 	"github.com/openthread/ot-ns/dissectpkt/wpan"
 	"github.com/openthread/ot-ns/energy"
@@ -54,6 +53,7 @@ import (
 	"github.com/openthread/ot-ns/visualize"
 )
 
+// CallbackHandler handles the callbacks from Dispatcher to its managing entity (e.g. a Simulation).
 type CallbackHandler interface {
 	// OnUartWrite Notifies that the node's UART was written with data.
 	OnUartWrite(nodeid NodeId, data []byte)
@@ -66,6 +66,12 @@ type CallbackHandler interface {
 
 	// OnRfSimEvent Notifies that Dispatcher received an OT-RFSIM platform event that it didn't handle itself.
 	OnRfSimEvent(nodeid NodeId, evt *Event)
+
+	// OnUdpToHost Notifies that the Dispatcher received an off-mesh or to-host UDP packet from a node, to be handled.
+	OnUdpToHost(nodeid NodeId, udpMetadata *MsgToHostEventData, udpData []byte)
+
+	// OnIp6ToHost Notifies that the Dispatcher received an off-mesh or to-host IPv6 packet from a node, to be handled.
+	OnIp6ToHost(nodeid NodeId, udpMetadata *MsgToHostEventData, udpData []byte)
 }
 
 // goDuration represents a particular duration of the simulation at a given speed.
@@ -377,7 +383,7 @@ func (d *Dispatcher) goSimulateForDuration(duration goDuration) {
 	}
 }
 
-// handleRecvEvent is the central handler for all events externally received from OpenThread nodes.
+// handleRecvEvent is the central handler for all events externally received from nodes/entities.
 // It may only process events immediately that are to be executed at time d.CurTime. Future events
 // will need to be queued (scheduled).
 func (d *Dispatcher) handleRecvEvent(evt *Event) {
@@ -429,10 +435,18 @@ func (d *Dispatcher) handleRecvEvent(evt *Event) {
 		logger.Debugf("%s socket disconnected.", node)
 		d.setSleeping(node.Id)
 		d.alarmMgr.SetTimestamp(node.Id, Ever)
-	case EventTypeUdpToAil:
-		logger.Warnf("FIXME got UdpToAil: %+v", evt.UdpAilData)
-		logger.Warnf(" msg     = %s", hex.EncodeToString(evt.Data))
-		logger.Warnf(" dstIpv6 = %s", hex.EncodeToString(evt.UdpAilData.DestIp6Address[:]))
+	case EventTypeUdpToHost:
+		d.Counters.OtherEvents += 1
+		d.cbHandler.OnUdpToHost(node.Id, &evt.MsgToHostData, evt.Data)
+	case EventTypeIp6ToHost:
+		d.Counters.OtherEvents += 1
+		d.cbHandler.OnIp6ToHost(node.Id, &evt.MsgToHostData, evt.Data)
+	case EventTypeUdpFromHost:
+		fallthrough
+	case EventTypeIp6FromHost:
+		d.Counters.OtherEvents += 1
+		evt.MustDispatch = true // asap resend again to the target (BR) node.
+		d.eventQueue.Add(evt)
 	default:
 		d.Counters.OtherEvents += 1
 		d.cbHandler.OnRfSimEvent(node.Id, evt)
@@ -575,6 +589,10 @@ func (d *Dispatcher) processNextEvent(simSpeed float64) bool {
 						d.sendRadioCommRxStartEvents(node, evt)
 					case EventTypeRadioRxDone:
 						d.sendRadioCommRxDoneEvents(node, evt)
+					case EventTypeUdpFromHost:
+						fallthrough
+					case EventTypeIp6FromHost:
+						node.sendEvent(evt) // TODO no loss on external network is simulated currently.
 					default:
 						if d.radioModel.OnEventDispatch(node.RadioNode, node.RadioNode, evt) {
 							node.sendEvent(evt)
@@ -1150,6 +1168,10 @@ func (d *Dispatcher) advanceTime(ts uint64) {
 
 func (d *Dispatcher) PostAsync(task func()) {
 	d.taskChan <- task
+}
+
+func (d *Dispatcher) PostEventAsync(ev *Event) {
+	d.eventChan <- ev
 }
 
 func (d *Dispatcher) handleTasks() {

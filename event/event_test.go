@@ -1,4 +1,4 @@
-// Copyright (c) 2022-2023, The OTNS Authors.
+// Copyright (c) 2022-2024, The OTNS Authors.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -233,19 +233,30 @@ func TestDeserializeRfSimRspEvent(t *testing.T) {
 	assert.Equal(t, int32(1234), ev.RfSimParamData.Value)
 }
 
-func TestDeserializeUdpToAilEvent(t *testing.T) {
+func TestDeserializeMsgToHostEvents(t *testing.T) {
 	data, _ := hex.DecodeString("00000000000000001304000000000000002900efbe3316fe800000000000000000000000001234fe80000000000000000000000000beef0102030405")
 	testIp6Addr, _ := hex.DecodeString("fe800000000000000000000000001234")
 	testIp6Addr2, _ := hex.DecodeString("fe80000000000000000000000000beef")
 	var ev Event
 	ev.Deserialize(data)
 	assert.True(t, 0 == ev.Delay)
-	assert.Equal(t, EventTypeUdpToAil, ev.Type)
+	assert.Equal(t, EventTypeUdpToHost, ev.Type)
 	assert.Equal(t, uint64(4), ev.MsgId)
-	assert.Equal(t, uint16(48879), ev.UdpAilData.SrcPort)
-	assert.Equal(t, uint16(5683), ev.UdpAilData.DestPort)
-	assert.Equal(t, testIp6Addr, ev.UdpAilData.SrcIp6Address[:])
-	assert.Equal(t, testIp6Addr2, ev.UdpAilData.DestIp6Address[:])
+	assert.Equal(t, uint16(48879), ev.MsgToHostData.SrcPort)
+	assert.Equal(t, uint16(5683), ev.MsgToHostData.DstPort)
+	assert.Equal(t, testIp6Addr, ev.MsgToHostData.SrcIp6Address.AsSlice())
+	assert.Equal(t, testIp6Addr2, ev.MsgToHostData.DstIp6Address.AsSlice())
+
+	// try other event type with same payload structure
+	data[8] = EventTypeIp6ToHost
+	ev.Deserialize(data)
+	assert.True(t, 0 == ev.Delay)
+	assert.Equal(t, EventTypeIp6ToHost, ev.Type)
+	assert.Equal(t, uint64(4), ev.MsgId)
+	assert.Equal(t, uint16(48879), ev.MsgToHostData.SrcPort)
+	assert.Equal(t, uint16(5683), ev.MsgToHostData.DstPort)
+	assert.Equal(t, testIp6Addr, ev.MsgToHostData.SrcIp6Address.AsSlice())
+	assert.Equal(t, testIp6Addr2, ev.MsgToHostData.DstIp6Address.AsSlice())
 }
 
 func TestEventCopy(t *testing.T) {

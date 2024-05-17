@@ -43,6 +43,8 @@
 #include <openthread/tasklet.h>
 #include <openthread/udp.h>
 
+#include "common/debug.hpp"
+
 extern void platformReceiveEvent(otInstance *aInstance);
 extern bool gPlatformPseudoResetWasRequested;
 
@@ -89,7 +91,7 @@ void otSysInit(int argc, char *argv[]) {
                     argv[3]);
             platformExit(EXIT_FAILURE);
         }
-        randomSeed = (uint32_t) randomSeedParam;
+        randomSeed = (int32_t) randomSeedParam;
     }
 
     platformLoggingInit(argv[0]);
@@ -175,12 +177,7 @@ static void socket_init(char *socketFilePath) {
     memset(&sockaddr, 0, sizeof(struct sockaddr_un));
     sockaddr.sun_family = AF_UNIX;
     size_t strLen = strlen(socketFilePath);
-    if (strLen >= sizeof(sockaddr.sun_path)) {
-        gTerminate = true;
-        otPlatLog(OT_LOG_LEVEL_CRIT, OT_LOG_REGION_PLATFORM,
-                  "Unix socket path too long: %s\n", socketFilePath);
-        platformExit(EXIT_FAILURE);
-    }
+    OT_ASSERT(strLen < sizeof(sockaddr.sun_path));
     memcpy(sockaddr.sun_path, socketFilePath, strLen);
 
     gSockFd = socket(AF_UNIX, SOCK_STREAM, 0);
@@ -192,9 +189,7 @@ static void socket_init(char *socketFilePath) {
 
     if (connect(gSockFd, (struct sockaddr *) &sockaddr, sizeof(sockaddr)) == -1) {
         gTerminate = true;
-        otPlatLog(OT_LOG_LEVEL_CRIT, OT_LOG_REGION_PLATFORM,
-                  "Unable to open Unix socket to OT-NS at: %s\n",
-                  sockaddr.sun_path);
+        fprintf(stderr, "Unable to open Unix socket to OT-NS at: %s\n", sockaddr.sun_path);
         perror("bind");
         platformExit(EXIT_FAILURE);
     }

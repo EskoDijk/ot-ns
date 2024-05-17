@@ -47,6 +47,7 @@ import (
 	. "github.com/openthread/ot-ns/types"
 	"github.com/openthread/ot-ns/visualize"
 	"github.com/openthread/ot-ns/web"
+	"net/netip"
 )
 
 const (
@@ -321,6 +322,8 @@ func (rt *CmdRunner) execute(cmd *Command, output io.Writer) {
 		rt.executeSave(cc, cmd.Save)
 	} else if cmd.Send != nil {
 		rt.executeSend(cc, cmd.Send)
+	} else if cmd.Host != nil {
+		rt.executeHost(cc, cmd.Host)
 	} else {
 		logger.Panicf("unimplemented command: %#v", cmd)
 	}
@@ -1464,6 +1467,58 @@ func (rt *CmdRunner) executeSend(cc *CommandContext, cmd *SendCmd) {
 		}
 		if err != nil {
 			cc.error(err)
+		}
+	})
+}
+
+func (rt *CmdRunner) executeHost(cc *CommandContext, cmd *HostCmd) {
+	rt.postAsyncWait(cc, func(sim *simulation.Simulation) {
+		var addr netip.Addr
+		var err error
+
+		if cmd.IpAddr != nil {
+			addr, err = netip.ParseAddr(cmd.IpAddr.Addr)
+			if err != nil {
+				cc.errorf("invalid IPv6 address argument: '%s'", cmd.IpAddr.Addr)
+				return
+			}
+		}
+
+		host := simulation.SimHostEndpoint{
+			HostName:   cmd.Hostname,
+			Ip6Addr:    addr,
+			Port:       cmd.Port,
+			PortMapped: cmd.PortMapped,
+		}
+
+		switch cmd.SubCmd {
+		case "add":
+			if cmd.Port == 0 || cmd.PortMapped == 0 {
+				cc.errorf("invalid port argument(s)")
+				return
+			}
+			if err = sim.SimHosts().AddHost(host); err != nil {
+				cc.errorf("could not add host: %v", err)
+				return
+			}
+		case "del":
+			if len(cmd.Hostname) == 0 {
+				cc.errorf("missing <hostname> or <ipaddr> argument")
+				return
+			}
+			addr, _ = netip.ParseAddr(cmd.Hostname)
+			for h := range sim.SimHosts().Hosts {
+				if cmd.Hostname == h.HostName || addr == h.Ip6Addr {
+					sim.SimHosts().RemoveHost(h)
+				}
+			}
+
+		case "list":
+			sh := sim.SimHosts()
+			cc.outputf("Hostname                                 Destination IPv6 address                DstPort MapPort RxBytes  TxBytes\n")
+			for h := range sim.SimHosts().Hosts {
+				cc.outputf("%-40s %-40s % 6d % 6d % 8d % 8d\n", h.HostName, h.Ip6Addr.String(), h.Port, h.PortMapped, sh.GetRxBytes(&h), sh.GetTxBytes(&h))
+			}
 		}
 	})
 }

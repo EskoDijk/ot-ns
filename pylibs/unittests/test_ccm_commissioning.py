@@ -82,6 +82,11 @@ class CommissioningTests(OTNSTestCase):
         ns.node_cmd(n2, "coap get fc00::1234 info") # dest addr must match an external route of the BR
         self.go(10)
 
+        # n2 sends a coap message to n1, to test host receiving of UDP
+        n2_gua = ns.get_ipaddrs(n1, "mleid")
+        ns.node_cmd(n2, "coap get %s request/to/br" % n2_gua[0])
+        self.go(10)
+
         # n3 joins as CCM  joiner
         ns.commissioner_ccm_joiner_add(n1, "*")
         ns.ifconfig_up(n3)

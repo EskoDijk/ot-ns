@@ -36,6 +36,7 @@ import (
 
 	"github.com/openthread/ot-ns/logger"
 	"github.com/openthread/ot-ns/types"
+	"net/netip"
 )
 
 type EventType = uint8
@@ -61,7 +62,10 @@ const (
 	EventTypeRadioRfSimParamSet EventType = 17
 	EventTypeRadioRfSimParamRsp EventType = 18
 	EventTypeLogWrite           EventType = 19
-	EventTypeUdpToAil           EventType = 20
+	EventTypeUdpToHost          EventType = 20
+	EventTypeIp6ToHost          EventType = 21
+	EventTypeUdpFromHost        EventType = 22
+	EventTypeIp6FromHost        EventType = 23
 )
 
 const (
@@ -88,7 +92,7 @@ type Event struct {
 	RadioStateData RadioStateEventData
 	NodeInfoData   NodeInfoEventData
 	RfSimParamData RfSimParamEventData
-	UdpAilData     UdpAilEventData
+	MsgToHostData  MsgToHostEventData
 }
 
 // All ...EventData formats below only used by OT nodes supporting advanced
@@ -123,12 +127,12 @@ type RfSimParamEventData struct {
 	Value int32
 }
 
-const udpAilEventDataHeaderLen = 36 // from OT-RFSIM platform
-type UdpAilEventData struct {
-	SrcPort        uint16
-	DestPort       uint16
-	SrcIp6Address  [16]byte
-	DestIp6Address [16]byte
+const msgToHostEventDataHeaderLen = 36 // from OT-RFSIM platform
+type MsgToHostEventData struct {
+	SrcPort       uint16
+	DstPort       uint16
+	SrcIp6Address netip.Addr
+	DstIp6Address netip.Addr
 }
 
 /*
@@ -218,9 +222,11 @@ func (e *Event) Deserialize(data []byte) int {
 	case EventTypeRadioRfSimParamRsp:
 		e.RfSimParamData = deserializeRfSimParamData(e.Data)
 		payloadOffset += rfSimParamEventDataHeaderLen
-	case EventTypeUdpToAil:
-		e.UdpAilData = deserializeUdpAilData(e.Data)
-		payloadOffset += udpAilEventDataHeaderLen
+	case EventTypeUdpToHost:
+		fallthrough
+	case EventTypeIp6ToHost:
+		e.MsgToHostData = deserializeMsgToHostData(e.Data)
+		payloadOffset += msgToHostEventDataHeaderLen
 	default:
 		break
 	}
@@ -277,18 +283,18 @@ func deserializeRfSimParamData(data []byte) RfSimParamEventData {
 	return s
 }
 
-func deserializeUdpAilData(data []byte) UdpAilEventData {
-	logger.AssertTrue(len(data) >= udpAilEventDataHeaderLen)
+func deserializeMsgToHostData(data []byte) MsgToHostEventData {
+	logger.AssertTrue(len(data) >= msgToHostEventDataHeaderLen)
 	ip6Addr := [16]byte{}
 	srcIp6 := [16]byte{}
 	copy(srcIp6[:], data[4:20])
 	copy(ip6Addr[:], data[20:36])
 
-	s := UdpAilEventData{
-		SrcPort:        binary.LittleEndian.Uint16(data[0:2]),
-		DestPort:       binary.LittleEndian.Uint16(data[2:4]),
-		SrcIp6Address:  srcIp6,
-		DestIp6Address: ip6Addr,
+	s := MsgToHostEventData{
+		SrcPort:       binary.LittleEndian.Uint16(data[0:2]),
+		DstPort:       binary.LittleEndian.Uint16(data[2:4]),
+		SrcIp6Address: netip.AddrFrom16(srcIp6),
+		DstIp6Address: netip.AddrFrom16(ip6Addr),
 	}
 	return s
 }
