@@ -139,7 +139,7 @@ func (sh *SimHosts) handleUdpFromNode(node *Node, udpMetadata *event.MsgToHostEv
 		}
 
 		// create reader thread - to process the sim-host's response traffic.
-		go sh.udpReaderFunc(simConn)
+		go sh.udpReaderGoRoutine(simConn)
 
 		// store created connection under its unique tuple ID
 		sh.Conns[connId] = simConn
@@ -155,6 +155,7 @@ func (sh *SimHosts) handleUdpFromNode(node *Node, udpMetadata *event.MsgToHostEv
 }
 
 // handleUdpFromSimHost handles a UDP message coming from a sim-host and checks to which node to deliver it.
+// It performs a form of NAT66 with NPT to achieve this.
 func (sh *SimHosts) handleUdpFromSimHost(simConn *SimConn, udpData []byte) {
 	logger.Debugf("SimHosts: UDP from sim-host [::1]:%d (%d bytes)", simConn.PortMapped, len(udpData))
 	simConn.BytesDownstream += uint64(len(udpData))
@@ -171,9 +172,10 @@ func (sh *SimHosts) handleUdpFromSimHost(simConn *SimConn, udpData []byte) {
 		},
 	}
 	sh.sim.Dispatcher().PostEventAsync(ev)
+	logger.Debugf("sh.sim.Dispatcher().PostEventAsync(ev) for node %d, ev = %+v", simConn.BrNode.Id, ev)
 }
 
-func (sh *SimHosts) udpReaderFunc(simConn *SimConn) {
+func (sh *SimHosts) udpReaderGoRoutine(simConn *SimConn) {
 	buf := make([]byte, 2048) // FIXME size set
 	for {
 		rlen, err := simConn.Conn.Read(buf)
@@ -188,13 +190,15 @@ func (sh *SimHosts) handleIp6FromNode(node *Node, ip6Metadata *event.MsgToHostEv
 	var ip6Header *ipv6.Header
 	var err error
 
-	// check if header is IPv6 + UDP?
+	// check if header is IPv6?
 	if ip6Header, err = ipv6.ParseHeader(ip6Data); err != nil {
 		logger.Warnf("SimHosts could not parse as IPv6: %v", err)
 		return
 	}
+	// if it's UDP - handle the datagram
 	if ip6Header.Version == 6 && ip6Header.NextHeader == protocolUdp && len(ip6Data) > ipv6.HeaderLen+udpHeaderLen {
 		udpData := ip6Data[ipv6.HeaderLen+udpHeaderLen:]
 		sh.handleUdpFromNode(node, ip6Metadata, udpData)
 	}
+	// TODO TCP
 }

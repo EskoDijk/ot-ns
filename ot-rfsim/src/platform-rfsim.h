@@ -246,6 +246,17 @@ void platformUdpForwarder(otMessage *aMessage,
                           void *aContext);
 
 /**
+ * TODO
+ *
+ * @param aInstance
+ * @param evData
+ * @param msg
+ * @param msgLen
+ * @return
+ */
+otError platformUdpFromHost(otInstance *aInstance, const struct MsgToHostEventData *evData, uint8_t *msg, size_t msgLen);
+
+/**
  * Callback for node receiving an IPv6 datagram. When the datagram is destined for the upper-layer host
  * or to the simulated AIL, this callback is used to send the datagram to the simulator for further processing.
  *

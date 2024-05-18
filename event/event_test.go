@@ -32,6 +32,7 @@ import (
 
 	"github.com/openthread/ot-ns/types"
 	"github.com/stretchr/testify/assert"
+	"net/netip"
 )
 
 func TestDeserializeAlarmEvent(t *testing.T) {
@@ -257,6 +258,25 @@ func TestDeserializeMsgToHostEvents(t *testing.T) {
 	assert.Equal(t, uint16(5683), ev.MsgToHostData.DstPort)
 	assert.Equal(t, testIp6Addr, ev.MsgToHostData.SrcIp6Address.AsSlice())
 	assert.Equal(t, testIp6Addr2, ev.MsgToHostData.DstIp6Address.AsSlice())
+}
+
+func TestSerializeMsgToHostEvents(t *testing.T) {
+	dataExpected, _ := hex.DecodeString("00000000000000001504000000000000002900efbe3316fe800000000000000000000000001234fe80abcd00000000000000000000abcd0102030405")
+	evData := MsgToHostEventData{
+		SrcPort:       48879,
+		DstPort:       5683,
+		SrcIp6Address: netip.MustParseAddr("fe80::1234"),
+		DstIp6Address: netip.MustParseAddr("fe80:abcd::abcd"),
+	}
+	ev := &Event{
+		Delay:         0,
+		Type:          EventTypeUdpFromHost,
+		MsgId:         4,
+		Data:          []byte{1, 2, 3, 4, 5},
+		MsgToHostData: evData,
+	}
+	data := ev.Serialize()
+	assert.Equal(t, dataExpected, data)
 }
 
 func TestEventCopy(t *testing.T) {

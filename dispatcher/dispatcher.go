@@ -394,7 +394,9 @@ func (d *Dispatcher) handleRecvEvent(evt *Event) {
 		return
 	}
 
-	node.conn = evt.Conn      // store socket connection for this node.
+	if node.conn == nil {
+		node.conn = evt.Conn // store socket connection for this node.
+	}
 	evt.Timestamp = d.CurTime // timestamp the incoming event
 
 	// TODO document this use (for alarm messages)
@@ -446,6 +448,7 @@ func (d *Dispatcher) handleRecvEvent(evt *Event) {
 		d.Counters.OtherEvents += 1
 		evt.MustDispatch = true // asap resend again to the target (BR) node.
 		d.eventQueue.Add(evt)
+		logger.Debugf("FIXME d.eventQueue.Add(evt) to node %d", node.Id)
 	default:
 		d.Counters.OtherEvents += 1
 		d.cbHandler.OnRfSimEvent(node.Id, evt)
@@ -591,6 +594,7 @@ func (d *Dispatcher) processNextEvent(simSpeed float64) bool {
 					case EventTypeUdpFromHost,
 						EventTypeIp6FromHost:
 						node.sendEvent(evt) // TODO no loss on external network is simulated currently.
+						logger.Debugf("FIXME node.sendEvent(evt) to node %d // TODO no loss on external network is simulated currently.", node.Id)
 					default:
 						if d.radioModel.OnEventDispatch(node.RadioNode, node.RadioNode, evt) {
 							node.sendEvent(evt)

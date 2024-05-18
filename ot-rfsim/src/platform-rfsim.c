@@ -42,6 +42,8 @@
 #include <stdlib.h>
 
 #include <openthread/tasklet.h>
+#include <openthread/udp.h>
+#include <openthread/logging.h>
 
 #include "common/debug.hpp"
 #include "utils/code_utils.h"
@@ -75,6 +77,7 @@ void platformReceiveEvent(otInstance *aInstance)
     struct Event event;
     ssize_t      rval = recvfrom(gSockFd, (char *)&event, sizeof(struct EventHeader), 0, NULL, NULL);
     const uint8_t *evData = event.mData;
+    otError error;
 
     if (rval < 0)
     {
@@ -146,6 +149,17 @@ void platformReceiveEvent(otInstance *aInstance)
         platformRadioReportStateToSimulator(true);
         break;
 
+    case OT_SIM_EVENT_UDP_FROM_HOST:
+        otLogWarnPlat("FIXME start platformUdpFromHost");
+        VERIFY_EVENT_SIZE(struct MsgToHostEventData)
+        error = platformUdpFromHost(aInstance, (struct MsgToHostEventData *)evData,
+                event.mData + sizeof(struct MsgToHostEventData), payloadLen - sizeof(struct MsgToHostEventData));
+        if (error != OT_ERROR_NONE) {
+            otLogCritPlat("Error handling UDP from host event: %s", otThreadErrorToString(error));
+        }
+        otLogWarnPlat("FIXME done platformUdpFromHost");
+        break;
+
     default:
         OT_ASSERT(false && "Unrecognized event type received");
     }
@@ -159,6 +173,29 @@ void otPlatOtnsStatus(const char *aStatus)
         OT_ASSERT(statusLength <= OT_EVENT_DATA_MAX_SIZE);
     }
     otSimSendOtnsStatusPushEvent(aStatus, statusLength);
+}
+
+otError platformUdpFromHost(otInstance *aInstance, const struct MsgToHostEventData *evData, uint8_t *msg, size_t msgLen) {
+    otMessage        *message  = NULL;
+    otError           error    = OT_ERROR_NONE;
+
+    message = otIp6NewMessage(aInstance, NULL);
+    otEXPECT_ACTION(message != NULL, error = OT_ERROR_NO_BUFS);
+
+    // TODO set IPv6 header
+
+    //otMessageSetOrigin(message, OT_MESSAGE_ORIGIN_HOST_UNTRUSTED);
+
+    // TODO append UDP header
+
+    error = otMessageAppend(message, msg, msgLen - 1);
+    otEXPECT(error == OT_ERROR_NONE);
+
+    error = otIp6Send(aInstance, message);
+    otLogWarnPlat("FIXME error = %u", error);
+
+exit:
+    return error;
 }
 
 #if OPENTHREAD_CONFIG_UDP_FORWARD_ENABLE

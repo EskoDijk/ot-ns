@@ -90,8 +90,10 @@ class SimHostsTests(OTNSTestCase):
         # n2 sends a coap message to AIL, to test AIL connectivity
         ns.node_cmd(n2, "coap start")
         ns.node_cmd(n2, "coap get fc00::1234 hello")  # dest addr must match an external route of the BR
+        self.go(0.2)
+        await asyncio.sleep(0.2)  # let the aiocoap server serve the request
         self.go(10)
-        await asyncio.sleep(3)
+        await asyncio.sleep(0.2)
 
         hosts_list = ns.cmd('host list')
         self.assertEqual(1+1, len(hosts_list))

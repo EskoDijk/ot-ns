@@ -168,6 +168,12 @@ func (e *Event) Serialize() []byte {
 	case EventTypeRadioRfSimParamGet:
 		extraFields = []byte{byte(e.RfSimParamData.Param), 0, 0, 0, 0}
 		binary.LittleEndian.PutUint32(extraFields[1:], uint32(e.RfSimParamData.Value))
+	case EventTypeUdpFromHost:
+		extraFields = make([]byte, msgToHostEventDataHeaderLen)
+		binary.LittleEndian.PutUint16(extraFields[0:2], e.MsgToHostData.SrcPort)
+		binary.LittleEndian.PutUint16(extraFields[2:4], e.MsgToHostData.DstPort)
+		copy(extraFields[4:20], e.MsgToHostData.SrcIp6Address.AsSlice())
+		copy(extraFields[20:36], e.MsgToHostData.DstIp6Address.AsSlice())
 	default:
 		break
 	}
