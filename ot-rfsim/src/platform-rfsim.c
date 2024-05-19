@@ -55,8 +55,8 @@
 
 extern int gSockFd;
 
-uint64_t gLastMsgId = 0;
-struct Event gLastRecvEvent;
+uint64_t            gLastMsgId = 0;
+struct Event        gLastRecvEvent;
 static otIp6Address unspecifiedIp6Address;
 
 void platformRfsimInit(void) {
@@ -67,18 +67,18 @@ void platformRfsimInit(void) {
 
 void platformExit(int exitCode) {
     gTerminate = true;
-    otPlatLog(OT_LOG_LEVEL_NOTE,OT_LOG_REGION_PLATFORM,
-              "Exiting with exit code %d.", exitCode);
+    otLogNotePlat("Exiting with exit code %d.", exitCode);
     exit(exitCode);
 }
 
 void platformReceiveEvent(otInstance *aInstance)
 {
-    struct Event event;
-    ssize_t      rval = recvfrom(gSockFd, (char *)&event, sizeof(struct EventHeader), 0, NULL, NULL);
+    struct Event  event;
+    ssize_t       rval;
     const uint8_t *evData = event.mData;
-    otError error;
+    otError       error;
 
+    rval = recvfrom(gSockFd, (char *)&event, sizeof(struct EventHeader), 0, NULL, NULL);
     if (rval < 0)
     {
         perror("recvfrom");
@@ -149,15 +149,13 @@ void platformReceiveEvent(otInstance *aInstance)
         platformRadioReportStateToSimulator(true);
         break;
 
-    case OT_SIM_EVENT_UDP_FROM_HOST:
-        otLogWarnPlat("FIXME start platformUdpFromHost");
+    case OT_SIM_EVENT_IP6_FROM_HOST:
         VERIFY_EVENT_SIZE(struct MsgToHostEventData)
-        error = platformUdpFromHost(aInstance, (struct MsgToHostEventData *)evData,
+        error = platformIp6FromHost(aInstance, (struct MsgToHostEventData *)evData,
                 event.mData + sizeof(struct MsgToHostEventData), payloadLen - sizeof(struct MsgToHostEventData));
         if (error != OT_ERROR_NONE) {
-            otLogCritPlat("Error handling UDP from host event: %s", otThreadErrorToString(error));
+            otLogCritPlat("Error handling IP6_FROM_HOST event, dropping datagram: %s", otThreadErrorToString(error));
         }
-        otLogWarnPlat("FIXME done platformUdpFromHost");
         break;
 
     default:
@@ -170,29 +168,18 @@ void otPlatOtnsStatus(const char *aStatus)
     uint16_t     statusLength = (uint16_t)strlen(aStatus);
     if (statusLength > OT_EVENT_DATA_MAX_SIZE){
         statusLength = OT_EVENT_DATA_MAX_SIZE;
-        OT_ASSERT(statusLength <= OT_EVENT_DATA_MAX_SIZE);
     }
     otSimSendOtnsStatusPushEvent(aStatus, statusLength);
 }
 
-otError platformUdpFromHost(otInstance *aInstance, const struct MsgToHostEventData *evData, uint8_t *msg, size_t msgLen) {
-    otMessage        *message  = NULL;
-    otError           error    = OT_ERROR_NONE;
+otError platformIp6FromHost(otInstance *aInstance, const struct MsgToHostEventData *evData, const uint8_t *msg, size_t msgLen) {
+    otMessage *ip6;
+    otError   error;
 
-    message = otIp6NewMessage(aInstance, NULL);
-    otEXPECT_ACTION(message != NULL, error = OT_ERROR_NO_BUFS);
+    ip6 = otIp6NewMessageFromBuffer(aInstance, msg, msgLen, NULL);
+    otEXPECT_ACTION(ip6 != NULL, error = OT_ERROR_NO_BUFS);
 
-    // TODO set IPv6 header
-
-    //otMessageSetOrigin(message, OT_MESSAGE_ORIGIN_HOST_UNTRUSTED);
-
-    // TODO append UDP header
-
-    error = otMessageAppend(message, msg, msgLen - 1);
-    otEXPECT(error == OT_ERROR_NONE);
-
-    error = otIp6Send(aInstance, message);
-    otLogWarnPlat("FIXME error = %u", error);
+    error = otIp6Send(aInstance, ip6);
 
 exit:
     return error;

@@ -261,7 +261,7 @@ func TestDeserializeMsgToHostEvents(t *testing.T) {
 }
 
 func TestSerializeMsgToHostEvents(t *testing.T) {
-	dataExpected, _ := hex.DecodeString("00000000000000001504000000000000002900efbe3316fe800000000000000000000000001234fe80abcd00000000000000000000abcd0102030405")
+	dataExpected, _ := hex.DecodeString("00000000000000001604000000000000002900efbe3316fe800000000000000000000000001234fe80abcd00000000000000000000abcd0102030405")
 	evData := MsgToHostEventData{
 		SrcPort:       48879,
 		DstPort:       5683,
@@ -270,7 +270,7 @@ func TestSerializeMsgToHostEvents(t *testing.T) {
 	}
 	ev := &Event{
 		Delay:         0,
-		Type:          EventTypeUdpFromHost,
+		Type:          EventTypeIp6FromHost,
 		MsgId:         4,
 		Data:          []byte{1, 2, 3, 4, 5},
 		MsgToHostData: evData,

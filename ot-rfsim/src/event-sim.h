@@ -29,8 +29,8 @@
 /**
 * @file
 * @brief
-*   This file includes simulation-event message definitions, and formatting and
- *   parsing functions for events.
+*   This file includes simulation-event message definitions, and sending,
+*   formatting and parsing functions for events.
 */
 
 #ifndef PLATFORM_RFSIM_EVENT_SIM_H
@@ -140,6 +140,7 @@ void otSimSendEvent(struct Event *aEvent);
 /**
  * Send a sleep event to the simulator. The amount of time to sleep
  * for this node is determined by the alarm timer, by calling platformAlarmGetNext().
+ *
  */
 void otSimSendSleepEvent(void);
 

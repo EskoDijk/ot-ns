@@ -53,7 +53,7 @@ import (
 	"github.com/openthread/ot-ns/visualize"
 )
 
-// CallbackHandler handles the callbacks from Dispatcher to its managing entity (e.g. a Simulation).
+// CallbackHandler handles callbacks from Dispatcher to its managing entity (e.g. a Simulation).
 type CallbackHandler interface {
 	// OnUartWrite Notifies that the node's UART was written with data.
 	OnUartWrite(nodeid NodeId, data []byte)
@@ -61,16 +61,16 @@ type CallbackHandler interface {
 	// OnLogWrite Notifies that a log item wsa written to the node's log.
 	OnLogWrite(nodeid NodeId, data []byte)
 
-	// OnNextEventTime Notifies that the Dispatcher simulation will move shortly to the next event time.
+	// OnNextEventTime Notifies that the Dispatcher simulated-time will move to the next event time.
 	OnNextEventTime(nextTimeUs uint64)
 
 	// OnRfSimEvent Notifies that Dispatcher received an OT-RFSIM platform event that it didn't handle itself.
 	OnRfSimEvent(nodeid NodeId, evt *Event)
 
 	// OnUdpToHost Notifies that the Dispatcher received an off-mesh or to-host UDP packet from a node, to be handled.
-	OnUdpToHost(nodeid NodeId, udpMetadata *MsgToHostEventData, udpData []byte)
+	//OnUdpToHost(nodeid NodeId, udpMetadata *MsgToHostEventData, udpData []byte)
 
-	// OnIp6ToHost Notifies that the Dispatcher received an off-mesh or to-host IPv6 packet from a node, to be handled.
+	// OnIp6ToHost Notifies that the Dispatcher received an IPv6 packet from a node, to be handled by the node's host.
 	OnIp6ToHost(nodeid NodeId, udpMetadata *MsgToHostEventData, udpData []byte)
 }
 
@@ -439,7 +439,9 @@ func (d *Dispatcher) handleRecvEvent(evt *Event) {
 		d.alarmMgr.SetTimestamp(node.Id, Ever)
 	case EventTypeUdpToHost:
 		d.Counters.OtherEvents += 1
-		d.cbHandler.OnUdpToHost(node.Id, &evt.MsgToHostData, evt.Data)
+		//d.cbHandler.OnUdpToHost(node.Id, &evt.MsgToHostData, evt.Data)
+		// FIXME
+		logger.Panicf("not impl")
 	case EventTypeIp6ToHost:
 		d.Counters.OtherEvents += 1
 		d.cbHandler.OnIp6ToHost(node.Id, &evt.MsgToHostData, evt.Data)

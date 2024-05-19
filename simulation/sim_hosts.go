@@ -22,14 +22,14 @@ type ConnId struct {
 	ExtPort     uint16
 }
 
-// SimConn is a two-way connection between a node's port and a simulated host's port.
+// SimConn is a two-way connection between a node's port and a sim-host's port.
 type SimConn struct {
-	BrNode          *Node // assumes a single BR also handles the return traffic.
-	Conn            net.Conn
-	Nat66State      *event.MsgToHostEventData
-	PortMapped      uint16
-	BytesUpstream   uint64 // total bytes from node to sim-host (across all BRs)
-	BytesDownstream uint64 // total bytes from sim-host to node (across all BRs)
+	Node               *Node // assumes a single BR also handles the return traffic.
+	Conn               net.Conn
+	Nat66State         *event.MsgToHostEventData
+	PortMapped         uint16 // real localhost ::1 port on simulator machine, on which sim-host's port is mapped.
+	UdpBytesUpstream   uint64 // total bytes UDP payload from node to sim-host (across all BRs)
+	UdpBytesDownstream uint64 // total bytes UDP payload from sim-host to node (across all BRs)
 }
 
 // SimHostEndpoint represents a single endpoint (port) of a sim-host, potentially interacting with N >= 0 nodes.
@@ -75,7 +75,7 @@ func (sh *SimHosts) GetTxBytes(host *SimHostEndpoint) uint64 {
 	var n uint64 = 0
 	for connId, simConn := range sh.Conns {
 		if host.Ip6Addr == connId.ExtIp6Addr && host.Port == connId.ExtPort {
-			n += simConn.BytesDownstream
+			n += simConn.UdpBytesDownstream
 		}
 	}
 	return n
@@ -85,13 +85,13 @@ func (sh *SimHosts) GetRxBytes(host *SimHostEndpoint) uint64 {
 	var n uint64 = 0
 	for connId, simConn := range sh.Conns {
 		if host.Ip6Addr == connId.ExtIp6Addr && host.Port == connId.ExtPort {
-			n += simConn.BytesUpstream
+			n += simConn.UdpBytesUpstream
 		}
 	}
 	return n
 }
 
-// handleUdpFromNode handles a UDP message coming from a node and checks to which sim-host to deliver it.
+// handleUdpFromNode handles a UDP datagram coming from a node and checks to which sim-host to deliver it.
 func (sh *SimHosts) handleUdpFromNode(node *Node, udpMetadata *event.MsgToHostEventData, udpData []byte) {
 	var host SimHostEndpoint
 	var err error
@@ -107,12 +107,12 @@ func (sh *SimHosts) handleUdpFromNode(node *Node, udpMetadata *event.MsgToHostEv
 		}
 	}
 	if !found {
-		logger.Debugf("SimHosts: UDP from node %d did not reach any sim-host destination", node.Id)
+		logger.Debugf("SimHosts: IPv6/UDP from node %d did not reach a sim-host destination: %+v", node.Id, udpMetadata)
 		return
 	}
-	logger.Debugf("SimHosts: UDP from node %d, to sim server [::1]:%d (%d bytes)", node.Id, host.PortMapped, len(udpData))
+	logger.Debugf("SimHosts: IPv6/UDP from node %d, to sim-host [::1]:%d (%d bytes)", node.Id, host.PortMapped, len(udpData))
 
-	// fetch existing conn object for the specific Thread node source endpoint, if any.
+	// fetch existing conn object for the specific node/sim-host IP and port combo, if any.
 	connId := ConnId{
 		NodeIp6Addr: udpMetadata.SrcIp6Address,
 		ExtIp6Addr:  udpMetadata.DstIp6Address,
@@ -122,12 +122,12 @@ func (sh *SimHosts) handleUdpFromNode(node *Node, udpMetadata *event.MsgToHostEv
 	if simConn, ok = sh.Conns[connId]; !ok {
 		// create new connection
 		simConn = &SimConn{
-			Conn:            nil,
-			BrNode:          node,
-			Nat66State:      udpMetadata,
-			PortMapped:      host.PortMapped,
-			BytesUpstream:   0,
-			BytesDownstream: 0,
+			Conn:               nil,
+			Node:               node,
+			Nat66State:         udpMetadata,
+			PortMapped:         host.PortMapped,
+			UdpBytesUpstream:   0,
+			UdpBytesDownstream: 0,
 		}
 		simConn.Conn, err = net.Dial("udp", fmt.Sprintf("[::1]:%d", host.PortMapped))
 		if err != nil {
@@ -148,22 +148,27 @@ func (sh *SimHosts) handleUdpFromNode(node *Node, udpMetadata *event.MsgToHostEv
 	var n int
 	n, err = simConn.Conn.Write(udpData)
 	if err != nil {
-		logger.Warnf("SimHosts could not write udp data to [::1]:%d : %v", host.PortMapped, err)
+		logger.Warnf("SimHosts could not write UDP data to [::1]:%d : %v", host.PortMapped, err)
 		return
 	}
-	simConn.BytesUpstream += uint64(n)
+	simConn.UdpBytesUpstream += uint64(n)
 }
 
-// handleUdpFromSimHost handles a UDP message coming from a sim-host and checks to which node to deliver it.
-// It performs a form of NAT66 with NPT to achieve this.
+// handleUdpFromSimHost handles a UDP message coming from a sim-host and checks to which (BR) node to deliver it
+// as an IPv6+UDP datagram. It performs a form of NAT66 with NPT to achieve this.
 func (sh *SimHosts) handleUdpFromSimHost(simConn *SimConn, udpData []byte) {
-	logger.Debugf("SimHosts: UDP from sim-host [::1]:%d (%d bytes)", simConn.PortMapped, len(udpData))
-	simConn.BytesDownstream += uint64(len(udpData))
+	logger.Debugf("SimHosts: UDP datagram from sim-host [::1]:%d (%d bytes)", simConn.PortMapped, len(udpData))
+	simConn.UdpBytesDownstream += uint64(len(udpData))
+
+	ip6Datagram := CreateIp6UdpDatagram(simConn.Nat66State.DstPort, simConn.Nat66State.SrcPort,
+		simConn.Nat66State.DstIp6Address, simConn.Nat66State.SrcIp6Address, udpData)
+
+	// send IPv6+UDP datagram as event to node
 	ev := &event.Event{
 		Delay:  0,
-		Type:   event.EventTypeUdpFromHost,
-		Data:   udpData,
-		NodeId: simConn.BrNode.Id,
+		Type:   event.EventTypeIp6FromHost,
+		Data:   ip6Datagram,
+		NodeId: simConn.Node.Id,
 		MsgToHostData: event.MsgToHostEventData{
 			SrcPort:       simConn.Nat66State.DstPort, // simulates response back: ports reversed
 			DstPort:       simConn.Nat66State.SrcPort,
@@ -172,7 +177,6 @@ func (sh *SimHosts) handleUdpFromSimHost(simConn *SimConn, udpData []byte) {
 		},
 	}
 	sh.sim.Dispatcher().PostEventAsync(ev)
-	logger.Debugf("sh.sim.Dispatcher().PostEventAsync(ev) for node %d, ev = %+v", simConn.BrNode.Id, ev)
 }
 
 func (sh *SimHosts) udpReaderGoRoutine(simConn *SimConn) {
@@ -195,7 +199,7 @@ func (sh *SimHosts) handleIp6FromNode(node *Node, ip6Metadata *event.MsgToHostEv
 		logger.Warnf("SimHosts could not parse as IPv6: %v", err)
 		return
 	}
-	// if it's UDP - handle the datagram
+	// if it's UDP - attempt to handle the datagram by a sim-host
 	if ip6Header.Version == 6 && ip6Header.NextHeader == protocolUdp && len(ip6Data) > ipv6.HeaderLen+udpHeaderLen {
 		udpData := ip6Data[ipv6.HeaderLen+udpHeaderLen:]
 		sh.handleUdpFromNode(node, ip6Metadata, udpData)

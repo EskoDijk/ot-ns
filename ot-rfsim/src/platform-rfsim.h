@@ -254,7 +254,7 @@ void platformUdpForwarder(otMessage *aMessage,
  * @param msgLen
  * @return
  */
-otError platformUdpFromHost(otInstance *aInstance, const struct MsgToHostEventData *evData, uint8_t *msg, size_t msgLen);
+otError platformIp6FromHost(otInstance *aInstance, const struct MsgToHostEventData *evData, const uint8_t *msg, size_t msgLen);
 
 /**
  * Callback for node receiving an IPv6 datagram. When the datagram is destined for the upper-layer host

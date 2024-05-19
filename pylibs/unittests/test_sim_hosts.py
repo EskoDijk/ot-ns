@@ -89,7 +89,7 @@ class SimHostsTests(OTNSTestCase):
 
         # n2 sends a coap message to AIL, to test AIL connectivity
         ns.node_cmd(n2, "coap start")
-        ns.node_cmd(n2, "coap get fc00::1234 hello")  # dest addr must match an external route of the BR
+        ns.node_cmd(n2, "coap get fc00::1234 hello con")  # dest addr must match an external route of the BR
         self.go(0.2)
         await asyncio.sleep(0.2)  # let the aiocoap server serve the request
         self.go(10)
@@ -100,12 +100,12 @@ class SimHostsTests(OTNSTestCase):
         self.assertEqual("12       19", hosts_list[1][-11:])  # number of Rx bytes == 11, Tx == 19
 
 
-class HelloResource(resource.Resource):
-    async def render_get(self, request):
-        return aiocoap.Message(content_format=0, payload="Hello World".encode('utf8'))
-
 
 async def coap_server_main():
+    class HelloResource(resource.Resource):
+        async def render_get(self, request):
+            return aiocoap.Message(content_format=0, payload="Hello World".encode('utf8'))
+
     root = resource.Site()
     root.add_resource(['hello'], HelloResource())
     await aiocoap.Context.create_server_context(root)
