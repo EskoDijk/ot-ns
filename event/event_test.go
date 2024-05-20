@@ -30,9 +30,10 @@ import (
 	"encoding/hex"
 	"testing"
 
+	"net/netip"
+
 	"github.com/openthread/ot-ns/types"
 	"github.com/stretchr/testify/assert"
-	"net/netip"
 )
 
 func TestDeserializeAlarmEvent(t *testing.T) {

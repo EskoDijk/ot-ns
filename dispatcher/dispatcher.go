@@ -440,17 +440,16 @@ func (d *Dispatcher) handleRecvEvent(evt *Event) {
 	case EventTypeUdpToHost:
 		d.Counters.OtherEvents += 1
 		//d.cbHandler.OnUdpToHost(node.Id, &evt.MsgToHostData, evt.Data)
-		// FIXME
-		logger.Panicf("not impl")
+		logger.Panicf("FIXME not implemented yet")
 	case EventTypeIp6ToHost:
-		d.Counters.OtherEvents += 1
+		d.Counters.OtherEvents += 1 // TODO - counter for host or AIL events?
+		d.sendIp6PacketToAil(node, evt)
 		d.cbHandler.OnIp6ToHost(node.Id, &evt.MsgToHostData, evt.Data)
 	case EventTypeUdpFromHost,
 		EventTypeIp6FromHost:
 		d.Counters.OtherEvents += 1
 		evt.MustDispatch = true // asap resend again to the target (BR) node.
 		d.eventQueue.Add(evt)
-		logger.Debugf("FIXME d.eventQueue.Add(evt) to node %d", node.Id)
 	default:
 		d.Counters.OtherEvents += 1
 		d.cbHandler.OnRfSimEvent(node.Id, evt)
@@ -596,7 +595,6 @@ func (d *Dispatcher) processNextEvent(simSpeed float64) bool {
 					case EventTypeUdpFromHost,
 						EventTypeIp6FromHost:
 						node.sendEvent(evt) // TODO no loss on external network is simulated currently.
-						logger.Debugf("FIXME node.sendEvent(evt) to node %d // TODO no loss on external network is simulated currently.", node.Id)
 					default:
 						if d.radioModel.OnEventDispatch(node.RadioNode, node.RadioNode, evt) {
 							node.sendEvent(evt)
@@ -869,6 +867,20 @@ func (d *Dispatcher) sendOneRadioFrame(evt *Event, srcnode *Node, dstnode *Node)
 	if d.radioModel.OnEventDispatch(srcnode.RadioNode, dstnode.RadioNode, &evt2) {
 		// send the event plus time keeping - moves dstnode's time to the current send-event's time.
 		dstnode.sendEvent(&evt2)
+	}
+}
+
+func (d *Dispatcher) sendIp6PacketToAil(node *Node, evt *Event) {
+	if d.cfg.PcapEnabled {
+		/** TODO write IPv6 packet to a separate pcap file
+		d.pcapFrameChan <- pcap.Frame{
+			Timestamp: evt.Timestamp,
+			Data:      evt.Data,
+			Channel:   0,
+			Rssi:      RssiInvalid,
+		}
+		*/
+		node.logger.Debugf("sendIp6PacketToAil: %v", evt)
 	}
 }
 

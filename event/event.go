@@ -34,9 +34,10 @@ import (
 	"strings"
 	"unicode"
 
+	"net/netip"
+
 	"github.com/openthread/ot-ns/logger"
 	"github.com/openthread/ot-ns/types"
-	"net/netip"
 )
 
 type EventType = uint8

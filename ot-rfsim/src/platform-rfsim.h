@@ -230,23 +230,7 @@ bool platformRadioIsTransmitPending(void);
 void platformRadioReportStateToSimulator(bool force);
 
 /**
- * Callback that gets called when OT stack has a UDP message that needs to go to
- * the host interface.
- *
- * @param aMessage TODO
- * @param aPeerPort
- * @param aPeerAddr
- * @param aSockPort
- * @param aContext
- */
-void platformUdpForwarder(otMessage *aMessage,
-                          uint16_t aPeerPort,
-                          otIp6Address *aPeerAddr,
-                          uint16_t aSockPort,
-                          void *aContext);
-
-/**
- * TODO
+ * performs the processing of an IPv6 packet that was sent from the (higher-layer) host to the OT node.
  *
  * @param aInstance
  * @param evData
@@ -254,25 +238,34 @@ void platformUdpForwarder(otMessage *aMessage,
  * @param msgLen
  * @return
  */
-otError platformIp6FromHost(otInstance *aInstance, const struct MsgToHostEventData *evData, const uint8_t *msg, size_t msgLen);
+otError platformIp6FromHostToNode(otInstance *aInstance, const struct MsgToHostEventData *evData, const uint8_t *msg, size_t msgLen);
 
 /**
- * Callback for node receiving an IPv6 datagram. When the datagram is destined for the upper-layer host
- * or to the simulated AIL, this callback is used to send the datagram to the simulator for further processing.
+ * parses aMessage as an IPv6 packet, writing the packet-info into ip6Info.
  *
- * @param aMessage
- * @param aContext
- */
-void platformIp6Receiver(otMessage *aMessage, void *aContext);
-
-/**
- * TODO
+ * @param aMessage  the message containing the IPv6 packet to parse
+ * @param ip6Info   the IPv6 packet's metadata, written in case of successful parse.
  *
- * @param aMessage
- * @param ip6Addr
- * @return
+ * @retval  OT_ERROR_NONE   Successfully parsed the message as IPv6 packet.
+ * @retval  OT_ERROR_PARSE  Failed to parse the message as IPv6 packet.
  */
 otError platformParseIp6(otMessage *aMessage,  otMessageInfo *ip6Info);
+
+/**
+ * handler called when OT performs UDP-forwarding to the host. This is for UDP datagrams that
+ * are not going to be sent to the Thread interface, but rather to the host-interface.
+ *
+ * @param aMessage
+ * @param aPeerPort
+ * @param aPeerAddr
+ * @param aSockPort
+ * @param aContext
+ */
+void handleUdpForwarding(otMessage *aMessage,
+                         uint16_t aPeerPort,
+                         otIp6Address *aPeerAddr,
+                         uint16_t aSockPort,
+                         void *aContext);
 
 /**
  * Setup any simulated non-Thread interfaces. For example, an interface to a host process or

@@ -151,8 +151,9 @@ void platformReceiveEvent(otInstance *aInstance)
 
     case OT_SIM_EVENT_IP6_FROM_HOST:
         VERIFY_EVENT_SIZE(struct MsgToHostEventData)
-        error = platformIp6FromHost(aInstance, (struct MsgToHostEventData *)evData,
-                event.mData + sizeof(struct MsgToHostEventData), payloadLen - sizeof(struct MsgToHostEventData));
+        error = platformIp6FromHostToNode(aInstance, (struct MsgToHostEventData *) evData,
+                                          event.mData + sizeof(struct MsgToHostEventData),
+                                          payloadLen - sizeof(struct MsgToHostEventData));
         if (error != OT_ERROR_NONE) {
             otLogCritPlat("Error handling IP6_FROM_HOST event, dropping datagram: %s", otThreadErrorToString(error));
         }
@@ -172,7 +173,8 @@ void otPlatOtnsStatus(const char *aStatus)
     otSimSendOtnsStatusPushEvent(aStatus, statusLength);
 }
 
-otError platformIp6FromHost(otInstance *aInstance, const struct MsgToHostEventData *evData, const uint8_t *msg, size_t msgLen) {
+// TODO remove unused param
+otError platformIp6FromHostToNode(otInstance *aInstance, const struct MsgToHostEventData *evData, const uint8_t *msg, size_t msgLen) {
     otMessage *ip6;
     otError   error;
 
@@ -186,11 +188,11 @@ exit:
 }
 
 #if OPENTHREAD_CONFIG_UDP_FORWARD_ENABLE
-void platformUdpForwarder(otMessage *aMessage,
-                          uint16_t aPeerPort,
-                          otIp6Address *aPeerAddr,
-                          uint16_t aSockPort,
-                          void *aContext)
+void handleUdpForwarding(otMessage *aMessage,
+                         uint16_t aPeerPort,
+                         otIp6Address *aPeerAddr,
+                         uint16_t aSockPort,
+                         void *aContext)
 {
     OT_UNUSED_VARIABLE(aContext);
 
@@ -225,7 +227,7 @@ static uint8_t ip6McastScope(otIp6Address  *addr)
     return addr->mFields.m8[0] & 0x0f;
 }
 
-void platformIp6Receiver(otMessage *aMessage, void *aContext)
+void handleIp6FromNodeToHost(otMessage *aMessage, void *aContext)
 {
     OT_UNUSED_VARIABLE(aContext);
 
@@ -270,7 +272,7 @@ void platformNetifSetUp(otInstance *aInstance)
     otIp6SetReceiveFilterEnabled(aInstance, true); // FIXME - needed?
     //otIcmp6SetEchoMode(gInstance, OT_ICMP6_ECHO_HANDLER_ALL); // TODO
     //otIcmp6SetEchoMode(gInstance, OT_ICMP6_ECHO_HANDLER_DISABLED);
-    otIp6SetReceiveCallback(aInstance, platformIp6Receiver, aInstance);
+    otIp6SetReceiveCallback(aInstance, handleIp6FromNodeToHost, aInstance);
 #if OPENTHREAD_CONFIG_NAT64_TRANSLATOR_ENABLE
     // We can use the same function for IPv6 and translated IPv4 messages.
     // otNat64SetReceiveIp4Callback(gInstance, processReceive, gInstance);

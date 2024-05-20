@@ -1,12 +1,17 @@
 package simulation
 
 import (
+	"errors"
 	"fmt"
-	"github.com/openthread/ot-ns/event"
-	"github.com/openthread/ot-ns/logger"
-	"golang.org/x/net/ipv6"
+	"io"
 	"net"
 	"net/netip"
+
+	"golang.org/x/net/ipv6"
+
+	"github.com/openthread/ot-ns/event"
+	"github.com/openthread/ot-ns/logger"
+	"github.com/openthread/ot-ns/types"
 )
 
 const (
@@ -47,6 +52,12 @@ type SimHosts struct {
 	Conns map[ConnId]*SimConn
 }
 
+func (sc *SimConn) close() {
+	if sc.Conn != nil {
+		_ = sc.Conn.Close()
+	}
+}
+
 func NewSimHosts() *SimHosts {
 	sh := &SimHosts{
 		sim:   nil,
@@ -68,7 +79,14 @@ func (sh *SimHosts) AddHost(host SimHostEndpoint) error {
 
 func (sh *SimHosts) RemoveHost(host SimHostEndpoint) {
 	delete(sh.Hosts, host)
-	// FIXME close all related connection state
+	// delete and close all related connection state
+	for id, conn := range sh.Conns {
+		if conn.Nat66State.DstIp6Address == host.Ip6Addr &&
+			conn.Nat66State.DstPort == host.Port {
+			conn.close()
+			delete(sh.Conns, id)
+		}
+	}
 }
 
 func (sh *SimHosts) GetTxBytes(host *SimHostEndpoint) uint64 {
@@ -132,9 +150,7 @@ func (sh *SimHosts) handleUdpFromNode(node *Node, udpMetadata *event.MsgToHostEv
 		simConn.Conn, err = net.Dial("udp", fmt.Sprintf("[::1]:%d", host.PortMapped))
 		if err != nil {
 			logger.Warnf("SimHosts could not connect to local UDP port %d: %v", host.PortMapped, err)
-			if simConn.Conn != nil {
-				_ = simConn.Conn.Close()
-			}
+			simConn.close()
 			return
 		}
 
@@ -159,9 +175,10 @@ func (sh *SimHosts) handleUdpFromNode(node *Node, udpMetadata *event.MsgToHostEv
 func (sh *SimHosts) handleUdpFromSimHost(simConn *SimConn, udpData []byte) {
 	logger.Debugf("SimHosts: UDP datagram from sim-host [::1]:%d (%d bytes)", simConn.PortMapped, len(udpData))
 	simConn.UdpBytesDownstream += uint64(len(udpData))
+	hopLim := 63 // assume sim-host used 64 and BR decreases by 1. TODO: the local sim-host case (must be 64?)
 
-	ip6Datagram := CreateIp6UdpDatagram(simConn.Nat66State.DstPort, simConn.Nat66State.SrcPort,
-		simConn.Nat66State.DstIp6Address, simConn.Nat66State.SrcIp6Address, udpData)
+	ip6Datagram := createIp6UdpDatagram(simConn.Nat66State.DstPort, simConn.Nat66State.SrcPort,
+		simConn.Nat66State.DstIp6Address, simConn.Nat66State.SrcIp6Address, hopLim, udpData)
 
 	// send IPv6+UDP datagram as event to node
 	ev := &event.Event{
@@ -180,11 +197,25 @@ func (sh *SimHosts) handleUdpFromSimHost(simConn *SimConn, udpData []byte) {
 }
 
 func (sh *SimHosts) udpReaderGoRoutine(simConn *SimConn) {
-	buf := make([]byte, 2048) // FIXME size set
+	buf := make([]byte, types.OtMaxIp6DatagramLength)
+	defer func() {
+		if simConn.Conn != nil {
+			_ = simConn.Conn.Close()
+		}
+	}()
+
 	for {
 		rlen, err := simConn.Conn.Read(buf)
 		if err != nil {
-			panic(err) // FIXME
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			logger.Warnf("Error reading from sim-host [::1]:%d, closing : %v", simConn.PortMapped, err)
+			break
+		}
+		if rlen >= types.OtMaxUdpPayloadLength {
+			logger.Warnf("sim-host sent too large UDP data (%d bytes > %d), dropped", rlen, types.OtMaxUdpPayloadLength)
+			continue
 		}
 		sh.handleUdpFromSimHost(simConn, buf[:rlen])
 	}

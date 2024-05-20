@@ -39,6 +39,8 @@ import (
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v3"
 
+	"net/netip"
+
 	"github.com/openthread/ot-ns/dispatcher"
 	"github.com/openthread/ot-ns/logger"
 	"github.com/openthread/ot-ns/progctx"
@@ -47,7 +49,6 @@ import (
 	. "github.com/openthread/ot-ns/types"
 	"github.com/openthread/ot-ns/visualize"
 	"github.com/openthread/ot-ns/web"
-	"net/netip"
 )
 
 const (

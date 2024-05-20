@@ -28,12 +28,13 @@ package simulation
 
 import (
 	"encoding/binary"
-	"golang.org/x/net/ipv6"
 	"math/rand"
 	"net/netip"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"golang.org/x/net/ipv6"
 )
 
 func removeAllFiles(globPath string) error {
@@ -81,7 +82,7 @@ func randomString(length int) string {
 }
 
 // SerializeIp6Header serializes an IPv6 header.
-func SerializeIp6Header(ipv6 *ipv6.Header, payloadLen int) []byte {
+func serializeIp6Header(ipv6 *ipv6.Header, payloadLen int) []byte {
 	data := make([]byte, 40)
 	data[0] = uint8((ipv6.Version)<<4) | uint8(ipv6.TrafficClass>>4)
 	data[1] = uint8(ipv6.TrafficClass<<4) | uint8(ipv6.FlowLabel>>16)
@@ -95,29 +96,33 @@ func SerializeIp6Header(ipv6 *ipv6.Header, payloadLen int) []byte {
 	return data
 }
 
-// SerializeUdpHeader serializes a UDP datagram header and calculates the checksum.
-func SerializeUdpHeader(udpHdr *UdpHeader) []byte {
+// serializeUdpHeader serializes a UDP datagram header.
+func serializeUdpHeader(udpHdr *UdpHeader) []byte {
 	data := make([]byte, 8)
-	binary.BigEndian.PutUint16(data, uint16(udpHdr.SrcPort))
-	binary.BigEndian.PutUint16(data[2:], uint16(udpHdr.DstPort))
+	binary.BigEndian.PutUint16(data, udpHdr.SrcPort)
+	binary.BigEndian.PutUint16(data[2:], udpHdr.DstPort)
 	binary.BigEndian.PutUint16(data[4:], udpHdr.Length)
 	binary.BigEndian.PutUint16(data[6:], udpHdr.Checksum)
 	return data
 }
 
-func CalculateUdpChecksum(srcPort uint16, dstPort uint16, srcIp6Addr netip.Addr, dstIp6Addr netip.Addr, msg []byte) uint16 {
+// calcUdpChecksum calculates the UDP checksum per RFC 2460 and writes it into udpHeader.Checksum.
+func calcUdpChecksum(srcIp6Addr netip.Addr, dstIp6Addr netip.Addr, udpHeader *UdpHeader, udpPayload []byte) {
 	sum := uint32(0)
+	udpLen := uint16(len(udpPayload) + 8)
 
-	pseudoHeader := make([]byte, 48)
-	copy(pseudoHeader[0:16], srcIp6Addr.AsSlice())
-	copy(pseudoHeader[16:32], dstIp6Addr.AsSlice())
-	binary.BigEndian.PutUint32(pseudoHeader[32:36], uint32(len(msg)+8))
-	pseudoHeader[39] = 17 // UDP next-header
-	binary.BigEndian.PutUint16(pseudoHeader[40:42], srcPort)
-	binary.BigEndian.PutUint16(pseudoHeader[42:44], dstPort)
-	binary.BigEndian.PutUint16(pseudoHeader[44:46], uint16(len(msg)))
+	pseudoHdr := make([]byte, 40)
 
-	data := append(pseudoHeader, msg...)
+	// IPv6 pseudo-header RFC 2460
+	copy(pseudoHdr[0:16], srcIp6Addr.AsSlice())
+	copy(pseudoHdr[16:32], dstIp6Addr.AsSlice())
+	binary.BigEndian.PutUint32(pseudoHdr[32:36], uint32(udpLen)) // not including UDP header len
+	pseudoHdr[39] = 17                                           // UDP next-header
+
+	// append UDP header (with 0x0000 checksum) and UDP payload
+	udpHeader.Checksum = 0x0000
+	data := append(pseudoHdr, serializeUdpHeader(udpHeader)...)
+	data = append(data, udpPayload...)
 
 	for ; len(data) >= 2; data = data[2:] {
 		sum += uint32(data[0])<<8 | uint32(data[1])
@@ -132,32 +137,32 @@ func CalculateUdpChecksum(srcPort uint16, dstPort uint16, srcIp6Addr netip.Addr,
 	if csum == 0 {
 		csum = 0xffff
 	}
-	return csum
+	udpHeader.Checksum = csum
 }
 
-// CreateIp6UdpDatagram creates an IPv6+UDP datagram, including UDP payload.
-func CreateIp6UdpDatagram(srcPort uint16, dstPort uint16, srcIp6Addr netip.Addr, dstIp6Addr netip.Addr, udpPayload []byte) []byte {
+// createIp6UdpDatagram creates an IPv6+UDP datagram, including UDP payload.
+func createIp6UdpDatagram(srcPort uint16, dstPort uint16, srcIp6Addr netip.Addr, dstIp6Addr netip.Addr, hopLimit int, udpPayload []byte) []byte {
+	udpLen := len(udpPayload) + 8
 	udpHeader := &UdpHeader{
 		SrcPort:  srcPort,
 		DstPort:  dstPort,
-		Length:   uint16(len(udpPayload)),
-		Checksum: CalculateUdpChecksum(srcPort, dstPort, srcIp6Addr, dstIp6Addr, udpPayload),
+		Length:   uint16(udpLen),
+		Checksum: 0,
 	}
-	udpHeaderSer := SerializeUdpHeader(udpHeader)
+	calcUdpChecksum(srcIp6Addr, dstIp6Addr, udpHeader, udpPayload)
+	udpHeaderSer := serializeUdpHeader(udpHeader)
 
-	var ip6Header *ipv6.Header
-	payloadLen := len(udpPayload) + 8
-	ip6Header = &ipv6.Header{
+	ip6Header := &ipv6.Header{
 		Version:      6,
 		TrafficClass: 0,
 		FlowLabel:    0,
-		PayloadLen:   payloadLen,
+		PayloadLen:   udpLen,
 		NextHeader:   17, // UDP next-header id
-		HopLimit:     64, // FIXME
+		HopLimit:     hopLimit,
 		Src:          srcIp6Addr.AsSlice(),
 		Dst:          dstIp6Addr.AsSlice(),
 	}
-	ip6Datagram := SerializeIp6Header(ip6Header, payloadLen)
+	ip6Datagram := serializeIp6Header(ip6Header, udpLen)
 	ip6Datagram = append(ip6Datagram, udpHeaderSer...)
 	ip6Datagram = append(ip6Datagram, udpPayload...)
 

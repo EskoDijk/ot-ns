@@ -100,7 +100,6 @@ class SimHostsTests(OTNSTestCase):
         self.assertEqual("12       19", hosts_list[1][-11:])  # number of Rx bytes == 11, Tx == 19
 
 
-
 async def coap_server_main():
     class HelloResource(resource.Resource):
         async def render_get(self, request):
@@ -109,6 +108,7 @@ async def coap_server_main():
     root = resource.Site()
     root.add_resource(['hello'], HelloResource())
     await aiocoap.Context.create_server_context(root)
+
 
 if __name__ == '__main__':
     unittest.main()

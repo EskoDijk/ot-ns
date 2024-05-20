@@ -36,6 +36,7 @@
 #include "net/ip6_address.hpp"
 
 extern "C" otError platformParseIp6( otMessage *aMessage, otMessageInfo *ip6Info);
+extern "C" void platformUpdateMessageChecksum( otMessage *aMessage);
 
 #include "platform-rfsim.h"
 #include "utils/uart.h"
@@ -56,4 +57,3 @@ otError platformParseIp6( otMessage *aMessage, otMessageInfo *ip6Info) {
 exit:
     return error;
 }
-
