@@ -67,11 +67,8 @@ type CallbackHandler interface {
 	// OnRfSimEvent Notifies that Dispatcher received an OT-RFSIM platform event that it didn't handle itself.
 	OnRfSimEvent(nodeid NodeId, evt *Event)
 
-	// OnUdpToHost Notifies that the Dispatcher received an off-mesh or to-host UDP packet from a node, to be handled.
-	//OnUdpToHost(nodeid NodeId, udpMetadata *MsgToHostEventData, udpData []byte)
-
-	// OnIp6ToHost Notifies that the Dispatcher received an IPv6 packet from a node, to be handled by the node's host.
-	OnIp6ToHost(nodeid NodeId, udpMetadata *MsgToHostEventData, udpData []byte)
+	// OnMsgToHost Notifies that the Dispatcher received a message from a node, to be handled by the node's host.
+	OnMsgToHost(nodeid NodeId, event *Event)
 }
 
 // goDuration represents a particular duration of the simulation at a given speed.
@@ -437,14 +434,11 @@ func (d *Dispatcher) handleRecvEvent(evt *Event) {
 		logger.Debugf("%s socket disconnected.", node)
 		d.setSleeping(node.Id)
 		d.alarmMgr.SetTimestamp(node.Id, Ever)
-	case EventTypeUdpToHost:
-		d.Counters.OtherEvents += 1
-		//d.cbHandler.OnUdpToHost(node.Id, &evt.MsgToHostData, evt.Data)
-		logger.Panicf("FIXME not implemented yet")
-	case EventTypeIp6ToHost:
+	case EventTypeUdpToHost,
+		EventTypeIp6ToHost:
 		d.Counters.OtherEvents += 1 // TODO - counter for host or AIL events?
-		d.sendIp6PacketToAil(node, evt)
-		d.cbHandler.OnIp6ToHost(node.Id, &evt.MsgToHostData, evt.Data)
+		d.sendMsgToHost(node, evt)
+		d.cbHandler.OnMsgToHost(node.Id, evt)
 	case EventTypeUdpFromHost,
 		EventTypeIp6FromHost:
 		d.Counters.OtherEvents += 1
@@ -870,7 +864,7 @@ func (d *Dispatcher) sendOneRadioFrame(evt *Event, srcnode *Node, dstnode *Node)
 	}
 }
 
-func (d *Dispatcher) sendIp6PacketToAil(node *Node, evt *Event) {
+func (d *Dispatcher) sendMsgToHost(node *Node, evt *Event) {
 	if d.cfg.PcapEnabled {
 		/** TODO write IPv6 packet to a separate pcap file
 		d.pcapFrameChan <- pcap.Frame{
@@ -880,7 +874,7 @@ func (d *Dispatcher) sendIp6PacketToAil(node *Node, evt *Event) {
 			Rssi:      RssiInvalid,
 		}
 		*/
-		node.logger.Debugf("sendIp6PacketToAil: %v", evt)
+		node.logger.Debugf("sendMsgToHost: %v", evt)
 	}
 }
 

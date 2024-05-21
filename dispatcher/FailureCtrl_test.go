@@ -53,7 +53,7 @@ func (m mockDispatcherCallback) OnNextEventTime(nextTimeUs uint64) {
 func (m mockDispatcherCallback) OnRfSimEvent(nodeid NodeId, evt *event.Event) {
 }
 
-func (m mockDispatcherCallback) OnIp6ToHost(nodeid NodeId, udpMetadata *event.MsgToHostEventData, udpData []byte) {
+func (m mockDispatcherCallback) OnMsgToHost(nodeid NodeId, evt *event.Event) {
 }
 
 func mockNode1() *Node {

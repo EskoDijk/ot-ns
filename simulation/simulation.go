@@ -398,22 +398,20 @@ func (s *Simulation) OnRfSimEvent(nodeid NodeId, evt *event.Event) {
 	}
 }
 
-func (s *Simulation) OnUdpToHost(nodeid NodeId, udpMetadata *event.MsgToHostEventData, udpData []byte) {
+func (s *Simulation) OnMsgToHost(nodeid NodeId, evt *event.Event) {
 	node := s.nodes[nodeid]
 	if node == nil {
 		return
 	}
 
-	s.simHosts.handleUdpFromNode(node, udpMetadata, udpData)
-}
-
-func (s *Simulation) OnIp6ToHost(nodeid NodeId, ip6Metadata *event.MsgToHostEventData, ip6Data []byte) {
-	node := s.nodes[nodeid]
-	if node == nil {
-		return
+	switch evt.Type {
+	case event.EventTypeIp6ToHost:
+		s.simHosts.handleIp6FromNode(node, &evt.MsgToHostData, evt.Data)
+	case event.EventTypeUdpToHost:
+		s.simHosts.handleUdpFromNode(node, &evt.MsgToHostData, evt.Data)
+	default:
+		logger.Panicf("Event type not implemented: %d", evt.Type)
 	}
-
-	s.simHosts.handleIp6FromNode(node, ip6Metadata, ip6Data)
 }
 
 // PostAsync will post an asynchronous simulation task in the queue for execution
