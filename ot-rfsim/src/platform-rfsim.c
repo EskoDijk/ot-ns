@@ -247,6 +247,9 @@ void handleIp6FromNodeToHost(otMessage *aMessage, void *aContext)
 
     // determine if IPv6 datagram must go to AIL. This implements simulation-specific BR packet filtering.
     otEXPECT(otMessageIsLoopbackToHostAllowed(aMessage) &&
+             ip6Info.mSockPort > 0 &&
+             ip6Info.mPeerPort > 0 &&
+             ip6Info.mPeerPort != 61631 &&  // drop mesh-local TMF messages
              !isLinkLocal(&ip6Info.mPeerAddr) &&
              !isLinkLocal(&ip6Info.mSockAddr) &&
              ip6McastScope(&ip6Info.mPeerAddr) >= 0x4);
@@ -258,7 +261,7 @@ void handleIp6FromNodeToHost(otMessage *aMessage, void *aContext)
     memcpy(evData.mDstIp6, &ip6Info.mPeerAddr, OT_IP6_ADDRESS_SIZE);
     otMessageRead(aMessage, 0, buf, msgLen);
 
-    otPlatLog(OT_LOG_LEVEL_INFO, OT_LOG_REGION_PLATFORM, "Delivering msg to host for AIL forwarding");
+    otLogDebgPlat("Delivering msg to host for AIL forwarding");
     otSimSendMsgToHostEvent(OT_SIM_EVENT_IP6_TO_HOST, &evData, &buf[0], msgLen);
 
 exit:
