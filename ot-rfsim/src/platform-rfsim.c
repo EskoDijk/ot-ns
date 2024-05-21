@@ -227,6 +227,7 @@ static uint8_t ip6McastScope(otIp6Address  *addr)
     return addr->mFields.m8[0] & 0x0f;
 }
 
+#if OPENTHREAD_CONFIG_BORDER_ROUTING_ENABLE
 void handleIp6FromNodeToHost(otMessage *aMessage, void *aContext)
 {
     OT_UNUSED_VARIABLE(aContext);
@@ -267,15 +268,18 @@ void handleIp6FromNodeToHost(otMessage *aMessage, void *aContext)
 exit:
     otMessageFree(aMessage);
 }
+#endif // OPENTHREAD_CONFIG_BORDER_ROUTING_ENABLE
 
 void platformNetifSetUp(otInstance *aInstance)
 {
     assert(aInstance != NULL);
 
+#if OPENTHREAD_CONFIG_BORDER_ROUTING_ENABLE
     otIp6SetReceiveFilterEnabled(aInstance, true); // FIXME - needed?
     //otIcmp6SetEchoMode(gInstance, OT_ICMP6_ECHO_HANDLER_ALL); // TODO
     //otIcmp6SetEchoMode(gInstance, OT_ICMP6_ECHO_HANDLER_DISABLED);
     otIp6SetReceiveCallback(aInstance, handleIp6FromNodeToHost, aInstance);
+#endif
 #if OPENTHREAD_CONFIG_NAT64_TRANSLATOR_ENABLE
     // We can use the same function for IPv6 and translated IPv4 messages.
     // otNat64SetReceiveIp4Callback(gInstance, processReceive, gInstance);
