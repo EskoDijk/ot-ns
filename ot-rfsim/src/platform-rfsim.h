@@ -240,6 +240,9 @@ void platformRadioReportStateToSimulator(bool force);
  */
 otError platformIp6FromHostToNode(otInstance *aInstance, const struct MsgToHostEventData *evData, const uint8_t *msg, size_t msgLen);
 
+// FIXME
+otError platformUdpFromHostToNode(otInstance *aInstance, const struct MsgToHostEventData *evData, const uint8_t *msg, size_t msgLen);
+
 /**
  * parses aMessage as an IPv6 packet, writing the packet-info into ip6Info.
  *
@@ -266,6 +269,9 @@ void handleUdpForwarding(otMessage *aMessage,
                          otIp6Address *aPeerAddr,
                          uint16_t aSockPort,
                          void *aContext);
+
+// FIXME
+void validateOtMsg( otMessage *aMessage);
 
 /**
  * Setup any simulated non-Thread interfaces. For example, an interface to a host process or

@@ -43,6 +43,7 @@
 
 #include <openthread/tasklet.h>
 #include <openthread/udp.h>
+#include <openthread/coap.h>
 #include <openthread/logging.h>
 
 #include "common/debug.hpp"
@@ -159,7 +160,17 @@ void platformReceiveEvent(otInstance *aInstance)
         }
         break;
 
-    default:
+    case OT_SIM_EVENT_UDP_FROM_HOST:
+        VERIFY_EVENT_SIZE(struct MsgToHostEventData)
+        error = platformUdpFromHostToNode(aInstance, (struct MsgToHostEventData *) evData,
+                                          event.mData + sizeof(struct MsgToHostEventData),
+                                          payloadLen - sizeof(struct MsgToHostEventData));
+        if (error != OT_ERROR_NONE) {
+            otLogCritPlat("Error handling IP6_FROM_HOST event, dropping datagram: %s", otThreadErrorToString(error));
+        }
+        break;
+
+        default:
         OT_ASSERT(false && "Unrecognized event type received");
     }
 }
@@ -173,21 +184,83 @@ void otPlatOtnsStatus(const char *aStatus)
     otSimSendOtnsStatusPushEvent(aStatus, statusLength);
 }
 
-// TODO remove unused param
+// TODO change params to start with 'a'
 otError platformIp6FromHostToNode(otInstance *aInstance, const struct MsgToHostEventData *evData, const uint8_t *msg, size_t msgLen) {
     otMessage *ip6;
-    otError   error;
+    otError   error = OT_ERROR_NONE;
+    otIp6Address *dstIp6;
+    otIp6Address *srcIp6;
 
     ip6 = otIp6NewMessageFromBuffer(aInstance, msg, msgLen, NULL);
     otEXPECT_ACTION(ip6 != NULL, error = OT_ERROR_NO_BUFS);
 
-    error = otIp6Send(aInstance, ip6);
+    srcIp6 = (otIp6Address *) evData->mSrcIp6;
+    dstIp6 = (otIp6Address *) evData->mDstIp6;
+    otLogDebgPlat("FIXME step 1");
+    if(otIp6IsAddressUnspecified(dstIp6)) {
+        otLogDebgPlat("FIXME step 2");
+        validateOtMsg(ip6);
+        otLogDebgPlat("FIXME validateOtMsg passed");
 
+        otMessage *testMsg;
+        otLogDebgPlat("FIXME step 3");
+        testMsg = otCoapNewMessage(aInstance, NULL);
+        otLogDebgPlat("FIXME step 4");
+        otLogDebgPlat("FIXME step 5");
+        validateOtMsg(testMsg);
+
+        otCoapMessageInit(testMsg, OT_COAP_TYPE_CONFIRMABLE, OT_COAP_CODE_POST);
+        otLogDebgPlat("FIXME step 6");
+        uint8_t magic[2] = {0xed, 0xda};
+        otCoapMessageSetToken(testMsg, magic, 2);
+
+        otUdpForwardReceive(aInstance, testMsg, evData->mSrcPort, srcIp6, evData->mDstPort);
+        otLogDebgPlat("FIXME step 7");
+
+        validateOtMsg(ip6);
+        otLogDebgPlat("FIXME step 8");
+
+        otUdpForwardReceive(aInstance, ip6, evData->mSrcPort, srcIp6, evData->mDstPort);
+    }else {
+        // non-local: send as IPv6 datagram
+        error = otIp6Send(aInstance, ip6);
+    }
 exit:
     return error;
 }
 
 #if OPENTHREAD_CONFIG_UDP_FORWARD_ENABLE
+
+// TODO change params to start with 'a'
+otError platformUdpFromHostToNode(otInstance *aInstance, const struct MsgToHostEventData *evData, const uint8_t *msg, size_t msgLen) {
+    otMessage *udp;
+    otError   error = OT_ERROR_NONE;
+    otIp6Address *dstIp6;
+    otIp6Address *srcIp6;
+
+    otLogDebgPlat("FIXME step 1a");
+    udp = otUdpNewMessage(aInstance, NULL);
+    otLogDebgPlat("FIXME step 2a");
+    otEXPECT((error = otMessageAppend(udp, msg, msgLen)) == OT_ERROR_NONE);
+    otLogDebgPlat("FIXME step 3a");
+    otEXPECT_ACTION(udp != NULL, error = OT_ERROR_NO_BUFS);
+    otLogDebgPlat("FIXME step 4a");
+
+    srcIp6 = (otIp6Address *) evData->mSrcIp6;
+    dstIp6 = (otIp6Address *) evData->mDstIp6;
+    otLogDebgPlat("FIXME step 5a");
+
+    otLogDebgPlat("FIXME step 6a");
+    validateOtMsg(udp);
+    otLogDebgPlat("FIXME validateOtMsg passed 7a");
+
+    otUdpForwardReceive(aInstance, udp, evData->mSrcPort, srcIp6, evData->mDstPort);
+    otLogDebgPlat("FIXME step 4a");
+
+exit:
+    return error;
+}
+
 void handleUdpForwarding(otMessage *aMessage,
                          uint16_t aPeerPort,
                          otIp6Address *aPeerAddr,

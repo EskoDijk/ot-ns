@@ -36,6 +36,7 @@ from otns.cli import errors, OTNS
 
 
 class SimHostsTests(OTNSTestCase):
+
     def testConfigureSimHosts(self):
         ns = self.ns
         ns.cmd('host add "myserver.example.com" "fc00::1234" 5683 5683')
@@ -47,7 +48,7 @@ class SimHostsTests(OTNSTestCase):
         ns.cmd('host add "bad.example.com" "910b::f00d" 3 4')
 
         hosts_list = ns.cmd('host list')
-        self.assertEqual(3+1, len(hosts_list)) # includes one header line
+        self.assertEqual(3+1, len(hosts_list))  # includes one header line
 
         ns.cmd('host del "myserver.example.com"')
         hosts_list = ns.cmd('host list')
@@ -59,7 +60,7 @@ class SimHostsTests(OTNSTestCase):
 
     def testSendToSimHost(self):
         ns = self.ns
-        ns.cmd('host add "myserver.example.com" "fc00::1234" 5683 5683')
+        ns.cmd('host add "myserver.example.com" "fc00::1234" 5683 55683')
         n1=ns.add('br')
         ns.go(10)
         n2=ns.add('router')
@@ -78,26 +79,54 @@ class SimHostsTests(OTNSTestCase):
         asyncio.run(self.asyncResponseFromSimHost())
 
     async def asyncResponseFromSimHost(self):
-        await coap_server_main()
+        ctx = await coap_server_main()
 
         ns = self.ns
-        ns.cmd('host add "myserver.example.com" "fc00::1234" 5683 5683')
+        ns.cmd('host add "myserver.example.com" "fc00::1234" 5683 55683')
         n1=ns.add('br')
         ns.go(10)
         n2=ns.add('router')
         ns.go(10)
 
         # n2 sends a coap message to AIL, to test AIL connectivity
+        # because CoAP server is real, let simulation also move in real time.
+        ns.autogo = True
+        ns.speed = 1
         ns.node_cmd(n2, "coap start")
         ns.node_cmd(n2, "coap get fc00::1234 hello con")  # dest addr must match an external route of the BR
-        self.go(0.2)
-        await asyncio.sleep(0.2)  # let the aiocoap server serve the request
-        self.go(10)
-        await asyncio.sleep(0.2)
+        await asyncio.sleep(1)  # let the aiocoap server serve the request
+        ns.autogo = False
 
         hosts_list = ns.cmd('host list')
         self.assertEqual(1+1, len(hosts_list))
         self.assertEqual("12       19", hosts_list[1][-11:])  # number of Rx bytes == 11, Tx == 19
+
+        await ctx.shutdown()
+
+    def testRequestFromBrAndResponseFromSimHost(self):
+        asyncio.run(self.asyncRequestFromBrAndResponseFromSimHost())
+
+    async def asyncRequestFromBrAndResponseFromSimHost(self):
+        ctx = await coap_server_main()
+
+        ns = self.ns
+        ns.cmd('host add "myserver.example.com" "fc00::5678" 5683 55683')
+        n1=ns.add('br')
+        ns.go(10)
+
+        # n1 sends a coap message to AIL, to test AIL connectivity. Message does not travel over mesh.
+        ns.autogo = True
+        ns.speed = 1
+        ns.node_cmd(n1, "coap start")
+        ns.node_cmd(n1, "coap get fc00::5678 hello con")  # dest addr must match an external route of the BR
+        await asyncio.sleep(1)  # let the aiocoap server serve the request
+        ns.autogo = False
+
+        hosts_list = ns.cmd('host list')
+        self.assertEqual(1+1, len(hosts_list))
+        self.assertEqual("12       19", hosts_list[1][-11:])  # number of Rx bytes == 11, Tx == 19
+
+        await ctx.shutdown()
 
 
 async def coap_server_main():
@@ -107,7 +136,7 @@ async def coap_server_main():
 
     root = resource.Site()
     root.add_resource(['hello'], HelloResource())
-    await aiocoap.Context.create_server_context(root)
+    return await aiocoap.Context.create_server_context(root, bind=['::1', 55683])
 
 
 if __name__ == '__main__':

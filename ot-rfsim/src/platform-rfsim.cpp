@@ -32,11 +32,13 @@
  *   This file includes the C++ portions of the OT-RFSIM platform.
  */
 
+#if OPENTHREAD_CONFIG_BORDER_ROUTING_ENABLE
+
 #include "net/ip6.hpp"
 #include "net/ip6_address.hpp"
 
 extern "C" otError platformParseIp6( otMessage *aMessage, otMessageInfo *ip6Info);
-extern "C" void platformUpdateMessageChecksum( otMessage *aMessage);
+extern "C" void validateOtMsg( otMessage *aMessage);
 
 #include "platform-rfsim.h"
 #include "utils/uart.h"
@@ -57,3 +59,12 @@ otError platformParseIp6( otMessage *aMessage, otMessageInfo *ip6Info) {
 exit:
     return error;
 }
+
+// FIXME delete
+void validateOtMsg( otMessage *aMessage) {
+    Message msg = AsCoreType(aMessage);
+    msg.RemoveHeader(msg.GetOffset());
+    //OT_ASSERT(msg.GetOffset() == 0);
+}
+
+#endif // OPENTHREAD_CONFIG_BORDER_ROUTING_ENABLE

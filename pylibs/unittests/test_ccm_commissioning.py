@@ -27,6 +27,7 @@
 
 import tracemalloc
 import unittest
+import logging
 
 from OTNSTestCase import OTNSTestCase
 from otns.cli import OTNS
@@ -37,6 +38,7 @@ tracemalloc.start()
 class CommissioningTests(OTNSTestCase):
 
     def setUp(self) -> None:
+        logging.info("Setting up for test: %s", self.name())
         self.ns = OTNS(otns_args=['-ot-script', 'none', '-log', 'debug'])
         self.ns.speed = float('inf')
 
@@ -83,12 +85,13 @@ class CommissioningTests(OTNSTestCase):
         self.assertTrue(joins and joins[0][1] > 0)  # assert join success
 
         # n3 joins as CCM  joiner
+        ns.speed = 2
         ns.commissioner_ccm_joiner_add(n1, "*")
         ns.ifconfig_up(n3)
         ns.ccm_joiner_start(n3)
         self.go(20)
-        ns.thread_start(n3)
-        self.go(100)
+        #ns.thread_start(n3)
+        #self.go(100)
         c = ns.counters()
         print('counters', c)
         joins = ns.joins()

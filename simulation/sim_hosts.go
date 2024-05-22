@@ -9,6 +9,7 @@ import (
 
 	"golang.org/x/net/ipv6"
 
+	"encoding/hex"
 	"github.com/openthread/ot-ns/event"
 	"github.com/openthread/ot-ns/logger"
 	"github.com/openthread/ot-ns/types"
@@ -130,6 +131,17 @@ func (sh *SimHosts) handleUdpFromNode(node *Node, udpMetadata *event.MsgToHostEv
 	}
 	logger.Debugf("SimHosts: IPv6/UDP from node %d, to sim-host [::1]:%d (%d bytes)", node.Id, host.PortMapped, len(udpData))
 
+	// FIXME
+	/*
+		// TODO if sending node doesn't know its own AIL IPv6 interface address, it uses 'unspecified'.
+		if udpMetadata.SrcIp6Address == netip.IPv6Unspecified() {
+			udpMetadata.SrcIp6Address, err = netip.ParseAddr(fmt.Sprintf("fc00::%d", node.Id)) // FIXME make configurable
+			if err != nil {
+				logger.Panicf("Unexpected error in IPv6 address generation for BR")
+			}
+		}
+	*/
+
 	// fetch existing conn object for the specific node/sim-host IP and port combo, if any.
 	connId := ConnId{
 		NodeIp6Addr: udpMetadata.SrcIp6Address,
@@ -177,23 +189,46 @@ func (sh *SimHosts) handleUdpFromSimHost(simConn *SimConn, udpData []byte) {
 	simConn.UdpBytesDownstream += uint64(len(udpData))
 	hopLim := 63 // assume sim-host used 64 and BR decreases by 1. TODO: the local sim-host case (must be 64?)
 
-	ip6Datagram := createIp6UdpDatagram(simConn.Nat66State.DstPort, simConn.Nat66State.SrcPort,
-		simConn.Nat66State.DstIp6Address, simConn.Nat66State.SrcIp6Address, hopLim, udpData)
+	if simConn.Nat66State.SrcIp6Address == netip.IPv6Unspecified() {
+		// send as UDP-event to node itself to handle.
+		ev := &event.Event{
+			Delay:  0,
+			Type:   event.EventTypeUdpFromHost,
+			Data:   udpData,
+			NodeId: simConn.Node.Id,
+			MsgToHostData: event.MsgToHostEventData{
+				SrcPort:       simConn.Nat66State.DstPort, // simulates response back: ports reversed
+				DstPort:       simConn.Nat66State.SrcPort,
+				SrcIp6Address: simConn.Nat66State.DstIp6Address, // simulates response: addrs reversed
+				DstIp6Address: simConn.Nat66State.SrcIp6Address,
+			},
+		}
+		sh.sim.Dispatcher().PostEventAsync(ev)
+		logger.Debugf("sh.sim.Dispatcher().PostEventAsync(ev) FIXME-UDP path %v", ev)
+		logger.Debugf("simConn.Nat66State UDP-path = %v", simConn.Nat66State)
+		logger.Debugf("udpData = %s", hex.EncodeToString(udpData))
+	} else {
+		// send as IPv6-event to node, to let it forward to others on mesh.
+		ip6Datagram := createIp6UdpDatagram(simConn.Nat66State.DstPort, simConn.Nat66State.SrcPort,
+			simConn.Nat66State.DstIp6Address, simConn.Nat66State.SrcIp6Address, hopLim, udpData)
 
-	// send IPv6+UDP datagram as event to node
-	ev := &event.Event{
-		Delay:  0,
-		Type:   event.EventTypeIp6FromHost,
-		Data:   ip6Datagram,
-		NodeId: simConn.Node.Id,
-		MsgToHostData: event.MsgToHostEventData{
-			SrcPort:       simConn.Nat66State.DstPort, // simulates response back: ports reversed
-			DstPort:       simConn.Nat66State.SrcPort,
-			SrcIp6Address: simConn.Nat66State.DstIp6Address, // simulates response: addrs reversed
-			DstIp6Address: simConn.Nat66State.SrcIp6Address,
-		},
+		// send IPv6+UDP datagram as event to node
+		ev := &event.Event{
+			Delay:  0,
+			Type:   event.EventTypeIp6FromHost,
+			Data:   ip6Datagram,
+			NodeId: simConn.Node.Id,
+			MsgToHostData: event.MsgToHostEventData{
+				SrcPort:       simConn.Nat66State.DstPort, // simulates response back: ports reversed
+				DstPort:       simConn.Nat66State.SrcPort,
+				SrcIp6Address: simConn.Nat66State.DstIp6Address, // simulates response: addrs reversed
+				DstIp6Address: simConn.Nat66State.SrcIp6Address,
+			},
+		}
+		sh.sim.Dispatcher().PostEventAsync(ev)
+		logger.Debugf("sh.sim.Dispatcher().PostEventAsync(ev) FIXME %v", ev)
+		logger.Debugf("simConn.Nat66State = %v", simConn.Nat66State)
 	}
-	sh.sim.Dispatcher().PostEventAsync(ev)
 }
 
 func (sh *SimHosts) udpReaderGoRoutine(simConn *SimConn) {
