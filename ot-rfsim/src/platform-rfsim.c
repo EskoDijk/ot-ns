@@ -255,7 +255,7 @@ otError platformUdpFromHostToNode(otInstance *aInstance, const struct MsgToHostE
     otLogDebgPlat("FIXME validateOtMsg passed 7a");
 
     otUdpForwardReceive(aInstance, udp, evData->mSrcPort, srcIp6, evData->mDstPort);
-    otLogDebgPlat("FIXME step 4a");
+    otLogDebgPlat("FIXME step 8a");
 
 exit:
     return error;

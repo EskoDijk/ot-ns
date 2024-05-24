@@ -204,7 +204,7 @@ func (sh *SimHosts) handleUdpFromSimHost(simConn *SimConn, udpData []byte) {
 			},
 		}
 		sh.sim.Dispatcher().PostEventAsync(ev)
-		logger.Debugf("sh.sim.Dispatcher().PostEventAsync(ev) FIXME-UDP path %v", ev)
+		logger.Debugf("sh.sim.Dispatcher().PostEventAsync(ev) FIXME-UDP path %v, %+v", ev, ev.MsgToHostData)
 		logger.Debugf("simConn.Nat66State UDP-path = %v", simConn.Nat66State)
 		logger.Debugf("udpData = %s", hex.EncodeToString(udpData))
 	} else {

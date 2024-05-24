@@ -92,6 +92,8 @@ class SimHostsTests(OTNSTestCase):
         # because CoAP server is real, let simulation also move in real time.
         ns.autogo = True
         ns.speed = 1
+        ns.coaps_enable()
+
         ns.node_cmd(n2, "coap start")
         ns.node_cmd(n2, "coap get fc00::1234 hello con")  # dest addr must match an external route of the BR
         await asyncio.sleep(1)  # let the aiocoap server serve the request
@@ -100,6 +102,11 @@ class SimHostsTests(OTNSTestCase):
         hosts_list = ns.cmd('host list')
         self.assertEqual(1+1, len(hosts_list))
         self.assertEqual("12       19", hosts_list[1][-11:])  # number of Rx bytes == 11, Tx == 19
+
+        c = ns.coaps()
+        self.assertEqual(1, len(c))
+        self.assertEqual("fc00:0:0:0:0:0:0:1234", c[0]['dst_addr'])
+        self.assertEqual(5683, c[0]['dst_port'])
 
         await ctx.shutdown()
 
@@ -117,6 +124,8 @@ class SimHostsTests(OTNSTestCase):
         # n1 sends a coap message to AIL, to test AIL connectivity. Message does not travel over mesh.
         ns.autogo = True
         ns.speed = 1
+        ns.coaps_enable()
+
         ns.node_cmd(n1, "coap start")
         ns.node_cmd(n1, "coap get fc00::5678 hello con")  # dest addr must match an external route of the BR
         await asyncio.sleep(1)  # let the aiocoap server serve the request
@@ -125,6 +134,11 @@ class SimHostsTests(OTNSTestCase):
         hosts_list = ns.cmd('host list')
         self.assertEqual(1+1, len(hosts_list))
         self.assertEqual("12       19", hosts_list[1][-11:])  # number of Rx bytes == 11, Tx == 19
+
+        c = ns.coaps()
+        self.assertEqual(1, len(c))
+        self.assertEqual("fc00:0:0:0:0:0:0:5678", c[0]['dst_addr'])
+        self.assertEqual(5683, c[0]['dst_port'])
 
         await ctx.shutdown()
 

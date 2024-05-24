@@ -85,13 +85,15 @@ class CommissioningTests(OTNSTestCase):
         self.assertTrue(joins and joins[0][1] > 0)  # assert join success
 
         # n3 joins as CCM  joiner
-        ns.speed = 2
+        # because CoAP server is real, let simulation also move in real time.
+        ns.speed = 5
         ns.commissioner_ccm_joiner_add(n1, "*")
         ns.ifconfig_up(n3)
         ns.ccm_joiner_start(n3)
-        self.go(20)
+        self.go(10)
         #ns.thread_start(n3)
         #self.go(100)
+
         c = ns.counters()
         print('counters', c)
         joins = ns.joins()
