@@ -152,9 +152,13 @@ void platformReceiveEvent(otInstance *aInstance)
 
     case OT_SIM_EVENT_IP6_FROM_HOST:
         VERIFY_EVENT_SIZE(struct MsgToHostEventData)
+#if OPENTHREAD_CONFIG_BORDER_ROUTING_ENABLE
         error = platformIp6FromHostToNode(aInstance, (struct MsgToHostEventData *) evData,
                                           event.mData + sizeof(struct MsgToHostEventData),
                                           payloadLen - sizeof(struct MsgToHostEventData));
+#else
+        error = OT_ERROR_NOT_IMPLEMENTED;
+#endif
         if (error != OT_ERROR_NONE) {
             otLogCritPlat("Error handling IP6_FROM_HOST event, dropping datagram: %s", otThreadErrorToString(error));
         }
@@ -162,15 +166,19 @@ void platformReceiveEvent(otInstance *aInstance)
 
     case OT_SIM_EVENT_UDP_FROM_HOST:
         VERIFY_EVENT_SIZE(struct MsgToHostEventData)
+#if OPENTHREAD_CONFIG_BORDER_ROUTING_ENABLE
         error = platformUdpFromHostToNode(aInstance, (struct MsgToHostEventData *) evData,
                                           event.mData + sizeof(struct MsgToHostEventData),
                                           payloadLen - sizeof(struct MsgToHostEventData));
+#else
+        error = OT_ERROR_NOT_IMPLEMENTED;
+#endif
         if (error != OT_ERROR_NONE) {
             otLogCritPlat("Error handling IP6_FROM_HOST event, dropping datagram: %s", otThreadErrorToString(error));
         }
         break;
 
-        default:
+    default:
         OT_ASSERT(false && "Unrecognized event type received");
     }
 }
@@ -184,6 +192,7 @@ void otPlatOtnsStatus(const char *aStatus)
     otSimSendOtnsStatusPushEvent(aStatus, statusLength);
 }
 
+#if OPENTHREAD_CONFIG_BORDER_ROUTING_ENABLE && OPENTHREAD_CONFIG_UDP_FORWARD_ENABLE
 // TODO change params to start with 'a'
 otError platformIp6FromHostToNode(otInstance *aInstance, const struct MsgToHostEventData *evData, const uint8_t *msg, size_t msgLen) {
     otMessage *ip6;
@@ -228,8 +237,6 @@ otError platformIp6FromHostToNode(otInstance *aInstance, const struct MsgToHostE
 exit:
     return error;
 }
-
-#if OPENTHREAD_CONFIG_UDP_FORWARD_ENABLE
 
 // TODO change params to start with 'a'
 otError platformUdpFromHostToNode(otInstance *aInstance, const struct MsgToHostEventData *evData, const uint8_t *msg, size_t msgLen) {
@@ -283,7 +290,6 @@ void handleUdpForwarding(otMessage *aMessage,
 
     otSimSendMsgToHostEvent(OT_SIM_EVENT_UDP_TO_HOST, &evData, &buf[0], msgLen);
 }
-#endif
 
 // utility function to check IPv6 address for fe80::/10 or ffx2::/16 prefix -> link-local.
 static bool isLinkLocal(otIp6Address *addr)
@@ -300,7 +306,6 @@ static uint8_t ip6McastScope(otIp6Address  *addr)
     return addr->mFields.m8[0] & 0x0f;
 }
 
-#if OPENTHREAD_CONFIG_BORDER_ROUTING_ENABLE
 void handleIp6FromNodeToHost(otMessage *aMessage, void *aContext)
 {
     OT_UNUSED_VARIABLE(aContext);
@@ -341,7 +346,7 @@ void handleIp6FromNodeToHost(otMessage *aMessage, void *aContext)
 exit:
     otMessageFree(aMessage);
 }
-#endif // OPENTHREAD_CONFIG_BORDER_ROUTING_ENABLE
+#endif // OPENTHREAD_CONFIG_BORDER_ROUTING_ENABLE && OPENTHREAD_CONFIG_UDP_FORWARD_ENABLE
 
 void platformNetifSetUp(otInstance *aInstance)
 {
