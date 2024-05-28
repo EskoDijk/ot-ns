@@ -231,8 +231,8 @@ func (gv *grpcVisualizer) AdvanceTime(ts uint64, speed float64) {
 
 	if gv.f.advanceTime(ts, speed) {
 		gv.addVisualizeEvent(&pb.VisualizeEvent{Type: &pb.VisualizeEvent_AdvanceTime{AdvanceTime: &pb.AdvanceTimeEvent{
-			Ts:    ts,
-			Speed: speed,
+			Timestamp: ts,
+			Speed:     speed,
 		}}})
 	}
 }
@@ -447,6 +447,7 @@ func (gv *grpcVisualizer) prepareStream(stream *grpcStream) error {
 	}}}); err != nil {
 		return err
 	}
+
 	// show demo legend if necessary
 	if gv.showDemoLegendEvent != nil {
 		if err := stream.Send(gv.showDemoLegendEvent); err != nil {
@@ -462,6 +463,7 @@ func (gv *grpcVisualizer) prepareStream(stream *grpcStream) error {
 	}); err != nil {
 		return err
 	}
+
 	// set title
 	if gv.f.titleInfo.Title != "" {
 		if err := stream.Send(&pb.VisualizeEvent{
@@ -475,135 +477,138 @@ func (gv *grpcVisualizer) prepareStream(stream *grpcStream) error {
 			return err
 		}
 	}
+
 	// advance time
 	if err := stream.Send(&pb.VisualizeEvent{
 		Type: &pb.VisualizeEvent_AdvanceTime{AdvanceTime: &pb.AdvanceTimeEvent{
-			Ts:    gv.f.curTime,
-			Speed: gv.f.curSpeed,
+			Timestamp: gv.f.curTime,
+			Speed:     gv.f.curSpeed,
 		}},
 	}); err != nil {
 		return err
 	}
 
-	// draw all nodes
-	for nodeid, node := range gv.f.nodes {
-		addNodeEvent := &pb.VisualizeEvent{Type: &pb.VisualizeEvent_AddNode{AddNode: &pb.AddNodeEvent{
-			NodeId:     int32(nodeid),
-			X:          int32(node.x),
-			Y:          int32(node.y),
-			RadioRange: int32(node.radioRange),
-			NodeType:   node.nodeType,
-		}}}
+	if stream.vizType == meshTopologyVizType {
+		// draw all nodes
+		for nodeid, node := range gv.f.nodes {
+			addNodeEvent := &pb.VisualizeEvent{Type: &pb.VisualizeEvent_AddNode{AddNode: &pb.AddNodeEvent{
+				NodeId:     int32(nodeid),
+				X:          int32(node.x),
+				Y:          int32(node.y),
+				RadioRange: int32(node.radioRange),
+				NodeType:   node.nodeType,
+			}}}
 
-		if err := stream.Send(addNodeEvent); err != nil {
-			return err
-		}
-	}
-
-	// draw node attributes
-	for nodeid, node := range gv.f.nodes {
-		// extaddr
-		if err := stream.Send(&pb.VisualizeEvent{
-			Type: &pb.VisualizeEvent_OnExtAddrChange{OnExtAddrChange: &pb.OnExtAddrChangeEvent{
-				NodeId:  int32(nodeid),
-				ExtAddr: node.extaddr,
-			}},
-		}); err != nil {
-			return err
-		}
-		// rloc16
-		if err := stream.Send(&pb.VisualizeEvent{
-			Type: &pb.VisualizeEvent_SetNodeRloc16{SetNodeRloc16: &pb.SetNodeRloc16Event{
-				NodeId: int32(nodeid),
-				Rloc16: uint32(node.rloc16),
-			}},
-		}); err != nil {
-			return err
-		}
-		// role
-		if err := stream.Send(&pb.VisualizeEvent{
-			Type: &pb.VisualizeEvent_SetNodeRole{SetNodeRole: &pb.SetNodeRoleEvent{
-				NodeId: int32(nodeid),
-				Role:   pb.OtDeviceRole(node.role),
-			}},
-		}); err != nil {
-			return err
-		}
-		// mode
-		if err := stream.Send(&pb.VisualizeEvent{
-			Type: &pb.VisualizeEvent_SetNodeMode{SetNodeMode: &pb.SetNodeModeEvent{
-				NodeId: int32(nodeid),
-				NodeMode: &pb.NodeMode{
-					RxOnWhenIdle:     node.mode.RxOnWhenIdle,
-					FullThreadDevice: node.mode.FullThreadDevice,
-					FullNetworkData:  node.mode.FullNetworkData,
-				},
-			}},
-		}); err != nil {
-			return err
-		}
-		// partition id
-		if err := stream.Send(&pb.VisualizeEvent{
-			Type: &pb.VisualizeEvent_SetNodePartitionId{SetNodePartitionId: &pb.SetNodePartitionIdEvent{
-				NodeId:      int32(nodeid),
-				PartitionId: node.partitionId,
-			}},
-		}); err != nil {
-			return err
-		}
-		// parent
-		if err := stream.Send(&pb.VisualizeEvent{
-			Type: &pb.VisualizeEvent_SetParent{SetParent: &pb.SetParentEvent{
-				NodeId:  int32(nodeid),
-				ExtAddr: node.parent,
-			}},
-		}); err != nil {
-			return err
+			if err := stream.Send(addNodeEvent); err != nil {
+				return err
+			}
 		}
 
-		// child table
-		for extaddr := range node.childTable {
+		// draw node attributes
+		for nodeid, node := range gv.f.nodes {
+			// extaddr
 			if err := stream.Send(&pb.VisualizeEvent{
-				Type: &pb.VisualizeEvent_AddChildTable{AddChildTable: &pb.AddChildTableEvent{
+				Type: &pb.VisualizeEvent_OnExtAddrChange{OnExtAddrChange: &pb.OnExtAddrChangeEvent{
 					NodeId:  int32(nodeid),
-					ExtAddr: extaddr,
+					ExtAddr: node.extaddr,
 				}},
 			}); err != nil {
 				return err
 			}
-		}
-		// router table
-		for extaddr := range node.routerTable {
+			// rloc16
 			if err := stream.Send(&pb.VisualizeEvent{
-				Type: &pb.VisualizeEvent_AddRouterTable{AddRouterTable: &pb.AddRouterTableEvent{
-					NodeId:  int32(nodeid),
-					ExtAddr: extaddr,
-				}},
-			}); err != nil {
-				return err
-			}
-		}
-		// node fail
-		if node.failed {
-			if err := stream.Send(&pb.VisualizeEvent{
-				Type: &pb.VisualizeEvent_OnNodeFail{OnNodeFail: &pb.OnNodeFailEvent{
+				Type: &pb.VisualizeEvent_SetNodeRloc16{SetNodeRloc16: &pb.SetNodeRloc16Event{
 					NodeId: int32(nodeid),
+					Rloc16: uint32(node.rloc16),
 				}},
 			}); err != nil {
 				return err
 			}
-		}
-		// node type and thread version
-		if err := stream.Send(&pb.VisualizeEvent{
-			Type: &pb.VisualizeEvent_SetNetworkInfo{SetNetworkInfo: &pb.SetNetworkInfoEvent{
-				Real:          false,
-				Version:       node.version,
-				Commit:        node.commit,
-				NodeId:        int32(nodeid),
-				ThreadVersion: int32(node.threadVersion),
-			}},
-		}); err != nil {
-			return err
+			// role
+			if err := stream.Send(&pb.VisualizeEvent{
+				Type: &pb.VisualizeEvent_SetNodeRole{SetNodeRole: &pb.SetNodeRoleEvent{
+					NodeId: int32(nodeid),
+					Role:   pb.OtDeviceRole(node.role),
+				}},
+			}); err != nil {
+				return err
+			}
+			// mode
+			if err := stream.Send(&pb.VisualizeEvent{
+				Type: &pb.VisualizeEvent_SetNodeMode{SetNodeMode: &pb.SetNodeModeEvent{
+					NodeId: int32(nodeid),
+					NodeMode: &pb.NodeMode{
+						RxOnWhenIdle:     node.mode.RxOnWhenIdle,
+						FullThreadDevice: node.mode.FullThreadDevice,
+						FullNetworkData:  node.mode.FullNetworkData,
+					},
+				}},
+			}); err != nil {
+				return err
+			}
+			// partition id
+			if err := stream.Send(&pb.VisualizeEvent{
+				Type: &pb.VisualizeEvent_SetNodePartitionId{SetNodePartitionId: &pb.SetNodePartitionIdEvent{
+					NodeId:      int32(nodeid),
+					PartitionId: node.partitionId,
+				}},
+			}); err != nil {
+				return err
+			}
+			// parent
+			if err := stream.Send(&pb.VisualizeEvent{
+				Type: &pb.VisualizeEvent_SetParent{SetParent: &pb.SetParentEvent{
+					NodeId:  int32(nodeid),
+					ExtAddr: node.parent,
+				}},
+			}); err != nil {
+				return err
+			}
+
+			// child table
+			for extaddr := range node.childTable {
+				if err := stream.Send(&pb.VisualizeEvent{
+					Type: &pb.VisualizeEvent_AddChildTable{AddChildTable: &pb.AddChildTableEvent{
+						NodeId:  int32(nodeid),
+						ExtAddr: extaddr,
+					}},
+				}); err != nil {
+					return err
+				}
+			}
+			// router table
+			for extaddr := range node.routerTable {
+				if err := stream.Send(&pb.VisualizeEvent{
+					Type: &pb.VisualizeEvent_AddRouterTable{AddRouterTable: &pb.AddRouterTableEvent{
+						NodeId:  int32(nodeid),
+						ExtAddr: extaddr,
+					}},
+				}); err != nil {
+					return err
+				}
+			}
+			// node fail
+			if node.failed {
+				if err := stream.Send(&pb.VisualizeEvent{
+					Type: &pb.VisualizeEvent_OnNodeFail{OnNodeFail: &pb.OnNodeFailEvent{
+						NodeId: int32(nodeid),
+					}},
+				}); err != nil {
+					return err
+				}
+			}
+			// node type and thread version
+			if err := stream.Send(&pb.VisualizeEvent{
+				Type: &pb.VisualizeEvent_SetNetworkInfo{SetNetworkInfo: &pb.SetNetworkInfoEvent{
+					Real:          false,
+					Version:       node.version,
+					Commit:        node.commit,
+					NodeId:        int32(nodeid),
+					ThreadVersion: int32(node.threadVersion),
+				}},
+			}); err != nil {
+				return err
+			}
 		}
 	}
 

@@ -38,6 +38,7 @@ import (
 )
 
 type statslogVisualizer struct {
+	simController  SimulationController
 	logFile        *os.File
 	logFileName    string
 	isFileEnabled  bool
@@ -107,7 +108,8 @@ func (sv *statslogVisualizer) DeleteNode(id NodeId) {
 func (sv *statslogVisualizer) SetNodePos(NodeId, int, int, int) {
 }
 
-func (sv *statslogVisualizer) SetController(SimulationController) {
+func (sv *statslogVisualizer) SetController(simController SimulationController) {
+	sv.simController = simController
 }
 
 func (sv *statslogVisualizer) Init() {
@@ -160,7 +162,11 @@ func (sv *statslogVisualizer) SetNodePartitionId(nodeid NodeId, parid uint32) {
 func (sv *statslogVisualizer) AdvanceTime(ts uint64, speed float64) {
 	if sv.changed && sv.checkLogEntryChange() {
 		sv.writeLogEntry(sv.timestampUs, sv.stats)
-		sv.sendNodeStatsVizEvent(sv.timestampUs, sv.stats)
+		// generate an event with the new data for simController, and other Visualizers, to use.
+		sv.simController.UpdateNodeStats(NodeStatsInfo{
+			TimeUs:    ts,
+			NodeStats: sv.stats,
+		})
 		sv.logTimestampUs = sv.timestampUs
 		sv.oldStats = sv.stats
 	}
@@ -253,11 +259,6 @@ func (sv *statslogVisualizer) writeToLogFile(line string) error {
 		logger.Errorf("couldn't write to node log file (%s), closing it", sv.logFileName)
 	}
 	return err
-}
-
-// sendNodeStatsVizEvent sends an event on node stats change to other visualizers.
-func (sv *statslogVisualizer) sendNodeStatsVizEvent(ts uint64, stats NodeStats) {
-	// FIXME send to others via callback
 }
 
 func (sv *statslogVisualizer) close() {

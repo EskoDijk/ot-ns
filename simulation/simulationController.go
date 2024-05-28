@@ -52,19 +52,32 @@ func (sc *simulationController) Command(cmd string) ([]string, error) {
 	return output, nil
 }
 
+func (sc *simulationController) UpdateNodeStats(nodeStatsInfo visualize.NodeStatsInfo) {
+	if sc.sim.vis != nil {
+		sc.sim.vis.UpdateNodeStats(nodeStatsInfo)
+	}
+}
+
 type readonlySimulationController struct {
+	sim *Simulation
 }
 
 var readonlySimulationError = errors.Errorf("simulation is readonly")
 
-func (r readonlySimulationController) Command(cmd string) (output []string, err error) {
+func (rc *readonlySimulationController) Command(cmd string) (output []string, err error) {
 	return nil, readonlySimulationError
+}
+
+func (rc *readonlySimulationController) UpdateNodeStats(nodeStatsInfo visualize.NodeStatsInfo) {
+	if rc.sim.vis != nil {
+		rc.sim.vis.UpdateNodeStats(nodeStatsInfo)
+	}
 }
 
 func NewSimulationController(sim *Simulation) visualize.SimulationController {
 	if !sim.cfg.ReadOnly {
 		return &simulationController{sim}
 	} else {
-		return readonlySimulationController{}
+		return &readonlySimulationController{sim}
 	}
 }

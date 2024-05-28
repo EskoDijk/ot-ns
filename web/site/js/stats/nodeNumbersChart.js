@@ -107,8 +107,8 @@ export default class NodeNumbersChart {
             this._datasetsPop(this.chart.data);
             this._datasetsPush(timestampUs, this.lastStats, this.chart.data);
             this.chart.update();
+            this.lastTimestampUs = timestampUs;
         }
-        this.lastTimestampUs = timestampUs;
     }
 
     addData(timestampUs, stats) {
@@ -138,7 +138,7 @@ export default class NodeNumbersChart {
             if (dlen >= 2) {
                 let y_old = data.datasets[i].data[dlen-1].y; // get last element
                 let y_old2 = data.datasets[i].data[dlen-2].y; // get 2nd last element
-                if (y == y_old && y == y_old2) { // to avoid too many points at same y value, remove superfluous y points
+                if (y === y_old && y === y_old2) { // to avoid too many points at same y value, remove superfluous y points
                     data.datasets[i].data.pop();
                 }
             }

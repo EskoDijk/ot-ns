@@ -1,4 +1,4 @@
-// Copyright (c) 2022-2024, The OTNS Authors.
+// Copyright (c) 2020-2024, The OTNS Authors.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -48,7 +48,7 @@ type grpcServer struct {
 	vis                *grpcVisualizer
 	server             *grpc.Server
 	address            string
-	visualizingStreams map[*grpcStream]visualizeStreamType
+	visualizingStreams map[*grpcStream]struct{}
 	energyStreams      map[*grpcEnergyStream]struct{}
 	grpcClientAdded    chan string
 }
@@ -70,7 +70,7 @@ func (gs *grpcServer) runVisualizeStream(vizType visualizeStreamType, stream pb.
 	}
 	var heartbeatTicker *time.Ticker
 
-	gstream := newGrpcStream(stream)
+	gstream := newGrpcStream(vizType, stream)
 	logger.Debugf("New gRPC visualize request (type %d) received.", vizType)
 
 	gs.vis.Lock()
@@ -79,7 +79,7 @@ func (gs *grpcServer) runVisualizeStream(vizType visualizeStreamType, stream pb.
 		gs.vis.Unlock()
 		goto exit
 	}
-	gs.visualizingStreams[gstream] = vizType
+	gs.visualizingStreams[gstream] = struct{}{}
 	// if web.OpenWeb goroutine is waiting for a new client, then notify it.
 	select {
 	case gs.grpcClientAdded <- reqId:
@@ -156,7 +156,9 @@ func (gs *grpcServer) Run() error {
 
 func (gs *grpcServer) SendEvent(event *pb.VisualizeEvent) {
 	for stream := range gs.visualizingStreams {
-		_ = stream.Send(event)
+		if stream.acceptsEvent(event) {
+			_ = stream.Send(event)
+		}
 	}
 }
 
@@ -197,7 +199,7 @@ func newGrpcServer(vis *grpcVisualizer, address string, chanNewClientNotifier ch
 		vis:                vis,
 		server:             server,
 		address:            address,
-		visualizingStreams: map[*grpcStream]visualizeStreamType{},
+		visualizingStreams: map[*grpcStream]struct{}{},
 		energyStreams:      map[*grpcEnergyStream]struct{}{},
 		grpcClientAdded:    chanNewClientNotifier,
 	}

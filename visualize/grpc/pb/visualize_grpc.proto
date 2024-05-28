@@ -112,7 +112,7 @@ message HeartbeatEvent {
 }
 
 message AdvanceTimeEvent {
-    uint64 ts = 1;
+    uint64 timestamp = 1;
     double speed = 2;
 }
 
