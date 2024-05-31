@@ -49,8 +49,8 @@ type ChannelStats struct {
 	TxTimeUs  uint64 // total time (us) that >= 1 nodes have been transmitting on this channel
 	NumFrames uint64 // total number of frame transmissions on channel
 
-	numTransmitters int    // internal bookkeeping: number of tx nodes
-	txStartTime     uint64 // internal bookkeeping: start of an initial tx on a clear channel
+	numTransmitters map[NodeId]struct{} // internal bookkeeping: on-channel tx nodes
+	txStartTime     uint64              // internal bookkeeping: start of an initial tx on a clear channel
 }
 
 // RadioModel provides access to any type of radio model.
