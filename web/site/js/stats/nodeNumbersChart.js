@@ -1,4 +1,4 @@
-// Copyright (c) 2023, The OTNS Authors.
+// Copyright (c) 2023-2024, The OTNS Authors.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -63,7 +63,7 @@ export default class NodeNumbersChart {
                             display: true,
                             text: 'Time (seconds)'
                         },
-                        beginAtZero: true
+                        beginAtZero: false
                     },
                     y: {
                         title: {
@@ -87,7 +87,7 @@ export default class NodeNumbersChart {
                                 "#dc0ab4", "#00bfa0", "#ffa300"];
         for (let n in this.fields) {
             let colDark = aColors[n];
-            let colLight = colDark + '99'; // add alpha channel to make it look lighter.
+            let colLight = colDark + '99'; // append alpha channel to make it look lighter.
             let cfgItem = {
                 label: this.fields[n],
                 data: [],
