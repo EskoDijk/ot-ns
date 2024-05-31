@@ -56,6 +56,7 @@ function loadOk() {
             case VisualizeEvent.TypeCase.NODE_STATS_INFO:
                 e = resp.getNodeStatsInfo()
                 ts = e.getTimestamp();
+                vis.visAdvanceTime(ts);
                 vis.visNodeStatsInfo(ts, e.getNodeStats());
                 const [aTs,aStat] = vis.getNewDataPoints();
                 for( let i in aTs) {
@@ -67,10 +68,10 @@ function loadOk() {
                 e = resp.getAdvanceTime();
                 ts = e.getTimestamp();
                 vis.visAdvanceTime(ts);
-                nodeNumbersChart.update(ts);
                 break;
             case VisualizeEvent.TypeCase.HEARTBEAT:
                 vis.visHeartbeat();
+                nodeNumbersChart.update(ts);
                 break;
             default:
                 break;

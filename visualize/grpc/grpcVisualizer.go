@@ -415,23 +415,24 @@ func (gv *grpcVisualizer) SetEnergyAnalyser(ea *energy.EnergyAnalyser) {
 	gv.energyAnalyser = ea
 }
 
-func (gv *grpcVisualizer) UpdateNodeStats(nodeStats visualize.NodeStatsInfo) {
+func (gv *grpcVisualizer) UpdateNodeStats(nsi *visualize.NodeStatsInfo) {
 	gv.Lock()
 	defer gv.Unlock()
 
 	nodeStatsPb := &pb.NodeStats{
-		NumNodes:      uint32(nodeStats.NodeStats.NumNodes),
-		NumLeaders:    uint32(nodeStats.NodeStats.NumLeaders),
-		NumPartitions: uint32(nodeStats.NodeStats.NumPartitions),
-		NumRouters:    uint32(nodeStats.NodeStats.NumRouters),
-		NumEndDevices: uint32(nodeStats.NodeStats.NumEndDevices),
-		NumDetached:   uint32(nodeStats.NodeStats.NumDetached),
-		NumDisabled:   uint32(nodeStats.NodeStats.NumDisabled),
-		NumSleepy:     uint32(nodeStats.NodeStats.NumSleepy),
-		NumFailed:     uint32(nodeStats.NodeStats.NumFailed),
+		NumNodes:      uint32(nsi.NodeStats.NumNodes),
+		NumLeaders:    uint32(nsi.NodeStats.NumLeaders),
+		NumPartitions: uint32(nsi.NodeStats.NumPartitions),
+		NumRouters:    uint32(nsi.NodeStats.NumRouters),
+		NumEndDevices: uint32(nsi.NodeStats.NumEndDevices),
+		NumDetached:   uint32(nsi.NodeStats.NumDetached),
+		NumDisabled:   uint32(nsi.NodeStats.NumDisabled),
+		NumSleepy:     uint32(nsi.NodeStats.NumSleepy),
+		NumFailed:     uint32(nsi.NodeStats.NumFailed),
 	}
+	gv.f.setNodeStatsInfo(*nsi)
 	e := &pb.VisualizeEvent{Type: &pb.VisualizeEvent_NodeStatsInfo{NodeStatsInfo: &pb.NodeStatsInfoEvent{
-		Timestamp: nodeStats.TimeUs,
+		Timestamp: nsi.TimeUs,
 		NodeStats: nodeStatsPb,
 	}}}
 	gv.addVisualizeEvent(e)
@@ -609,6 +610,30 @@ func (gv *grpcVisualizer) prepareStream(stream *grpcStream) error {
 			}); err != nil {
 				return err
 			}
+		}
+	}
+
+	if stream.vizType == nodeStatsVizType {
+		ns := gv.f.nodeStatsInfo.NodeStats
+		pbNodeStats := &pb.NodeStats{
+			NumNodes:      uint32(ns.NumNodes),
+			NumLeaders:    uint32(ns.NumLeaders),
+			NumPartitions: uint32(ns.NumPartitions),
+			NumRouters:    uint32(ns.NumRouters),
+			NumEndDevices: uint32(ns.NumEndDevices),
+			NumDetached:   uint32(ns.NumDetached),
+			NumDisabled:   uint32(ns.NumDisabled),
+			NumSleepy:     uint32(ns.NumSleepy),
+			NumFailed:     uint32(ns.NumFailed),
+		}
+		pbNodeStatsInfo := &pb.NodeStatsInfoEvent{
+			Timestamp: gv.f.curTime,
+			NodeStats: pbNodeStats,
+		}
+		if err := stream.Send(&pb.VisualizeEvent{
+			Type: &pb.VisualizeEvent_NodeStatsInfo{NodeStatsInfo: pbNodeStatsInfo},
+		}); err != nil {
+			return err
 		}
 	}
 

@@ -140,5 +140,5 @@ func (nv *NopVisualizer) SetEnergyAnalyser(ea *energy.EnergyAnalyser) {
 
 }
 
-func (nv *NopVisualizer) UpdateNodeStats(nodeStatsInfo NodeStatsInfo) {
+func (nv *NopVisualizer) UpdateNodeStats(nodeStatsInfo *NodeStatsInfo) {
 }

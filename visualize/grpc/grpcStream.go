@@ -26,7 +26,9 @@
 
 package visualize_grpc
 
-import "github.com/openthread/ot-ns/visualize/grpc/pb"
+import (
+	"github.com/openthread/ot-ns/visualize/grpc/pb"
+)
 
 type grpcStream struct {
 	vizType visualizeStreamType
@@ -41,8 +43,7 @@ type grpcEnergyStream struct {
 func (gst *grpcStream) acceptsEvent(event *pb.VisualizeEvent) bool {
 	if gst.vizType == meshTopologyVizType {
 		return event.GetNodeStatsInfo() == nil
-	}
-	if event.GetAdvanceTime() != nil ||
+	} else if event.GetAdvanceTime() != nil ||
 		event.GetNodeStatsInfo() != nil ||
 		event.GetHeartbeat() != nil ||
 		event.GetSetTitle() != nil {

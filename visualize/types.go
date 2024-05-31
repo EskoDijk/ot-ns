@@ -64,7 +64,7 @@ type Visualizer interface {
 	SetNetworkInfo(networkInfo NetworkInfo)
 	UpdateNodesEnergy(node []*energy.NodeEnergy, timestamp uint64, updateView bool)
 	SetEnergyAnalyser(ea *energy.EnergyAnalyser)
-	UpdateNodeStats(nodeStatsInfo NodeStatsInfo)
+	UpdateNodeStats(nodeStatsInfo *NodeStatsInfo)
 }
 
 type MsgVisualizeInfo struct {
@@ -112,19 +112,14 @@ func DefaultNetworkInfo() NetworkInfo {
 	}
 }
 
-type NodeStats struct {
-	NumNodes      int
-	NumLeaders    int
-	NumPartitions int
-	NumRouters    int
-	NumEndDevices int
-	NumDetached   int
-	NumDisabled   int
-	NumSleepy     int
-	NumFailed     int
-}
-
 type NodeStatsInfo struct {
 	TimeUs    uint64
 	NodeStats NodeStats
+}
+
+func DefaultNodeStatsInfo() NodeStatsInfo {
+	return NodeStatsInfo{
+		TimeUs:    0,
+		NodeStats: NodeStats{},
+	}
 }

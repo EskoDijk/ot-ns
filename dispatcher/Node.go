@@ -111,7 +111,7 @@ func newNode(d *Dispatcher, nodeid NodeId, cfg *NodeConfig) *Node {
 		Z:           cfg.Z,
 		ExtAddr:     InvalidExtAddr,
 		Rloc16:      InvalidRloc16,
-		Mode:        NodeMode{},
+		Mode:        DefaultNodeMode(),
 		Role:        OtDeviceRoleDisabled,
 		Type:        cfg.Type,
 		conn:        nil, // connection will be set when first event is received from node.

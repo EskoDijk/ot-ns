@@ -79,6 +79,7 @@ func (gs *grpcServer) runVisualizeStream(vizType visualizeStreamType, stream pb.
 		gs.vis.Unlock()
 		goto exit
 	}
+
 	gs.visualizingStreams[gstream] = struct{}{}
 	// if web.OpenWeb goroutine is waiting for a new client, then notify it.
 	select {

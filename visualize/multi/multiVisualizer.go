@@ -212,7 +212,7 @@ func (mv *multiVisualizer) SetEnergyAnalyser(ea *energy.EnergyAnalyser) {
 	}
 }
 
-func (mv *multiVisualizer) UpdateNodeStats(nodeStatsInfo visualize.NodeStatsInfo) {
+func (mv *multiVisualizer) UpdateNodeStats(nodeStatsInfo *visualize.NodeStatsInfo) {
 	for _, v := range mv.vs {
 		v.UpdateNodeStats(nodeStatsInfo)
 	}

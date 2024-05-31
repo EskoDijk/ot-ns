@@ -44,8 +44,8 @@ type statslogVisualizer struct {
 	isFileEnabled bool
 	changed       bool   // flag to track if some node stats changed
 	timestampUs   uint64 // last node stats timestamp (= last log entry)
-	stats         visualize.NodeStats
-	oldStats      visualize.NodeStats
+	stats         NodeStats
+	oldStats      NodeStats
 }
 
 // NewStatslogVisualizer creates a new Visualizer that writes a log of network stats to file.
@@ -68,7 +68,7 @@ func (sv *statslogVisualizer) Stop() {
 	logger.Debugf("statslogVisualizer stopped and CSV log file closed.")
 }
 
-func (sv *statslogVisualizer) UpdateNodeStats(info visualize.NodeStatsInfo) {
+func (sv *statslogVisualizer) UpdateNodeStats(info *visualize.NodeStatsInfo) {
 	sv.oldStats = sv.stats
 	sv.stats = info.NodeStats
 	sv.timestampUs = info.TimeUs
@@ -123,7 +123,7 @@ func (sv *statslogVisualizer) checkLogEntryChange() bool {
 }
 */
 
-func (sv *statslogVisualizer) writeLogEntry(ts uint64, stats visualize.NodeStats) {
+func (sv *statslogVisualizer) writeLogEntry(ts uint64, stats NodeStats) {
 	timeSec := float64(ts) / 1e6
 	entry := fmt.Sprintf("%12.6f, %3d,%3d,%3d,%3d,%3d,%3d,%3d,%3d,%3d", timeSec, stats.NumNodes, stats.NumPartitions,
 		stats.NumLeaders, stats.NumRouters, stats.NumEndDevices, stats.NumDetached, stats.NumDisabled,
@@ -155,32 +155,4 @@ func (sv *statslogVisualizer) close() {
 
 func getStatsLogFileName(outputDir string, simId int) string {
 	return fmt.Sprintf("%s/%d_stats.csv", outputDir, simId)
-}
-
-func countRole(nodeRoles *map[NodeId]OtDeviceRole, role OtDeviceRole) int {
-	c := 0
-	for _, r := range *nodeRoles {
-		if r == role {
-			c++
-		}
-	}
-	return c
-}
-
-func countUniquePts(nodePts *map[NodeId]uint32) int {
-	pts := make(map[uint32]struct{})
-	for _, part := range *nodePts {
-		pts[part] = struct{}{}
-	}
-	return len(pts)
-}
-
-func countSleepy(nodeModes *map[NodeId]NodeMode) int {
-	c := 0
-	for _, m := range *nodeModes {
-		if !m.RxOnWhenIdle {
-			c++
-		}
-	}
-	return c
 }

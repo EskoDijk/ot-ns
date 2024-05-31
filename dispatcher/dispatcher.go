@@ -1021,11 +1021,13 @@ func (d *Dispatcher) AddNode(nodeid NodeId, cfg *NodeConfig) *Node {
 	node := newNode(d, nodeid, cfg)
 	d.nodes[nodeid] = node
 	d.reconstructNodesArray()
+	d.Counters.TopologyChanges++
 	d.alarmMgr.AddNode(nodeid)
 	d.energyAnalyser.AddNode(nodeid, d.CurTime)
 	d.vis.AddNode(nodeid, cfg)
 	d.radioModel.AddNode(node.RadioNode)
 	d.setAlive(nodeid)
+	d.updateNodeStats()
 
 	if d.cfg.DefaultWatchOn {
 		lev, err := logger.ParseLevelString(d.cfg.DefaultWatchLevel)
@@ -1203,6 +1205,7 @@ func (d *Dispatcher) DeleteNode(id NodeId) {
 
 	delete(d.nodes, id)
 	d.reconstructNodesArray()
+	d.Counters.TopologyChanges++
 	delete(d.aliveNodes, id)
 	delete(d.watchingNodes, id)
 	if node.Rloc16 != InvalidRloc16 {
@@ -1218,6 +1221,7 @@ func (d *Dispatcher) DeleteNode(id NodeId) {
 	d.vis.DeleteNode(id)
 	d.radioModel.DeleteNode(id)
 	d.eventQueue.DisableEventsForNode(id)
+	d.updateNodeStats()
 }
 
 // SetNodeFailed sets the radio of the node to failed (true) or operational (false) state.

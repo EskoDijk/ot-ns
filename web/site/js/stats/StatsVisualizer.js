@@ -72,7 +72,7 @@ export class TimeWindowStats {
 export class StatsVisualizer {
     constructor() {
         this.stats = new NodeStats();
-        this.lastPlotTimestampUs = 0;
+        this.ts = 0;
         this.arrayTimestamps = [];
         this.arrayStats = [];
         this.timeWindowStats = new TimeWindowStats();
@@ -81,7 +81,7 @@ export class StatsVisualizer {
     visNodeStatsInfo(tsUs, grpcStats) {
         this.arrayStats = [];
         this.arrayTimestamps = [];
-        if (tsUs > this.lastPlotTimestampUs+1e3) {
+        if (tsUs > this.ts+1e3) {
             this.addDataPoint(tsUs-1e3, this.stats); // extra data point to plot staircase type graphs
         }
 
@@ -89,7 +89,7 @@ export class StatsVisualizer {
         this.stats.initFrom(grpcStats)
         this.addDataPoint(tsUs, this.stats);
         this.writeLogEntry(tsUs, this.stats);
-        this.lastPlotTimestampUs = tsUs;
+        this.ts = tsUs;
     }
 
     visAdvanceTime(tsUs) {

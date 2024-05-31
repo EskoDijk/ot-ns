@@ -1,4 +1,4 @@
-// Copyright (c) 2020, The OTNS Authors.
+// Copyright (c) 2024, The OTNS Authors.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -24,48 +24,74 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-package simulation
+package dispatcher
 
 import (
-	"strings"
-
+	. "github.com/openthread/ot-ns/types"
 	"github.com/openthread/ot-ns/visualize"
-	"github.com/pkg/errors"
 )
 
-type simulationController struct {
-	sim *Simulation
-}
-
-func (sc *simulationController) Command(cmd string) ([]string, error) {
-	var outputBuilder strings.Builder
-
-	sim := sc.sim
-	err := sim.cmdRunner.RunCommand(cmd, &outputBuilder)
-	if err != nil {
-		return nil, err
+// updateNodeStats calculates fresh node statistics and sends it to the Visualizers.
+func (d *Dispatcher) updateNodeStats() {
+	s := d.calcStats()
+	nodeStatsInfo := &visualize.NodeStatsInfo{
+		TimeUs:    d.CurTime,
+		NodeStats: s,
 	}
-	output := strings.Split(outputBuilder.String(), "\n")
-	if output[len(output)-1] == "" {
-		output = output[:len(output)-1]
+	d.vis.UpdateNodeStats(nodeStatsInfo)
+}
+
+func (d *Dispatcher) calcStats() NodeStats {
+	s := NodeStats{
+		NumNodes:      len(d.nodes),
+		NumLeaders:    countRole(d.nodes, OtDeviceRoleLeader),
+		NumPartitions: countUniquePts(d.nodes),
+		NumRouters:    countRole(d.nodes, OtDeviceRoleRouter),
+		NumEndDevices: countRole(d.nodes, OtDeviceRoleChild),
+		NumDetached:   countRole(d.nodes, OtDeviceRoleDetached),
+		NumDisabled:   countRole(d.nodes, OtDeviceRoleDisabled),
+		NumSleepy:     countSleepy(d.nodes),
+		NumFailed:     countFailed(d.nodes),
 	}
-	return output, nil
+	return s
 }
 
-type readonlySimulationController struct {
-	sim *Simulation
-}
-
-var readonlySimulationError = errors.Errorf("simulation is readonly")
-
-func (rc *readonlySimulationController) Command(cmd string) (output []string, err error) {
-	return nil, readonlySimulationError
-}
-
-func NewSimulationController(sim *Simulation) visualize.SimulationController {
-	if !sim.cfg.ReadOnly {
-		return &simulationController{sim}
-	} else {
-		return &readonlySimulationController{sim}
+func countRole(nodes map[NodeId]*Node, role OtDeviceRole) int {
+	c := 0
+	for _, n := range nodes {
+		if n.Role == role {
+			c++
+		}
 	}
+	return c
+}
+
+func countUniquePts(nodes map[NodeId]*Node) int {
+	pts := make(map[uint32]struct{})
+	for _, n := range nodes {
+		if n.PartitionId > 0 {
+			pts[n.PartitionId] = struct{}{}
+		}
+	}
+	return len(pts)
+}
+
+func countSleepy(nodeModes map[NodeId]*Node) int {
+	c := 0
+	for _, n := range nodeModes {
+		if !n.Mode.RxOnWhenIdle {
+			c++
+		}
+	}
+	return c
+}
+
+func countFailed(nodes map[NodeId]*Node) int {
+	c := 0
+	for _, n := range nodes {
+		if n.isFailed {
+			c++
+		}
+	}
+	return c
 }
