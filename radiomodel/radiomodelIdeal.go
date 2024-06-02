@@ -146,6 +146,12 @@ func (rm *RadioModelIdeal) ResetChannelStats(channel ChannelId) {
 	delete(rm.channelStats, channel)
 }
 
+func (rm *RadioModelIdeal) GetNodePhyStats(id NodeId, keyPrefix string) map[string]int {
+	stats := make(map[string]int)
+	stats[keyPrefix+"tx.bytes"] = rm.nodes[id].stats.NumBytesTx
+	return stats
+}
+
 func (rm *RadioModelIdeal) init() {
 	rm.nodes = map[NodeId]*RadioNode{}
 	rm.channelStats = make(map[ChannelId]*ChannelStats)
@@ -189,6 +195,7 @@ func (rm *RadioModelIdeal) txStop(node *RadioNode, evt *Event) {
 }
 
 func (rm *RadioModelIdeal) statsTxStart(node *RadioNode, evt *Event) {
+	// channel stats
 	ch := evt.RadioCommData.Channel
 	chStats, ok := rm.channelStats[ch]
 	if !ok {
@@ -205,6 +212,9 @@ func (rm *RadioModelIdeal) statsTxStart(node *RadioNode, evt *Event) {
 	}
 	chStats.numTransmitters[node.Id] = struct{}{}
 	chStats.NumFrames++
+
+	// node stats
+	node.stats.NumBytesTx += len(evt.Data) - 1 + PhyHeaderLenBytes
 }
 
 func (rm *RadioModelIdeal) statsTxStop(node *RadioNode, evt *Event) {

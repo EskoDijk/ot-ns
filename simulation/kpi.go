@@ -141,7 +141,8 @@ func (km *KpiManager) retrieveNodeCounters() NodeCountersStore {
 		counters1 := km.sim.nodes[nid].GetCounters("mac", "mac.")
 		counters2 := km.sim.nodes[nid].GetCounters("mle", "mle.")
 		counters3 := km.sim.nodes[nid].GetCounters("ip", "ip.")
-		nodesMap[nid] = mergeNodeCounters(counters1, counters2, counters3)
+		counters4 := km.sim.Dispatcher().GetRadioModel().GetNodePhyStats(nid, "phy.")
+		nodesMap[nid] = mergeNodeCounters(counters1, counters2, counters3, counters4)
 		km.sim.nodes[nid].DisplayPendingLogEntries()
 		km.sim.nodes[nid].DisplayPendingLines()
 	}

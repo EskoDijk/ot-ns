@@ -68,7 +68,7 @@ type RadioNodeConfig struct {
 }
 
 type RadioNodeStats struct {
-	NumBytesTx uint64
+	NumBytesTx int
 }
 
 func NewRadioNode(nodeid NodeId, cfg *RadioNodeConfig) *RadioNode {

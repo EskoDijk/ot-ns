@@ -102,6 +102,9 @@ type RadioModel interface {
 	// ResetChannelStats resets the statistics of use for a radio channel to zero.
 	ResetChannelStats(channel ChannelId)
 
+	// GetNodePhyStats gets PHY statistics of a node, as tracked by this RadioModel.
+	GetNodePhyStats(id NodeId, keyPrefix string) map[string]int
+
 	// init initializes the RadioModel.
 	init()
 }
