@@ -87,6 +87,7 @@ const (
 	MaxChannelNumber  ChannelId = 39 // above 26 are currently used as pseudo-BLE-adv-channels
 	TimeUsPerBit                = 4
 	PhyHeaderLenBytes           = 6
+	MacFrameLenBytes            = 127
 )
 
 type RadioStates byte

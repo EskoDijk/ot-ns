@@ -809,10 +809,10 @@ func (d *Dispatcher) sendOneRadioFrame(evt *Event, srcnode *Node, dstnode *Node)
 		return
 	}
 
-	//   2) dispatcher's random packet loss Event (separate from radio model)
+	//   2) dispatcher's random packet loss Event (applied separate from radio model)
 	if d.globalPacketLossRatio > 0 {
-		datalen := len(evt.Data)
-		succRate := math.Pow(1.0-d.globalPacketLossRatio, float64(datalen)/128.0)
+		datalenMac := len(evt.Data) - 1
+		succRate := math.Pow(1.0-d.globalPacketLossRatio, float64(datalenMac)/MacFrameLenBytes)
 		if prng.NewUnitRandom() >= succRate {
 			return
 		}
