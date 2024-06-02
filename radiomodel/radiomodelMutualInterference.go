@@ -150,22 +150,11 @@ func (rm *RadioModelMutualInterference) OnParametersModified() {
 }
 
 func (rm *RadioModelMutualInterference) HandleEvent(node *RadioNode, q EventQueue, evt *Event) {
-	rm.eventQ = q
+	rm.RadioModelIdeal.HandleEvent(node, q, evt)
 
 	switch evt.Type {
 	case EventTypeRadioCommStart:
-		rm.txStart(node, evt)
-		rm.statsTxStart(node, evt)
 		rm.updateChannelSamplingNodes(node, evt) // all channel-sampling nodes detect the new Tx
-	case EventTypeRadioTxDone:
-		rm.txStop(node, evt)
-		rm.statsTxStop(node, evt)
-	case EventTypeRadioChannelSample:
-		rm.channelSampleStart(node, evt)
-	case EventTypeRadioState:
-		node.SetRadioState(evt.RadioStateData.EnergyState, evt.RadioStateData.SubState)
-		node.SetChannel(evt.RadioStateData.Channel)
-		node.SetRxSensitivity(DbValue(evt.RadioStateData.RxSensDbm))
 	default:
 		break
 	}
