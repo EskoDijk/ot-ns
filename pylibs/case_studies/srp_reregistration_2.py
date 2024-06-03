@@ -70,8 +70,8 @@ def print_services(srv):
             print(line)
 
 def main():
-    ns = OTNS(otns_args=['-seed','34541'])
-    ns.speed = 200
+    ns = OTNS(otns_args=['-seed','34541', '-phy-tx-stats'])
+    ns.speed = 1000
     ns.radiomodel = 'MutualInterference'
     ns.web()
 
