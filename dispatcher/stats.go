@@ -88,7 +88,7 @@ func (d *Dispatcher) calcStats() NodeStats {
 
 func clearMapValues(m *map[NodeId]float64) map[NodeId]float64 {
 	mNew := make(map[NodeId]float64)
-	for id, _ := range *m {
+	for id := range *m {
 		mNew[id] = 0.0
 	}
 	return mNew

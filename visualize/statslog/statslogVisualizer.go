@@ -29,11 +29,11 @@ package visualize_statslog
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/openthread/ot-ns/logger"
 	. "github.com/openthread/ot-ns/types"
 	"github.com/openthread/ot-ns/visualize"
-	"strings"
 )
 
 type StatsType int
@@ -125,10 +125,9 @@ func (sv *statslogVisualizer) writeLogFileHeader() {
 		header = "timeSec,nNodes,nPartitions,nLeaders,nRouters,nChildren,nDetached,nDisabled,nSleepy,nFailed"
 		_ = sv.writeToLogFile(header)
 
-	case TxRateStatsType:
-		header = ""
+	default:
+		break
 	}
-
 }
 
 func (sv *statslogVisualizer) writeNodeStatsLogEntry(ts uint64, stats NodeStats) {
@@ -201,7 +200,7 @@ func getStatsLogFileName(tp StatsType, outputDir string, simId int) string {
 
 func calcMinMaxNodeId(m *map[NodeId]float64) (NodeId, NodeId) {
 	var idMin, idMax NodeId
-	for id, _ := range *m {
+	for id := range *m {
 		if idMin == 0 || id < idMin {
 			idMin = id
 		}
