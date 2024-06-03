@@ -45,13 +45,11 @@ OT_OPTIONS=(
     "-DOT_JOINER=ON"
     "-DOT_COAP=ON"
     "-DOT_COAPS=ON"
-    "-DOT_MLR=ON"
     "-DOT_COMMISSIONER=ON"
     "-DOT_ECDSA=ON"
     "-DOT_NETDIAG_CLIENT=ON"
     "-DOT_MESH_DIAG=ON"
     "-DOT_SERVICE=ON"
-    "-DOT_BLE_TCAT=ON"
 )
 readonly OT_OPTIONS
 
