@@ -71,6 +71,7 @@ type MainArgs struct {
 	PcapType       string
 	NoReplay       bool
 	RandomSeed     int64
+	PhyTxStats     bool
 }
 
 var (
@@ -105,6 +106,7 @@ func parseArgs() {
 	flag.StringVar(&args.PcapType, "pcap", pcap.FrameTypeWpanStr, "PCAP file type: 'off', 'wpan', or 'wpan-tap' (name is \"current.pcap\")")
 	flag.BoolVar(&args.NoReplay, "no-replay", false, "do not generate Replay file (named \"otns_?.replay\")")
 	flag.Int64Var(&args.RandomSeed, "seed", 0, "set specific random-seed value (for reproducability)")
+	flag.BoolVar(&args.PhyTxStats, "phy-tx-stats", false, "generated PHY Tx statisics CSV file")
 	flag.Parse()
 }
 
@@ -155,8 +157,10 @@ func Main(ctx *progctx.ProgCtx, cliOptions *cli.CliOptions) {
 	vis := visualizeMulti.NewMultiVisualizer(
 		visualizeGrpc.NewGrpcVisualizer(visGrpcServerAddr, replayFn, chanGrpcClientNotifier),
 		visualizeStatslog.NewStatslogVisualizer(sim.GetConfig().OutputDir, simId, visualizeStatslog.NodeStatsType),
-		visualizeStatslog.NewStatslogVisualizer(sim.GetConfig().OutputDir, simId, visualizeStatslog.TxRateStatsType),
 	)
+	if args.PhyTxStats {
+		vis.AddVisualizer(visualizeStatslog.NewStatslogVisualizer(sim.GetConfig().OutputDir, simId, visualizeStatslog.TxRateStatsType))
+	}
 
 	ctx.WaitAdd("webserver", 1)
 	go func() {

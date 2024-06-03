@@ -32,7 +32,7 @@ from otns.cli import OTNS
 from otns.cli.errors import OTNSExitedError
 
 NUM_BR = 1
-NUM_NODES = 5
+NUM_NODES = 50
 DX = 150  # pixels spacing
 
 SCRIPT_BR="""

@@ -92,7 +92,7 @@ func (sv *statslogVisualizer) UpdateNodeStats(info *visualize.NodeStatsInfo) {
 
 func (sv *statslogVisualizer) UpdateTimeWindowStats(info *visualize.TimeWindowStatsInfo) {
 	if sv.statsType == TxRateStatsType {
-		sv.writeTxRateLogEntry(info.WinStartUs, info.PhyTxRateKbps)
+		sv.writeTxRateLogEntry(info.WinStartUs+info.WinWidthUs, info.PhyTxRateKbps)
 	}
 }
 
@@ -123,11 +123,12 @@ func (sv *statslogVisualizer) writeLogFileHeader() {
 	case NodeStatsType:
 		// RFC 4180 CSV file: no leading or trailing spaces in header field names
 		header = "timeSec,nNodes,nPartitions,nLeaders,nRouters,nChildren,nDetached,nDisabled,nSleepy,nFailed"
+		_ = sv.writeToLogFile(header)
 
 	case TxRateStatsType:
-		header = "timeSec"
+		header = ""
 	}
-	_ = sv.writeToLogFile(header)
+
 }
 
 func (sv *statslogVisualizer) writeNodeStatsLogEntry(ts uint64, stats NodeStats) {
