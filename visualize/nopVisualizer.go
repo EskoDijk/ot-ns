@@ -79,6 +79,7 @@ func (nv *NopVisualizer) SetNodePos(nodeid NodeId, x, y, z int) {
 }
 
 func (nv *NopVisualizer) SetController(simController SimulationController) {
+
 }
 
 func (nv *NopVisualizer) Init() {
@@ -86,6 +87,7 @@ func (nv *NopVisualizer) Init() {
 }
 
 func (nv *NopVisualizer) Run() {
+
 }
 
 func (nv *NopVisualizer) Stop() {
@@ -141,4 +143,9 @@ func (nv *NopVisualizer) SetEnergyAnalyser(ea *energy.EnergyAnalyser) {
 }
 
 func (nv *NopVisualizer) UpdateNodeStats(nodeStatsInfo *NodeStatsInfo) {
+
+}
+
+func (nv *NopVisualizer) UpdateTimeWindowStats(txRateStatsInfo *TimeWindowStatsInfo) {
+
 }

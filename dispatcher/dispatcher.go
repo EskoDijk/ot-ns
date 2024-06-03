@@ -81,7 +81,7 @@ type Dispatcher struct {
 		StatusPushEvents uint64
 		UartWriteEvents  uint64
 		OtherEvents      uint64
-		// Packet dispatching counters
+		// Packet-related event dispatching counters
 		DispatchByExtAddrSucc   uint64
 		DispatchByExtAddrFail   uint64
 		DispatchByShortAddrSucc uint64
@@ -125,6 +125,8 @@ type Dispatcher struct {
 	energyAnalyser        *energy.EnergyAnalyser
 	stopped               bool
 	radioModel            radiomodel.RadioModel
+	oldStats              NodeStats
+	timeWinStats          TimeWindowStats
 }
 
 func NewDispatcher(ctx *progctx.ProgCtx, cfg *Config, cbHandler CallbackHandler) *Dispatcher {
@@ -157,6 +159,8 @@ func NewDispatcher(ctx *progctx.ProgCtx, cfg *Config, cbHandler CallbackHandler)
 		goDurationChan:     make(chan goDuration, 1),
 		visOptions:         defaultVisualizationOptions(),
 		stopped:            false,
+		oldStats:           NodeStats{},
+		timeWinStats:       defaultTimeWindowStats(),
 	}
 	d.speed = d.normalizeSpeed(d.speed)
 	if d.cfg.PcapEnabled {
@@ -1123,6 +1127,8 @@ func (d *Dispatcher) advanceTime(ts uint64) {
 		d.vis.UpdateNodesEnergy(d.energyAnalyser.GetLatestEnergyOfNodes(), ts, true)
 		d.lastEnergyVizTime = ts
 	}
+
+	d.updateTimeWindowStats()
 }
 
 func (d *Dispatcher) PostAsync(task func()) {

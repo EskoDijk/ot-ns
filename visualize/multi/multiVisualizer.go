@@ -43,6 +43,10 @@ func NewMultiVisualizer(vs ...visualize.Visualizer) visualize.Visualizer {
 	return &multiVisualizer{vs: vs}
 }
 
+func (mv *multiVisualizer) AddVisualizer(vs ...visualize.Visualizer) {
+	mv.vs = append(mv.vs, vs...)
+}
+
 func (mv *multiVisualizer) SetNetworkInfo(networkInfo visualize.NetworkInfo) {
 	for _, v := range mv.vs {
 		v.SetNetworkInfo(networkInfo)
@@ -215,5 +219,11 @@ func (mv *multiVisualizer) SetEnergyAnalyser(ea *energy.EnergyAnalyser) {
 func (mv *multiVisualizer) UpdateNodeStats(nodeStatsInfo *visualize.NodeStatsInfo) {
 	for _, v := range mv.vs {
 		v.UpdateNodeStats(nodeStatsInfo)
+	}
+}
+
+func (mv *multiVisualizer) UpdateTimeWindowStats(txRateStatsInfo *visualize.TimeWindowStatsInfo) {
+	for _, v := range mv.vs {
+		v.UpdateTimeWindowStats(txRateStatsInfo)
 	}
 }

@@ -130,12 +130,12 @@ func (rm *RadioModelIdeal) GetParameters() *RadioModelParams {
 	return rm.params
 }
 
-func (rm *RadioModelIdeal) GetChannelStats(channel ChannelId, curTimeUs uint64) *ChannelStats {
+func (rm *RadioModelIdeal) GetChannelStats(channel ChannelId) *ChannelStats {
 	if chanStats, ok := rm.channelStats[channel]; ok {
 		// check if an operation is ongoing - if so, include portion of to-be-added Tx duration in stats.
-		if len(chanStats.numTransmitters) > 0 && curTimeUs > chanStats.txStartTime {
-			chanStats.TxTimeUs += curTimeUs - chanStats.txStartTime
-			chanStats.txStartTime = curTimeUs
+		if len(chanStats.numTransmitters) > 0 && rm.ts > chanStats.txStartTime {
+			chanStats.TxTimeUs += rm.ts - chanStats.txStartTime
+			chanStats.txStartTime = rm.ts
 		}
 		return chanStats
 	}
@@ -146,9 +146,21 @@ func (rm *RadioModelIdeal) ResetChannelStats(channel ChannelId) {
 	delete(rm.channelStats, channel)
 }
 
-func (rm *RadioModelIdeal) GetNodePhyStats(id NodeId, keyPrefix string) map[string]int {
-	stats := make(map[string]int)
-	stats[keyPrefix+"tx.bytes"] = rm.nodes[id].stats.NumBytesTx
+func (rm *RadioModelIdeal) GetNodePhyStats(id NodeId) *RadioNodeStats {
+	stats := &RadioNodeStats{
+		NumBytesTx: rm.nodes[id].stats.NumBytesTx,
+	}
+	return stats
+}
+
+func (rm *RadioModelIdeal) GetPhyStats() *PhyStats {
+	txBytes := make(map[NodeId]int)
+	for id, node := range rm.nodes {
+		txBytes[id] = node.stats.NumBytesTx
+	}
+	stats := &PhyStats{
+		TxBytes: txBytes,
+	}
 	return stats
 }
 

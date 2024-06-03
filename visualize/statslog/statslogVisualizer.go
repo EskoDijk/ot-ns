@@ -33,11 +33,20 @@ import (
 	"github.com/openthread/ot-ns/logger"
 	. "github.com/openthread/ot-ns/types"
 	"github.com/openthread/ot-ns/visualize"
+	"strings"
+)
+
+type StatsType int
+
+const (
+	NodeStatsType StatsType = iota
+	TxRateStatsType
 )
 
 type statslogVisualizer struct {
 	visualize.NopVisualizer
 
+	statsType     StatsType
 	simController visualize.SimulationController
 	logFile       *os.File
 	logFileName   string
@@ -46,12 +55,14 @@ type statslogVisualizer struct {
 	timestampUs   uint64 // last node stats timestamp (= last log entry)
 	stats         NodeStats
 	oldStats      NodeStats
+	lastIdMax     NodeId
 }
 
-// NewStatslogVisualizer creates a new Visualizer that writes a log of network stats to file.
-func NewStatslogVisualizer(outputDir string, simulationId int) visualize.Visualizer {
+// NewStatslogVisualizer creates a new Visualizer that writes a log of network stats to CSV file.
+func NewStatslogVisualizer(outputDir string, simulationId int, csvDataType StatsType) visualize.Visualizer {
 	return &statslogVisualizer{
-		logFileName:   getStatsLogFileName(outputDir, simulationId),
+		statsType:     csvDataType,
+		logFileName:   getStatsLogFileName(csvDataType, outputDir, simulationId),
 		isFileEnabled: true,
 		changed:       true,
 	}
@@ -62,17 +73,27 @@ func (sv *statslogVisualizer) Init() {
 }
 
 func (sv *statslogVisualizer) Stop() {
-	// add a final entry with final status
-	sv.writeLogEntry(sv.timestampUs, sv.stats)
+	if sv.statsType == NodeStatsType {
+		// add a final entry with final status
+		sv.writeNodeStatsLogEntry(sv.timestampUs, sv.stats)
+	}
 	sv.close()
 	logger.Debugf("statslogVisualizer stopped and CSV log file closed.")
 }
 
 func (sv *statslogVisualizer) UpdateNodeStats(info *visualize.NodeStatsInfo) {
-	sv.oldStats = sv.stats
-	sv.stats = info.NodeStats
-	sv.timestampUs = info.TimeUs
-	sv.writeLogEntry(sv.timestampUs, sv.stats)
+	if sv.statsType == NodeStatsType {
+		sv.oldStats = sv.stats
+		sv.stats = info.Stats
+		sv.timestampUs = info.TimeUs
+		sv.writeNodeStatsLogEntry(sv.timestampUs, sv.stats)
+	}
+}
+
+func (sv *statslogVisualizer) UpdateTimeWindowStats(info *visualize.TimeWindowStatsInfo) {
+	if sv.statsType == TxRateStatsType {
+		sv.writeTxRateLogEntry(info.WinStartUs, info.PhyTxRateKbps)
+	}
 }
 
 func (sv *statslogVisualizer) SetController(simController visualize.SimulationController) {
@@ -96,40 +117,49 @@ func (sv *statslogVisualizer) createLogFile() {
 }
 
 func (sv *statslogVisualizer) writeLogFileHeader() {
-	// RFC 4180 CSV file: no leading or trailing spaces in header field names
-	header := "timeSec,nNodes,nPartitions,nLeaders,nRouters,nChildren,nDetached,nDisabled,nSleepy,nFailed"
+	var header string
+
+	switch sv.statsType {
+	case NodeStatsType:
+		// RFC 4180 CSV file: no leading or trailing spaces in header field names
+		header = "timeSec,nNodes,nPartitions,nLeaders,nRouters,nChildren,nDetached,nDisabled,nSleepy,nFailed"
+
+	case TxRateStatsType:
+		header = "timeSec"
+	}
 	_ = sv.writeToLogFile(header)
 }
 
-/*
-func (sv *statslogVisualizer) calcStats() NodeStats {
-	s := NodeStats{
-		NumNodes:      len(sv.nodeRoles),
-		NumLeaders:    countRole(&sv.nodeRoles, OtDeviceRoleLeader),
-		NumPartitions: countUniquePts(&sv.nodePartitions),
-		NumRouters:    countRole(&sv.nodeRoles, OtDeviceRoleRouter),
-		NumEndDevices: countRole(&sv.nodeRoles, OtDeviceRoleChild),
-		NumDetached:   countRole(&sv.nodeRoles, OtDeviceRoleDetached),
-		NumDisabled:   countRole(&sv.nodeRoles, OtDeviceRoleDisabled),
-		NumSleepy:     countSleepy(&sv.nodeModes),
-		NumFailed:     len(sv.nodesFailed),
-	}
-	return s
-}
-
-func (sv *statslogVisualizer) checkLogEntryChange() bool {
-	sv.stats = sv.calcStats()
-	return sv.stats != sv.oldStats
-}
-*/
-
-func (sv *statslogVisualizer) writeLogEntry(ts uint64, stats NodeStats) {
+func (sv *statslogVisualizer) writeNodeStatsLogEntry(ts uint64, stats NodeStats) {
 	timeSec := float64(ts) / 1e6
 	entry := fmt.Sprintf("%12.6f, %3d,%3d,%3d,%3d,%3d,%3d,%3d,%3d,%3d", timeSec, stats.NumNodes, stats.NumPartitions,
 		stats.NumLeaders, stats.NumRouters, stats.NumEndDevices, stats.NumDetached, stats.NumDisabled,
 		stats.NumSleepy, stats.NumFailed)
 	_ = sv.writeToLogFile(entry)
 	logger.Debugf("statslog entry added: %s", entry)
+}
+
+func (sv *statslogVisualizer) writeTxRateLogEntry(ts uint64, stats map[NodeId]float64) {
+	var sb strings.Builder
+	timeSec := float64(ts) / 1.0e6
+	sb.WriteString(fmt.Sprintf("%12.6f, ", timeSec))
+
+	idMin := 1
+	_, idMax := calcMinMaxNodeId(&stats)
+	if sv.lastIdMax > idMax {
+		idMax = sv.lastIdMax
+	} else {
+		sv.lastIdMax = idMax
+	}
+	for id := idMin; id <= idMax; id++ {
+		if rate, ok := stats[id]; ok {
+			sb.WriteString(fmt.Sprintf("%5.1f, ", rate))
+		} else {
+			sb.WriteString("    0.0, ")
+		}
+	}
+	entry := sb.String()
+	_ = sv.writeToLogFile(entry[:len(entry)-2])
 }
 
 func (sv *statslogVisualizer) writeToLogFile(line string) error {
@@ -153,6 +183,30 @@ func (sv *statslogVisualizer) close() {
 	}
 }
 
-func getStatsLogFileName(outputDir string, simId int) string {
-	return fmt.Sprintf("%s/%d_stats.csv", outputDir, simId)
+func getStatsName(tp StatsType) string {
+	switch tp {
+	case NodeStatsType:
+		return "stats"
+	case TxRateStatsType:
+		return "txrate"
+	default:
+		return "INVALID"
+	}
+}
+
+func getStatsLogFileName(tp StatsType, outputDir string, simId int) string {
+	return fmt.Sprintf("%s/%d_%s.csv", outputDir, simId, getStatsName(tp))
+}
+
+func calcMinMaxNodeId(m *map[NodeId]float64) (NodeId, NodeId) {
+	var idMin, idMax NodeId
+	for id, _ := range *m {
+		if idMin == 0 || id < idMin {
+			idMin = id
+		}
+		if idMax == 0 || id > idMax {
+			idMax = id
+		}
+	}
+	return idMin, idMax
 }

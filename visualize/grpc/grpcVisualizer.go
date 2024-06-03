@@ -420,15 +420,15 @@ func (gv *grpcVisualizer) UpdateNodeStats(nsi *visualize.NodeStatsInfo) {
 	defer gv.Unlock()
 
 	nodeStatsPb := &pb.NodeStats{
-		NumNodes:      uint32(nsi.NodeStats.NumNodes),
-		NumLeaders:    uint32(nsi.NodeStats.NumLeaders),
-		NumPartitions: uint32(nsi.NodeStats.NumPartitions),
-		NumRouters:    uint32(nsi.NodeStats.NumRouters),
-		NumEndDevices: uint32(nsi.NodeStats.NumEndDevices),
-		NumDetached:   uint32(nsi.NodeStats.NumDetached),
-		NumDisabled:   uint32(nsi.NodeStats.NumDisabled),
-		NumSleepy:     uint32(nsi.NodeStats.NumSleepy),
-		NumFailed:     uint32(nsi.NodeStats.NumFailed),
+		NumNodes:      uint32(nsi.Stats.NumNodes),
+		NumLeaders:    uint32(nsi.Stats.NumLeaders),
+		NumPartitions: uint32(nsi.Stats.NumPartitions),
+		NumRouters:    uint32(nsi.Stats.NumRouters),
+		NumEndDevices: uint32(nsi.Stats.NumEndDevices),
+		NumDetached:   uint32(nsi.Stats.NumDetached),
+		NumDisabled:   uint32(nsi.Stats.NumDisabled),
+		NumSleepy:     uint32(nsi.Stats.NumSleepy),
+		NumFailed:     uint32(nsi.Stats.NumFailed),
 	}
 	gv.f.setNodeStatsInfo(*nsi)
 	e := &pb.VisualizeEvent{Type: &pb.VisualizeEvent_NodeStatsInfo{NodeStatsInfo: &pb.NodeStatsInfoEvent{
@@ -436,6 +436,10 @@ func (gv *grpcVisualizer) UpdateNodeStats(nsi *visualize.NodeStatsInfo) {
 		NodeStats: nodeStatsPb,
 	}}}
 	gv.addVisualizeEvent(e)
+}
+
+func (gv *grpcVisualizer) UpdateTimeWindowStats(txRateStatsInfo *visualize.TimeWindowStatsInfo) {
+	// not used for now
 }
 
 func (gv *grpcVisualizer) prepareStream(stream *grpcStream) error {
@@ -614,7 +618,7 @@ func (gv *grpcVisualizer) prepareStream(stream *grpcStream) error {
 	}
 
 	if stream.vizType == nodeStatsVizType {
-		ns := gv.f.nodeStatsInfo.NodeStats
+		ns := gv.f.nodeStatsInfo.Stats
 		pbNodeStats := &pb.NodeStats{
 			NumNodes:      uint32(ns.NumNodes),
 			NumLeaders:    uint32(ns.NumLeaders),

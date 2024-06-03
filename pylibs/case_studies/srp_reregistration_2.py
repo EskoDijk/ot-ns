@@ -32,8 +32,7 @@ from otns.cli import OTNS
 from otns.cli.errors import OTNSExitedError
 
 NUM_BR = 1
-NUM_NODES = 50
-BR_ID_OFFSET = 100
+NUM_NODES = 5
 DX = 150  # pixels spacing
 
 SCRIPT_BR="""
@@ -78,15 +77,15 @@ def main():
 
     # setup of Border Routers
     for i in range(1, NUM_BR+1):
-        nid = ns.add("br", x = i*100, y = 50, id = BR_ID_OFFSET+i, script = SCRIPT_BR)
-    nid_br = nid
+        nid = ns.add("br", x = i*100, y = 50, script = SCRIPT_BR)
+    nid_br = 1
     ns.go(10)
 
     # setup of Router nodes - each with service registration using SRP
     cx = 100
     cy = DX
     for i in range(1, NUM_NODES+1):
-        nid = ns.add("router", id=i, x = cx, y = cy)
+        nid = ns.add("router", x = cx, y = cy)
         host = f'EAAFA10F49B12F3{i}'
         ns.node_cmd(nid, f'srp client host name {host}')
         ns.node_cmd(nid, 'srp client host address auto')
@@ -113,7 +112,7 @@ def main():
     ns.kpi_stop()
 
     # check service state from client's viewpoint
-    for i in range(1, NUM_NODES+1):
+    for i in range(NUM_BR + 1, NUM_BR + NUM_NODES + 1):
         lines = ns.node_cmd(i, "srp client service")
         for line in lines:
             print(f'{i}: {line}')

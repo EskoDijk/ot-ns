@@ -137,11 +137,13 @@ func (km *KpiManager) retrieveNodeCounters() NodeCountersStore {
 	}
 	nodes := km.sim.GetNodes()
 	nodesMap := make(NodeCountersStore, len(nodes))
+	phyStats := km.sim.Dispatcher().GetRadioModel().GetPhyStats()
 	for _, nid := range nodes {
 		counters1 := km.sim.nodes[nid].GetCounters("mac", "mac.")
 		counters2 := km.sim.nodes[nid].GetCounters("mle", "mle.")
 		counters3 := km.sim.nodes[nid].GetCounters("ip", "ip.")
-		counters4 := km.sim.Dispatcher().GetRadioModel().GetNodePhyStats(nid, "phy.")
+		counters4 := NodeCounters{}
+		counters4["phy.tx.bytes"] = phyStats.TxBytes[nid]
 		nodesMap[nid] = mergeNodeCounters(counters1, counters2, counters3, counters4)
 		km.sim.nodes[nid].DisplayPendingLogEntries()
 		km.sim.nodes[nid].DisplayPendingLines()
@@ -156,7 +158,7 @@ func (km *KpiManager) retrieveRadioModelStats() RadioStatsStore {
 
 	if passedTime > 0 {
 		for ch := MinChannelNumber; ch <= MaxChannelNumber; ch++ {
-			stats := km.sim.Dispatcher().GetRadioModel().GetChannelStats(ch, curTime)
+			stats := km.sim.Dispatcher().GetRadioModel().GetChannelStats(ch)
 			if stats != nil {
 				chanKpi := KpiChannel{
 					TxTimeUs:     stats.TxTimeUs,

@@ -34,11 +34,41 @@ import (
 // updateNodeStats calculates fresh node statistics and sends it to the Visualizers.
 func (d *Dispatcher) updateNodeStats() {
 	s := d.calcStats()
-	nodeStatsInfo := &visualize.NodeStatsInfo{
-		TimeUs:    d.CurTime,
-		NodeStats: s,
+	if s != d.oldStats {
+		nodeStatsInfo := &visualize.NodeStatsInfo{
+			TimeUs: d.CurTime,
+			Stats:  s,
+		}
+		d.vis.UpdateNodeStats(nodeStatsInfo)
 	}
-	d.vis.UpdateNodeStats(nodeStatsInfo)
+}
+
+func (d *Dispatcher) updateTimeWindowStats() {
+	winEndTime := d.timeWinStats.WinStartUs + d.timeWinStats.WinWidthUs
+	// conclude last time window, and move ahead 1 or more time windows
+	if d.CurTime > winEndTime {
+		d.timeWinStats.PhyTxBytesEnd = d.radioModel.GetPhyStats().TxBytes
+		txKbps := calcTxRateStats(&d.timeWinStats)
+		d.timeWinStats.PhyTxRateKbps = txKbps
+		d.visSendTimeWindowStats(&d.timeWinStats)
+
+		d.timeWinStats.PhyTxBytesStart = d.timeWinStats.PhyTxBytesEnd // reset for next round
+		d.timeWinStats.WinStartUs += d.timeWinStats.WinWidthUs
+	}
+	for d.CurTime > d.timeWinStats.WinStartUs+d.timeWinStats.WinWidthUs {
+		d.timeWinStats.PhyTxRateKbps = clearMapValues(&d.timeWinStats.PhyTxRateKbps)
+		d.visSendTimeWindowStats(&d.timeWinStats) // send empty time window stats where no event happened.
+		d.timeWinStats.WinStartUs += d.timeWinStats.WinWidthUs
+	}
+}
+
+func (d *Dispatcher) visSendTimeWindowStats(stats *TimeWindowStats) {
+	statsInfo := &visualize.TimeWindowStatsInfo{
+		WinStartUs:    stats.WinStartUs,
+		WinWidthUs:    stats.WinWidthUs,
+		PhyTxRateKbps: stats.PhyTxRateKbps,
+	}
+	d.vis.UpdateTimeWindowStats(statsInfo)
 }
 
 func (d *Dispatcher) calcStats() NodeStats {
@@ -54,6 +84,27 @@ func (d *Dispatcher) calcStats() NodeStats {
 		NumFailed:     countFailed(d.nodes),
 	}
 	return s
+}
+
+func clearMapValues(m *map[NodeId]float64) map[NodeId]float64 {
+	mNew := make(map[NodeId]float64)
+	for id, _ := range *m {
+		mNew[id] = 0.0
+	}
+	return mNew
+}
+
+func calcTxRateStats(stats *TimeWindowStats) map[NodeId]float64 {
+	res := make(map[NodeId]float64)
+	for id, txBytesEnd := range stats.PhyTxBytesEnd {
+		txBytesStart := 0
+		if txBytesPrev, ok := stats.PhyTxBytesStart[id]; ok {
+			txBytesStart = txBytesPrev
+		}
+		rateKbps := 1.0e3 * 8.0 * float64(txBytesEnd-txBytesStart) / float64(stats.WinWidthUs)
+		res[id] = rateKbps
+	}
+	return res
 }
 
 func countRole(nodes map[NodeId]*Node, role OtDeviceRole) int {
