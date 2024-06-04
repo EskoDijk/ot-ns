@@ -39,7 +39,7 @@ install_otns()
 
 install_pyotns()
 {
-    source .venv-otns/bin/activate
+    activate_python_venv
     cd pylibs
     python3 -m pip install .
     # python3 setup.py install --user --prefix= 2>/dev/null  #  alternative - fails on macos-14

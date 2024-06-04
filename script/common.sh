@@ -116,3 +116,8 @@ build_openthread_versions()
         ./script/build_all "$(get_build_options)"
     )
 }
+
+activate_python_venv()
+{
+    source .venv-otns/bin/activate
+}
