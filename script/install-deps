@@ -62,8 +62,6 @@ install_python_libs()
     else
         python3 -m pip install --user setuptools
     fi
-    # For Github/CI runners, we assume this venv remains activated for the subsequent install,
-    # build and test script invocations.
 }
 
 main()

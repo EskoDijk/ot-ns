@@ -39,6 +39,9 @@ install_otns()
 
 install_pyotns()
 {
+    if [[ $Darwin == 1 ]]; then
+        source .venv/bin/activate
+    fi
     cd pylibs
     python3 -m pip install .
     # python3 setup.py install --user --prefix= 2>/dev/null  #  alternative - fails on macos-14
