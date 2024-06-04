@@ -54,13 +54,13 @@ install_grpcwebproxy()
 
 install_python_libs()
 {
-    python3 -m pip install --user setuptools
-
     # From macos-14 onwards, a venv is required to install own libs.
     # See https://peps.python.org/pep-0668/#guide-users-towards-virtual-environments
     if [[ $Darwin == 1 ]]; then
         python3 -m venv .venv
         source .venv/bin/activate
+    else
+        python3 -m pip install --user setuptools
     fi
     # For Github/CI runners, we assume this venv remains activated for the subsequent install,
     # build and test script invocations.
