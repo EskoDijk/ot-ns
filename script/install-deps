@@ -54,9 +54,6 @@ install_grpcwebproxy()
 
 install_python_libs()
 {
-    if [ ! -d .venv-otns ]; then
-        python3 -m venv .venv-otns
-    fi
     activate_python_venv
     python3 -m pip install setuptools
 }

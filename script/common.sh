@@ -119,5 +119,9 @@ build_openthread_versions()
 
 activate_python_venv()
 {
+    if [ ! -d .venv-otns ]; then
+        python3 -m venv .venv-otns
+    fi
+    # shellcheck source=/dev/null
     source .venv-otns/bin/activate
 }
