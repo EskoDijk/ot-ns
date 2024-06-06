@@ -41,6 +41,7 @@ type StatsType int
 const (
 	NodeStatsType StatsType = iota
 	TxRateStatsType
+	ChanSampleCountStatsType
 )
 
 type statslogVisualizer struct {
@@ -91,8 +92,12 @@ func (sv *statslogVisualizer) UpdateNodeStats(info *visualize.NodeStatsInfo) {
 }
 
 func (sv *statslogVisualizer) UpdateTimeWindowStats(info *visualize.TimeWindowStatsInfo) {
-	if sv.statsType == TxRateStatsType {
-		sv.writeTxRateLogEntry(info.WinStartUs+info.WinWidthUs, info.PhyTxRateKbps)
+	ts := info.WinStartUs + info.WinWidthUs
+	switch sv.statsType {
+	case TxRateStatsType:
+		sv.writePhyStatsLogEntry(ts, info.PhyTxRateKbps)
+	case ChanSampleCountStatsType:
+		sv.writePhyStatsLogEntry(ts, info.ChanSampleCount)
 	}
 }
 
@@ -139,7 +144,7 @@ func (sv *statslogVisualizer) writeNodeStatsLogEntry(ts uint64, stats NodeStats)
 	logger.Debugf("statslog entry added: %s", entry)
 }
 
-func (sv *statslogVisualizer) writeTxRateLogEntry(ts uint64, stats map[NodeId]float64) {
+func (sv *statslogVisualizer) writePhyStatsLogEntry(ts uint64, stats map[NodeId]float64) {
 	var sb strings.Builder
 	timeSec := float64(ts) / 1.0e6
 	sb.WriteString(fmt.Sprintf("%12.6f, ", timeSec))
@@ -155,7 +160,7 @@ func (sv *statslogVisualizer) writeTxRateLogEntry(ts uint64, stats map[NodeId]fl
 		if rate, ok := stats[id]; ok {
 			sb.WriteString(fmt.Sprintf("%5.1f, ", rate))
 		} else {
-			sb.WriteString("    0.0, ")
+			sb.WriteString("  0.0, ")
 		}
 	}
 	entry := sb.String()
@@ -189,6 +194,8 @@ func getStatsName(tp StatsType) string {
 		return "stats"
 	case TxRateStatsType:
 		return "txrate"
+	case ChanSampleCountStatsType:
+		return "chansample"
 	default:
 		return "INVALID"
 	}

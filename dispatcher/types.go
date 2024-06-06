@@ -30,7 +30,6 @@ import (
 	"math"
 	"time"
 
-	"github.com/openthread/ot-ns/radiomodel"
 	. "github.com/openthread/ot-ns/types"
 )
 
@@ -46,9 +45,9 @@ type TimeWindowStats struct {
 	WinStartUs    uint64
 	WinWidthUs    uint64
 	PhyTxRateKbps map[NodeId]float64
-	PhyStats      map[NodeId]radiomodel.PhyStats
+	PhyStats      map[NodeId]PhyStats
 
-	statsWinStart map[NodeId]radiomodel.PhyStats // internal bookkeeping: stats at window start
+	statsWinStart map[NodeId]PhyStats // internal bookkeeping: stats at window start
 }
 
 func defaultTimeWindowStats() TimeWindowStats {
@@ -56,8 +55,8 @@ func defaultTimeWindowStats() TimeWindowStats {
 		WinStartUs:    0,
 		WinWidthUs:    1e6,
 		PhyTxRateKbps: make(map[NodeId]float64),
-		PhyStats:      make(map[NodeId]radiomodel.PhyStats),
-		statsWinStart: make(map[NodeId]radiomodel.PhyStats),
+		PhyStats:      make(map[NodeId]PhyStats),
+		statsWinStart: make(map[NodeId]PhyStats),
 	}
 }
 

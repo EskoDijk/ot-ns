@@ -27,7 +27,6 @@
 package dispatcher
 
 import (
-	"github.com/openthread/ot-ns/radiomodel"
 	. "github.com/openthread/ot-ns/types"
 	"github.com/openthread/ot-ns/visualize"
 )
@@ -70,7 +69,13 @@ func (d *Dispatcher) visSendTimeWindowStats(stats *TimeWindowStats) {
 		WinStartUs:    stats.WinStartUs,
 		WinWidthUs:    stats.WinWidthUs,
 		PhyTxRateKbps: stats.PhyTxRateKbps,
+		NodePhyStats:  stats.PhyStats,
 	}
+	statsInfo.ChanSampleCount = make(map[NodeId]float64)
+	for id, st := range stats.PhyStats {
+		statsInfo.ChanSampleCount[id] = float64(st.ChanSampleCount)
+	}
+
 	d.vis.UpdateTimeWindowStats(statsInfo)
 }
 
@@ -97,15 +102,15 @@ func clearMapValues(m map[NodeId]float64) map[NodeId]float64 {
 	return mNew
 }
 
-func clearMapValuesPhyStats(m map[NodeId]radiomodel.PhyStats) map[NodeId]radiomodel.PhyStats {
-	mNew := make(map[NodeId]radiomodel.PhyStats)
+func clearMapValuesPhyStats(m map[NodeId]PhyStats) map[NodeId]PhyStats {
+	mNew := make(map[NodeId]PhyStats)
 	for id := range m {
-		mNew[id] = radiomodel.PhyStats{}
+		mNew[id] = PhyStats{}
 	}
 	return mNew
 }
 
-func calcTxRateStats(winWidthUs uint64, statsStart, statsEnd map[NodeId]radiomodel.PhyStats) map[NodeId]float64 {
+func calcTxRateStats(winWidthUs uint64, statsStart, statsEnd map[NodeId]PhyStats) map[NodeId]float64 {
 	res := make(map[NodeId]float64)
 	for id, st2 := range statsEnd {
 		txBytesStart := uint64(0)
@@ -119,11 +124,11 @@ func calcTxRateStats(winWidthUs uint64, statsStart, statsEnd map[NodeId]radiomod
 	return res
 }
 
-func calcPhyStatsDiff(statsStart, statsEnd map[NodeId]radiomodel.PhyStats) map[NodeId]radiomodel.PhyStats {
-	var st1 radiomodel.PhyStats
+func calcPhyStatsDiff(statsStart, statsEnd map[NodeId]PhyStats) map[NodeId]PhyStats {
+	var st1 PhyStats
 	var ok bool
 
-	res := make(map[NodeId]radiomodel.PhyStats)
+	res := make(map[NodeId]PhyStats)
 	for id, st2 := range statsEnd {
 		if st1, ok = statsStart[id]; ok {
 			res[id] = st2.Minus(st1)

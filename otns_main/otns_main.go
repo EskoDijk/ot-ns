@@ -106,7 +106,7 @@ func parseArgs() {
 	flag.StringVar(&args.PcapType, "pcap", pcap.FrameTypeWpanStr, "PCAP file type: 'off', 'wpan', or 'wpan-tap' (name is \"current.pcap\")")
 	flag.BoolVar(&args.NoReplay, "no-replay", false, "do not generate Replay file (named \"otns_?.replay\")")
 	flag.Int64Var(&args.RandomSeed, "seed", 0, "set specific random-seed value (for reproducability)")
-	flag.BoolVar(&args.PhyTxStats, "phy-tx-stats", false, "generated PHY Tx statisics CSV file")
+	flag.BoolVar(&args.PhyTxStats, "phy-tx-stats", false, "generate PHY Tx statistics CSV file")
 	flag.Parse()
 }
 
@@ -160,6 +160,7 @@ func Main(ctx *progctx.ProgCtx, cliOptions *cli.CliOptions) {
 	)
 	if args.PhyTxStats {
 		vis.AddVisualizer(visualizeStatslog.NewStatslogVisualizer(sim.GetConfig().OutputDir, simId, visualizeStatslog.TxRateStatsType))
+		vis.AddVisualizer(visualizeStatslog.NewStatslogVisualizer(sim.GetConfig().OutputDir, simId, visualizeStatslog.ChanSampleCountStatsType))
 	}
 
 	ctx.WaitAdd("webserver", 1)
