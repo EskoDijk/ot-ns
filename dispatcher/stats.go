@@ -27,6 +27,7 @@
 package dispatcher
 
 import (
+	"github.com/openthread/ot-ns/radiomodel"
 	. "github.com/openthread/ot-ns/types"
 	"github.com/openthread/ot-ns/visualize"
 )
@@ -47,18 +48,20 @@ func (d *Dispatcher) updateTimeWindowStats() {
 	winEndTime := d.timeWinStats.WinStartUs + d.timeWinStats.WinWidthUs
 	// conclude last time window, and move ahead 1 or more time windows
 	if d.CurTime > winEndTime {
-		d.timeWinStats.PhyTxBytesEnd = d.radioModel.GetPhyStats().TxBytes
-		txKbps := calcTxRateStats(&d.timeWinStats)
-		d.timeWinStats.PhyTxRateKbps = txKbps
+		statsEnd := d.radioModel.GetPhyStats()
+		d.timeWinStats.PhyTxRateKbps = calcTxRateStats(d.timeWinStats.WinWidthUs, d.timeWinStats.statsWinStart, statsEnd)
+		d.timeWinStats.PhyStats = calcPhyStatsDiff(d.timeWinStats.statsWinStart, statsEnd)
 		d.visSendTimeWindowStats(&d.timeWinStats)
 
-		d.timeWinStats.PhyTxBytesStart = d.timeWinStats.PhyTxBytesEnd // reset for next round
+		d.timeWinStats.statsWinStart = statsEnd // reset for next round
 		d.timeWinStats.WinStartUs += d.timeWinStats.WinWidthUs
-	}
-	for d.CurTime > d.timeWinStats.WinStartUs+d.timeWinStats.WinWidthUs {
-		d.timeWinStats.PhyTxRateKbps = clearMapValues(&d.timeWinStats.PhyTxRateKbps)
-		d.visSendTimeWindowStats(&d.timeWinStats) // send empty time window stats where no event happened.
-		d.timeWinStats.WinStartUs += d.timeWinStats.WinWidthUs
+
+		for d.CurTime > d.timeWinStats.WinStartUs+d.timeWinStats.WinWidthUs {
+			d.timeWinStats.PhyTxRateKbps = clearMapValues(d.timeWinStats.PhyTxRateKbps)
+			d.timeWinStats.PhyStats = clearMapValuesPhyStats(d.timeWinStats.PhyStats)
+			d.visSendTimeWindowStats(&d.timeWinStats) // send empty time window stats when no event happened.
+			d.timeWinStats.WinStartUs += d.timeWinStats.WinWidthUs
+		}
 	}
 }
 
@@ -86,23 +89,47 @@ func (d *Dispatcher) calcStats() NodeStats {
 	return s
 }
 
-func clearMapValues(m *map[NodeId]float64) map[NodeId]float64 {
+func clearMapValues(m map[NodeId]float64) map[NodeId]float64 {
 	mNew := make(map[NodeId]float64)
-	for id := range *m {
+	for id := range m {
 		mNew[id] = 0.0
 	}
 	return mNew
 }
 
-func calcTxRateStats(stats *TimeWindowStats) map[NodeId]float64 {
+func clearMapValuesPhyStats(m map[NodeId]radiomodel.PhyStats) map[NodeId]radiomodel.PhyStats {
+	mNew := make(map[NodeId]radiomodel.PhyStats)
+	for id := range m {
+		mNew[id] = radiomodel.PhyStats{}
+	}
+	return mNew
+}
+
+func calcTxRateStats(winWidthUs uint64, statsStart, statsEnd map[NodeId]radiomodel.PhyStats) map[NodeId]float64 {
 	res := make(map[NodeId]float64)
-	for id, txBytesEnd := range stats.PhyTxBytesEnd {
-		txBytesStart := 0
-		if txBytesPrev, ok := stats.PhyTxBytesStart[id]; ok {
-			txBytesStart = txBytesPrev
+	for id, st2 := range statsEnd {
+		txBytesStart := uint64(0)
+		if st1, ok := statsStart[id]; ok {
+			txBytesStart = st1.TxBytes
 		}
-		rateKbps := 1.0e3 * 8.0 * float64(txBytesEnd-txBytesStart) / float64(stats.WinWidthUs)
+		txBytesEnd := st2.TxBytes
+		rateKbps := 1.0e3 * 8.0 * float64(txBytesEnd-txBytesStart) / float64(winWidthUs)
 		res[id] = rateKbps
+	}
+	return res
+}
+
+func calcPhyStatsDiff(statsStart, statsEnd map[NodeId]radiomodel.PhyStats) map[NodeId]radiomodel.PhyStats {
+	var st1 radiomodel.PhyStats
+	var ok bool
+
+	res := make(map[NodeId]radiomodel.PhyStats)
+	for id, st2 := range statsEnd {
+		if st1, ok = statsStart[id]; ok {
+			res[id] = st2.Minus(st1)
+		} else {
+			res[id] = st2
+		}
 	}
 	return res
 }
