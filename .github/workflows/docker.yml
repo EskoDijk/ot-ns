@@ -28,9 +28,6 @@ name: Docker
 
 on:
   workflow_dispatch:
-  push:
-    branches-ignore:
-      - 'dependabot/**'
   pull_request:
     branches:
       - 'docker'

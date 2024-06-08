@@ -27,9 +27,7 @@
 name: Lint
 
 on:
-  push:
-    branches-ignore:
-      - 'dependabot/**'
+  workflow_dispatch:
   pull_request:
     branches:
       - 'main'
