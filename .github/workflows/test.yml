@@ -54,7 +54,7 @@ jobs:
     steps:
       - uses: actions/setup-go@v5
         with:
-          go-version: 1.22
+          go-version: '1.22'
       - uses: actions/checkout@v3
       - name: Test
         run: |
@@ -76,7 +76,7 @@ jobs:
     steps:
       - uses: actions/setup-go@v5
         with:
-          go-version: 1.22
+          go-version: '1.22'
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -103,7 +103,7 @@ jobs:
     steps:
       - uses: actions/setup-go@v5
         with:
-          go-version: 1.22
+          go-version: '1.22'
       - name: Set up Python
         uses: actions/setup-python@v5
         with:

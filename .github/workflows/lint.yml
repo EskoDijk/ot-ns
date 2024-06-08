@@ -49,7 +49,7 @@ jobs:
     steps:
       - uses: actions/setup-go@v5
         with:
-          go-version: 1.22
+          go-version: '1.22'
       - uses: actions/checkout@v3
       - name: Check pretty
         run: |
