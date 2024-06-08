@@ -35,6 +35,7 @@ apt_update_once=0
 install_packages()
 {
     install_package wget --apt wget --brew wget || true
+    install_package python3-venv --apt wget --brew wget || true
 }
 
 install_grpcwebproxy()
