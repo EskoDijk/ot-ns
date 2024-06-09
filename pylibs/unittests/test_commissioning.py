@@ -50,11 +50,11 @@ class CommissioningTests(OTNSTestCase):
 
     def testRawSetup(self):
         ns = self.ns
-        ns.web()
         n1 = ns.add("router")
         n2 = ns.add("router")
         n3 = ns.add("router")
 
+        # n1 with full dataset becomes Leader.
         ns.node_cmd(n1, "dataset init new")
         ns.node_cmd(n1, "dataset panid 0xface")
         ns.node_cmd(n1, "dataset networkkey 00112233445566778899aabbccddeeff")
@@ -63,14 +63,15 @@ class CommissioningTests(OTNSTestCase):
         ns.node_cmd(n1, "dataset commit active")
         ns.ifconfig_up(n1)
         ns.thread_start(n1)
-        ns.go(10)
 
+        # n2, n3 with partial dataset will scan channels to find n1.
+        # This can take some time.
         for id in (n2, n3):
             ns.config_dataset(id, panid=0xface, network_name="test", networkkey="00112233445566778899aabbccddeeff")
             ns.ifconfig_up(id)
             ns.thread_start(id)
 
-        self.go(60)
+        self.go(250)
         self.assertFormPartitions(1)
 
     def testCommissioning(self):
