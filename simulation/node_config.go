@@ -28,6 +28,7 @@ package simulation
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -35,7 +36,6 @@ import (
 	"github.com/openthread/ot-ns/logger"
 	"github.com/openthread/ot-ns/prng"
 	. "github.com/openthread/ot-ns/types"
-	"math"
 )
 
 const (

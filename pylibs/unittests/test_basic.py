@@ -883,15 +883,17 @@ class BasicTests(OTNSTestCase):
 
         with OTNS(otns_args=['-ot-script', './etc/cli-scripts/ot-script-example.yaml', '-log', 'debug']) as ns:
             self.ns = ns
-            ns.web()
-            ns.speed = 2
             ns.add('router')
             ns.go(10)
             ns.add('router')
             ns.add('router')
             ns.add('med')
             ns.add('fed')
-            ns.go(100)
+            ns.go(30)
+            self.assertFormPartitions(1)
+            ns.add('br')
+            ns.add('sed')
+            ns.go(30)
             self.assertFormPartitions(1)
 
 

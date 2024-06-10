@@ -162,7 +162,8 @@ func (node *Node) runScript(cfg []string) error {
 	}
 
 	for _, cmd := range cfg {
-		if len(cmd) == 0 || strings.HasPrefix(strings.TrimSpace(cmd), "#") {
+		cmd = strings.TrimSpace(cmd)
+		if len(cmd) == 0 || strings.HasPrefix(cmd, "#") {
 			continue // skip empty lines and comments
 		}
 		if node.CommandResult() != nil {

@@ -30,9 +30,9 @@ import (
 	"fmt"
 	"io"
 	"regexp"
+	"strings"
 
 	. "github.com/openthread/ot-ns/types"
-	"strings"
 )
 
 var (
