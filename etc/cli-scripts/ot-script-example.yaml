@@ -1,0 +1,29 @@
+#
+# Example OT node CLI script, which can be passed to otns using the -ot-script parameter.
+#
+
+script:
+    ftd: |
+        # Active Dataset parameters
+        # This only works for an FTD (e.g. type 'router' or 'fed')
+        dataset init new
+        dataset networkname Test\ Network
+        dataset panid 0x1234
+        dataset channel 15
+        dataset networkkey 998877665544332211ffeeddccbbaa00
+        dataset commit active
+
+        # Some extra settings - differ from usual setup.
+        routerselectionjitter 10
+
+    mtd: |
+        networkkey 998877665544332211ffeeddccbbaa00
+
+    all: |
+        # Some extra settings - differ from usual setup.
+        ccathreshold -80
+        txpower 10
+
+        # Autostart the node
+        ifconfig up
+        thread start

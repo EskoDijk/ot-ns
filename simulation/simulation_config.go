@@ -34,20 +34,19 @@ import (
 
 const (
 	DefaultChannel         = 11
-	DefaultChannelMask     = 0x07fff800
 	DefaultExtPanid        = "dead00beef00cafe"
 	DefaultMeshLocalPrefix = "fdde:ad00:beef:0::"
 	DefaultNetworkKey      = "00112233445566778899aabbccddeeff"
 	DefaultNetworkName     = "otns"
 	DefaultPanid           = 0xface
 	DefaultPskc            = "3aa55f91ca47d1e4e71a08cb35e91591"
-	DefaultSecurityPolicy  = "672 onrc"
 )
 
 type Config struct {
 	ExeConfig        ExecutableConfig
 	ExeConfigDefault ExecutableConfig
 	NewNodeConfig    NodeConfig
+	NewNodeScripts   *YamlScriptConfig
 	Speed            float64
 	ReadOnly         bool
 	Realtime         bool
@@ -69,6 +68,7 @@ func DefaultConfig() *Config {
 		ExeConfig:        DefaultExecutableConfig,
 		ExeConfigDefault: DefaultExecutableConfig,
 		NewNodeConfig:    DefaultNodeConfig(),
+		NewNodeScripts:   DefaultNodeScripts(),
 		Speed:            1,
 		ReadOnly:         false,
 		Realtime:         false,
