@@ -26,7 +26,7 @@
 
 module github.com/openthread/ot-ns
 
-go 1.18
+go 1.19
 
 require (
 	github.com/alecthomas/participle v0.7.1
