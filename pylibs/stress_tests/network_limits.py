@@ -70,7 +70,7 @@ class StressTest(BaseStressTest):
     def test(self, child_type: str, parent_type: str = 'router', n_children_max: int = CHILDREN_N):
         self.reset()
         self.ns.log = 'debug'
-        self.ns.watch_default('trace')
+        #self.ns.watch_default('trace') # can enable trace level to see radio state details
         self.ns.add(parent_type, PARENT_X, PARENT_Y)
         self.ns.go(7)
 

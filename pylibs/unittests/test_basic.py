@@ -190,7 +190,6 @@ class BasicTests(OTNSTestCase):
 
             ns = self.ns
             ns.loglevel = 'debug'
-            ns.watch_default('debug') # add extra detail in all node's logs
             id = ns.add("router")
             self.assertTrue(len(ns.nodes()) == 1 and 1 in ns.nodes() and id == 1)
             self.go(i/100)
