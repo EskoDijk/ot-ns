@@ -26,7 +26,7 @@
 
 module github.com/openthread/ot-ns
 
-go 1.19
+go 1.18
 
 require (
 	github.com/alecthomas/participle v0.7.1
@@ -49,6 +49,6 @@ require (
 	golang.org/x/net v0.22.0 // indirect
 	golang.org/x/sys v0.21.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
-	google.golang.org/genproto v0.0.0-20230110181048-76db0878b65f // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20240318140521-94a12d6c2237 // indirect
 	gopkg.in/check.v1 v1.0.0-20200227125254-8fa46927fb4f // indirect
 )
