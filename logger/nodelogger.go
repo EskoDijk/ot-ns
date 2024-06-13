@@ -29,11 +29,11 @@ package logger
 import (
 	"fmt"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
 	. "github.com/openthread/ot-ns/types"
-	"strings"
 )
 
 // NodeLogger is a node-specific log object. Levels and output file can be set per individual node.
