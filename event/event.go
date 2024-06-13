@@ -60,6 +60,7 @@ const (
 	EventTypeRadioRfSimParamGet EventType = 16
 	EventTypeRadioRfSimParamSet EventType = 17
 	EventTypeRadioRfSimParamRsp EventType = 18
+	EventTypeLogWrite           EventType = 19
 )
 
 const (
