@@ -214,6 +214,7 @@ func (km *KpiManager) calculateKpis() {
 			km.data.Mac.NoAckPercentage[nid] = math.Round(noAckPercent*1.0e3) / 1.0e3
 			km.data.Counters[nid] = counters
 		}
+		km.data.CountersSum = calculateCountersSum(km.data.Counters)
 	}
 
 	// coaps
@@ -250,4 +251,12 @@ func (km *KpiManager) calculateKpis() {
 
 func (km *KpiManager) getDefaultSaveFileName() string {
 	return fmt.Sprintf("%s/%d_kpi.json", km.sim.cfg.OutputDir, km.sim.cfg.Id)
+}
+
+func calculateCountersSum(nodeCounters map[NodeId]NodeCounters) NodeCounters {
+	nc := make(NodeCounters)
+	for _, counters := range nodeCounters {
+		nc.Add(counters)
+	}
+	return nc
 }

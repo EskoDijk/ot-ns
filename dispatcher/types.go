@@ -1,4 +1,4 @@
-// Copyright (c) 2020-2023, The OTNS Authors.
+// Copyright (c) 2020-2024, The OTNS Authors.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -42,10 +42,9 @@ const (
 )
 
 type TimeWindowStats struct {
-	WinStartUs    uint64
-	WinWidthUs    uint64
-	PhyTxRateKbps map[NodeId]float64
-	PhyStats      map[NodeId]PhyStats
+	WinStartUs uint64
+	WinWidthUs uint64
+	PhyStats   map[NodeId]PhyStats
 
 	statsWinStart map[NodeId]PhyStats // internal bookkeeping: stats at window start
 }
@@ -54,7 +53,6 @@ func defaultTimeWindowStats() TimeWindowStats {
 	return TimeWindowStats{
 		WinStartUs:    0,
 		WinWidthUs:    1e6,
-		PhyTxRateKbps: make(map[NodeId]float64),
 		PhyStats:      make(map[NodeId]PhyStats),
 		statsWinStart: make(map[NodeId]PhyStats),
 	}

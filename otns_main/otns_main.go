@@ -159,7 +159,7 @@ func Main(ctx *progctx.ProgCtx, cliOptions *cli.CliOptions) {
 		visualizeStatslog.NewStatslogVisualizer(sim.GetConfig().OutputDir, simId, visualizeStatslog.NodeStatsType),
 	)
 	if args.PhyTxStats {
-		vis.AddVisualizer(visualizeStatslog.NewStatslogVisualizer(sim.GetConfig().OutputDir, simId, visualizeStatslog.TxRateStatsType))
+		vis.AddVisualizer(visualizeStatslog.NewStatslogVisualizer(sim.GetConfig().OutputDir, simId, visualizeStatslog.TxBytesStatsType))
 		vis.AddVisualizer(visualizeStatslog.NewStatslogVisualizer(sim.GetConfig().OutputDir, simId, visualizeStatslog.ChanSampleCountStatsType))
 	}
 

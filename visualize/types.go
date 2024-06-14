@@ -128,7 +128,7 @@ func DefaultNodeStatsInfo() NodeStatsInfo {
 type TimeWindowStatsInfo struct {
 	WinStartUs      uint64
 	WinWidthUs      uint64
-	PhyTxRateKbps   map[NodeId]float64
-	ChanSampleCount map[NodeId]float64
+	PhyTxBytes      map[NodeId]uint64
+	ChanSampleCount map[NodeId]uint64
 	NodePhyStats    map[NodeId]PhyStats
 }

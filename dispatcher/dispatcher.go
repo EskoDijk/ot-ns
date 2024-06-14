@@ -205,6 +205,7 @@ func (d *Dispatcher) Stop() {
 	d.ctx.Cancel("dispatcher-stop")
 	d.GoCancel()        // cancel current simulation period
 	_ = d.udpln.Close() // close socket to stop d.eventsReader accepting new clients.
+	d.finalizeTimeWindowStats()
 
 	d.vis.Stop()
 	close(d.pcapFrameChan)

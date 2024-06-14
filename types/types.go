@@ -126,7 +126,7 @@ type NodeStats struct {
 // PhyStats contains PHY statistics and usage data for a node.
 type PhyStats struct {
 	TxBytes         uint64 // Tx bytes done and initiated so far (may include a not-yet-complete transmission)
-	TxTimeUs        uint64 // Tx time in microsec
+	TxTimeUs        uint64 // Tx time duration in microsec
 	ChanSampleCount uint64 // includes CCAs, Energy Detects (EDs), or other sample types.
 }
 

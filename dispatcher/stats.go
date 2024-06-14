@@ -48,7 +48,6 @@ func (d *Dispatcher) updateTimeWindowStats() {
 	// conclude last time window, and move ahead 1 or more time windows
 	if d.CurTime > winEndTime {
 		statsEnd := d.radioModel.GetPhyStats()
-		d.timeWinStats.PhyTxRateKbps = calcTxRateStats(d.timeWinStats.WinWidthUs, d.timeWinStats.statsWinStart, statsEnd)
 		d.timeWinStats.PhyStats = calcPhyStatsDiff(d.timeWinStats.statsWinStart, statsEnd)
 		d.visSendTimeWindowStats(&d.timeWinStats)
 
@@ -56,7 +55,6 @@ func (d *Dispatcher) updateTimeWindowStats() {
 		d.timeWinStats.WinStartUs += d.timeWinStats.WinWidthUs
 
 		for d.CurTime > d.timeWinStats.WinStartUs+d.timeWinStats.WinWidthUs {
-			d.timeWinStats.PhyTxRateKbps = clearMapValues(d.timeWinStats.PhyTxRateKbps)
 			d.timeWinStats.PhyStats = clearMapValuesPhyStats(d.timeWinStats.PhyStats)
 			d.visSendTimeWindowStats(&d.timeWinStats) // send empty time window stats when no event happened.
 			d.timeWinStats.WinStartUs += d.timeWinStats.WinWidthUs
@@ -64,16 +62,23 @@ func (d *Dispatcher) updateTimeWindowStats() {
 	}
 }
 
+func (d *Dispatcher) finalizeTimeWindowStats() {
+	statsEnd := d.radioModel.GetPhyStats()
+	d.timeWinStats.PhyStats = calcPhyStatsDiff(d.timeWinStats.statsWinStart, statsEnd)
+	d.visSendTimeWindowStats(&d.timeWinStats)
+}
+
 func (d *Dispatcher) visSendTimeWindowStats(stats *TimeWindowStats) {
 	statsInfo := &visualize.TimeWindowStatsInfo{
-		WinStartUs:    stats.WinStartUs,
-		WinWidthUs:    stats.WinWidthUs,
-		PhyTxRateKbps: stats.PhyTxRateKbps,
-		NodePhyStats:  stats.PhyStats,
+		WinStartUs:      stats.WinStartUs,
+		WinWidthUs:      stats.WinWidthUs,
+		NodePhyStats:    stats.PhyStats,
+		PhyTxBytes:      make(map[NodeId]uint64),
+		ChanSampleCount: make(map[NodeId]uint64),
 	}
-	statsInfo.ChanSampleCount = make(map[NodeId]float64)
 	for id, st := range stats.PhyStats {
-		statsInfo.ChanSampleCount[id] = float64(st.ChanSampleCount)
+		statsInfo.PhyTxBytes[id] = st.TxBytes
+		statsInfo.ChanSampleCount[id] = st.ChanSampleCount
 	}
 
 	d.vis.UpdateTimeWindowStats(statsInfo)
@@ -94,34 +99,12 @@ func (d *Dispatcher) calcStats() NodeStats {
 	return s
 }
 
-func clearMapValues(m map[NodeId]float64) map[NodeId]float64 {
-	mNew := make(map[NodeId]float64)
-	for id := range m {
-		mNew[id] = 0.0
-	}
-	return mNew
-}
-
 func clearMapValuesPhyStats(m map[NodeId]PhyStats) map[NodeId]PhyStats {
 	mNew := make(map[NodeId]PhyStats)
 	for id := range m {
 		mNew[id] = PhyStats{}
 	}
 	return mNew
-}
-
-func calcTxRateStats(winWidthUs uint64, statsStart, statsEnd map[NodeId]PhyStats) map[NodeId]float64 {
-	res := make(map[NodeId]float64)
-	for id, st2 := range statsEnd {
-		txBytesStart := uint64(0)
-		if st1, ok := statsStart[id]; ok {
-			txBytesStart = st1.TxBytes
-		}
-		txBytesEnd := st2.TxBytes
-		rateKbps := 1.0e3 * 8.0 * float64(txBytesEnd-txBytesStart) / float64(winWidthUs)
-		res[id] = rateKbps
-	}
-	return res
 }
 
 func calcPhyStatsDiff(statsStart, statsEnd map[NodeId]PhyStats) map[NodeId]PhyStats {
