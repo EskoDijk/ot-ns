@@ -307,6 +307,7 @@ func createSimulation(simId int, ctx *progctx.ProgCtx) (*simulation.Simulation, 
 		return nil, err
 	}
 	dispatcherCfg.DefaultWatchOn = watchLevel != logger.OffLevel
+	dispatcherCfg.PhyTxStats = args.PhyTxStats
 
 	sim, err := simulation.NewSimulation(ctx, simcfg, dispatcherCfg)
 	return sim, err

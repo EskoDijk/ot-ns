@@ -908,7 +908,8 @@ class BasicTests(OTNSTestCase):
             ns.go(10)
             ns.kpi_save()
 
-        self.assertTrue(os.path.isfile('tmp/0_txrate.csv'))
+        self.assertTrue(os.path.isfile('tmp/0_txbytes.csv'))
+        self.assertTrue(os.path.isfile('tmp/0_chansamples.csv'))
 
 
 if __name__ == '__main__':
