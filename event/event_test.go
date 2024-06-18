@@ -236,7 +236,7 @@ func TestDeserializeRfSimRspEvent(t *testing.T) {
 }
 
 func TestDeserializeMsgToHostEvents(t *testing.T) {
-	data, _ := hex.DecodeString("00000000000000001304000000000000002900efbe3316fe800000000000000000000000001234fe80000000000000000000000000beef0102030405")
+	data, _ := hex.DecodeString("00000000000000001404000000000000002900efbe3316fe800000000000000000000000001234fe80000000000000000000000000beef0102030405")
 	testIp6Addr, _ := hex.DecodeString("fe800000000000000000000000001234")
 	testIp6Addr2, _ := hex.DecodeString("fe80000000000000000000000000beef")
 	var ev Event
@@ -262,7 +262,7 @@ func TestDeserializeMsgToHostEvents(t *testing.T) {
 }
 
 func TestSerializeMsgToHostEvents(t *testing.T) {
-	dataExpected, _ := hex.DecodeString("00000000000000001604000000000000002900efbe3316fe800000000000000000000000001234fe80abcd00000000000000000000abcd0102030405")
+	dataExpected, _ := hex.DecodeString("00000000000000001704000000000000002900efbe3316fe800000000000000000000000001234fe80abcd00000000000000000000abcd0102030405")
 	evData := MsgToHostEventData{
 		SrcPort:       48879,
 		DstPort:       5683,
