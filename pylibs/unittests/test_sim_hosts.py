@@ -135,6 +135,9 @@ class SimHostsTests(OTNSTestCase):
         self.assertEqual(1+1, len(hosts_list))
         self.assertEqual("12       19", hosts_list[1][-11:])  # number of Rx bytes == 11, Tx == 19
 
+        ctr = ns.counters()
+        self.assertEqual(2, ctr['HostEvents'])
+
         c = ns.coaps()
         self.assertEqual(1, len(c))
         self.assertEqual("fc00:0:0:0:0:0:0:5678", c[0]['dst_addr'])

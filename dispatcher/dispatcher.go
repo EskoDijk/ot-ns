@@ -88,6 +88,7 @@ type Dispatcher struct {
 		StatusPushEvents uint64
 		UartWriteEvents  uint64
 		LogWriteEvents   uint64
+		HostEvents       uint64
 		OtherEvents      uint64
 		// Packet-related event dispatching counters
 		DispatchByExtAddrSucc   uint64
@@ -436,12 +437,12 @@ func (d *Dispatcher) handleRecvEvent(evt *Event) {
 		d.alarmMgr.SetTimestamp(node.Id, Ever)
 	case EventTypeUdpToHost,
 		EventTypeIp6ToHost:
-		d.Counters.OtherEvents += 1 // TODO - counter for host or AIL events?
+		d.Counters.HostEvents += 1 // TODO - counter for host or AIL events?
 		d.sendMsgToHost(node, evt)
 		d.cbHandler.OnMsgToHost(node.Id, evt)
 	case EventTypeUdpFromHost,
 		EventTypeIp6FromHost:
-		d.Counters.OtherEvents += 1
+		d.Counters.HostEvents += 1
 		evt.MustDispatch = true // asap resend again to the target (BR) node.
 		d.eventQueue.Add(evt)
 	default:
