@@ -437,7 +437,7 @@ func (d *Dispatcher) handleRecvEvent(evt *Event) {
 		d.alarmMgr.SetTimestamp(node.Id, Ever)
 	case EventTypeUdpToHost,
 		EventTypeIp6ToHost:
-		d.Counters.HostEvents += 1 // TODO - counter for host or AIL events?
+		d.Counters.HostEvents += 1
 		d.sendMsgToHost(node, evt)
 		d.cbHandler.OnMsgToHost(node.Id, evt)
 	case EventTypeUdpFromHost,
