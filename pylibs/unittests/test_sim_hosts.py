@@ -138,10 +138,15 @@ class SimHostsTests(OTNSTestCase):
         ctr = ns.counters()
         self.assertEqual(2, ctr['HostEvents'])
 
-        c = ns.coaps()
-        self.assertEqual(1, len(c))
-        self.assertEqual("fc00:0:0:0:0:0:0:5678", c[0]['dst_addr'])
-        self.assertEqual(5683, c[0]['dst_port'])
+        cnt=0
+        coap_msgs = ns.coaps()
+        for c in coap_msgs:
+            if c['dst_port'] == 5683:
+                self.assertEqual("fc00:0:0:0:0:0:0:5678", c['dst_addr'])
+                self.assertEqual("hello", c['uri'])
+                cnt+=1
+
+        self.assertEqual(1, cnt)
 
         await ctx.shutdown()
 
