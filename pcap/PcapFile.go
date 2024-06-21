@@ -1,4 +1,4 @@
-// Copyright (c) 2020-2023, The OTNS Authors.
+// Copyright (c) 2020-2024, The OTNS Authors.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -31,8 +31,8 @@ import (
 	"fmt"
 	"os"
 
-	. "github.com/openthread/ot-ns/types"
 	"github.com/openthread/ot-ns/logger"
+	. "github.com/openthread/ot-ns/types"
 )
 
 type FrameType int
