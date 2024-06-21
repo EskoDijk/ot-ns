@@ -32,6 +32,7 @@ import (
 	"os"
 
 	. "github.com/openthread/ot-ns/types"
+	"github.com/openthread/ot-ns/logger"
 )
 
 type FrameType int
@@ -58,6 +59,11 @@ const (
 	pcapFrameHeaderSize = 16
 )
 
+const (
+	// 802.15.4 frame that uses a Reserved type and is only included as t=0 simulation time reference for the PCAP file.
+	timeReference802154frameData string = "\x04\x21This is an OTNS simulation PCAP-start t=0 reference frame.\x61\x3f"
+)
+
 // File represents a PCAP file
 type File interface {
 	AppendFrame(frame Frame) error
@@ -79,14 +85,28 @@ type wpanFile struct {
 
 // NewFile creates a new PCAP file with all frames using specified frameType
 func NewFile(filename string, frameType FrameType) (File, error) {
+	var f File
+	var err error
+
 	switch frameType {
 	case FrameTypeWpan:
-		return newWpanFile(filename)
+		f, err = newWpanFile(filename)
 	case FrameTypeWpanTap:
-		return newWpanTapFile(filename)
+		f, err = newWpanTapFile(filename)
 	default:
-		return nil, fmt.Errorf("invalid PCAP frame type: %d", frameType)
+		f, err = nil, fmt.Errorf("invalid PCAP frame type: %d", frameType)
 	}
+
+	if err == nil && f != nil {
+		logger.PanicfIfError(f.AppendFrame(Frame{
+			Timestamp: 0,
+			Data:      []byte(timeReference802154frameData),
+			Channel:   0,
+			Rssi:      0,
+		}), "PCAP file time-reference 0 frame could not be written")
+	}
+
+	return f, err
 }
 
 func ParseFrameTypeStr(tp string) FrameType {
