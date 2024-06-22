@@ -66,7 +66,7 @@ class SimHostsTests(OTNSTestCase):
         n2=ns.add('router')
         ns.go(10)
 
-        # n2 sends a coap message to AIL, to test AIL connectivity
+        # n2 sends a coap message to AIL, to test AIL connectivity. A response isn't sent back.
         ns.node_cmd(n2, "coap start")
         ns.node_cmd(n2, "coap get fc00::1234 info")  # dest addr must match an external route of the BR
         self.go(10)
@@ -101,12 +101,19 @@ class SimHostsTests(OTNSTestCase):
 
         hosts_list = ns.cmd('host list')
         self.assertEqual(1+1, len(hosts_list))
-        self.assertEqual("12       19", hosts_list[1][-11:])  # number of Rx bytes == 11, Tx == 19
+        # TxBytes is number of bytes sent by aiocoap server for the single CoAP response message.
+        self.assertEqual("12       19", hosts_list[1][-11:])  # number of RxBytes == 11, TxBytes == 19
 
-        c = ns.coaps()
-        self.assertEqual(1, len(c))
-        self.assertEqual("fc00:0:0:0:0:0:0:1234", c[0]['dst_addr'])
-        self.assertEqual(5683, c[0]['dst_port'])
+        # check that the 'coaps' status-push event was also seen.
+        cnt=0
+        coap_msgs = ns.coaps()
+        for c in coap_msgs:
+            if c['dst_port'] == 5683:
+                self.assertEqual("fc00:0:0:0:0:0:0:1234", c['dst_addr'])
+                self.assertEqual("hello", c['uri'])
+                cnt+=1
+
+        self.assertEqual(1, cnt)
 
         await ctx.shutdown()
 
