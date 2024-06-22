@@ -84,7 +84,7 @@ type wpanFile struct {
 }
 
 // NewFile creates a new PCAP file with all frames using specified frameType
-func NewFile(filename string, frameType FrameType) (File, error) {
+func NewFile(filename string, frameType FrameType, useTimeRefFrame bool) (File, error) {
 	var f File
 	var err error
 
@@ -97,7 +97,7 @@ func NewFile(filename string, frameType FrameType) (File, error) {
 		f, err = nil, fmt.Errorf("invalid PCAP frame type: %d", frameType)
 	}
 
-	if err == nil && f != nil {
+	if useTimeRefFrame && err == nil && f != nil {
 		logger.PanicfIfError(f.AppendFrame(Frame{
 			Timestamp: 0,
 			Data:      []byte(timeReference802154frameData),
