@@ -173,7 +173,7 @@ func NewDispatcher(ctx *progctx.ProgCtx, cfg *Config, cbHandler CallbackHandler)
 	}
 	d.speed = d.normalizeSpeed(d.speed)
 	if d.cfg.PcapEnabled {
-		d.pcap, err = pcap.NewFile("current.pcap", cfg.PcapFrameType)
+		d.pcap, err = pcap.NewFile("current.pcap", cfg.PcapFrameType, true)
 		logger.PanicIfError(err)
 		d.waitGroup.Add(1)
 		go d.pcapFrameWriter()
