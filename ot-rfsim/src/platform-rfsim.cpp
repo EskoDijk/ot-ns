@@ -37,7 +37,7 @@
 #include "net/ip6.hpp"
 #include "net/ip6_address.hpp"
 
-extern "C" otError platformParseIp6( otMessage *aMessage, otMessageInfo *ip6Info);
+extern "C" otError platformParseIp6( otMessage *aMessage, otMessageInfo *aIp6Info);
 extern "C" void validateOtMsg( otMessage *aMessage);
 
 #include "platform-rfsim.h"
@@ -45,26 +45,19 @@ extern "C" void validateOtMsg( otMessage *aMessage);
 
 using namespace ot;
 
-otError platformParseIp6( otMessage *aMessage, otMessageInfo *ip6Info) {
+otError platformParseIp6( otMessage *aMessage, otMessageInfo *aIp6Info) {
     Ip6::Headers headers;
-    otError error = OT_ERROR_PARSE;
+    otError error;
     Message msg = AsCoreType(aMessage);
 
     SuccessOrExit(error = headers.ParseFrom(msg));
-    ip6Info->mSockAddr = headers.GetSourceAddress();
-    ip6Info->mPeerAddr = headers.GetDestinationAddress();
-    ip6Info->mSockPort = headers.GetSourcePort();
-    ip6Info->mPeerPort = headers.GetDestinationPort();
+    aIp6Info->mSockAddr = headers.GetSourceAddress();
+    aIp6Info->mPeerAddr = headers.GetDestinationAddress();
+    aIp6Info->mSockPort = headers.GetSourcePort();
+    aIp6Info->mPeerPort = headers.GetDestinationPort();
 
 exit:
     return error;
-}
-
-// FIXME delete
-void validateOtMsg( otMessage *aMessage) {
-    Message msg = AsCoreType(aMessage);
-    msg.RemoveHeader(msg.GetOffset());
-    //OT_ASSERT(msg.GetOffset() == 0);
 }
 
 #endif // OPENTHREAD_CONFIG_BORDER_ROUTING_ENABLE

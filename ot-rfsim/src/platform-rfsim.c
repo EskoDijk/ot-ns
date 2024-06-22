@@ -56,8 +56,9 @@
 
 extern int gSockFd;
 
-uint64_t            gLastMsgId = 0;
-struct Event        gLastRecvEvent;
+uint64_t     gLastMsgId = 0;
+struct Event gLastRecvEvent;
+
 static otIp6Address unspecifiedIp6Address;
 
 void platformRfsimInit(void) {
@@ -193,76 +194,48 @@ void otPlatOtnsStatus(const char *aStatus)
 }
 
 #if OPENTHREAD_CONFIG_BORDER_ROUTING_ENABLE && OPENTHREAD_CONFIG_UDP_FORWARD_ENABLE
-// TODO change params to start with 'a'
-otError platformIp6FromHostToNode(otInstance *aInstance, const struct MsgToHostEventData *evData, const uint8_t *msg, size_t msgLen) {
+otError platformIp6FromHostToNode(otInstance *aInstance, const struct MsgToHostEventData *aEvData, const uint8_t *aMsg, size_t aMsgLen) {
     otMessage *ip6;
     otError   error = OT_ERROR_NONE;
     otIp6Address *dstIp6;
     otIp6Address *srcIp6;
 
-    ip6 = otIp6NewMessageFromBuffer(aInstance, msg, msgLen, NULL);
+    ip6 = otIp6NewMessageFromBuffer(aInstance, aMsg, aMsgLen, NULL);
     otEXPECT_ACTION(ip6 != NULL, error = OT_ERROR_NO_BUFS);
+    srcIp6 = (otIp6Address *) aEvData->mSrcIp6;
+    dstIp6 = (otIp6Address *) aEvData->mDstIp6;
 
-    srcIp6 = (otIp6Address *) evData->mSrcIp6;
-    dstIp6 = (otIp6Address *) evData->mDstIp6;
-    otLogDebgPlat("FIXME step 1");
     if(otIp6IsAddressUnspecified(dstIp6)) {
-        otLogDebgPlat("FIXME step 2");
-        validateOtMsg(ip6);
-        otLogDebgPlat("FIXME validateOtMsg passed");
+        // local: message is from host to node itself.
+        //otMessage *testMsg; // test message for future CCM/relay testing.
+        //testMsg = otCoapNewMessage(aInstance, NULL);
+        //otCoapMessageInit(testMsg, OT_COAP_TYPE_CONFIRMABLE, OT_COAP_CODE_POST);
+        //uint8_t magic[2] = {0xed, 0xda};
+        //otEXPECT( error = otCoapMessageSetToken(testMsg, magic, 2) == OT_ERROR_NONE);
+        //otUdpForwardReceive(aInstance, testMsg, aEvData->mSrcPort, srcIp6, aEvData->mDstPort);
 
-        otMessage *testMsg;
-        otLogDebgPlat("FIXME step 3");
-        testMsg = otCoapNewMessage(aInstance, NULL);
-        otLogDebgPlat("FIXME step 4");
-        otLogDebgPlat("FIXME step 5");
-        validateOtMsg(testMsg);
-
-        otCoapMessageInit(testMsg, OT_COAP_TYPE_CONFIRMABLE, OT_COAP_CODE_POST);
-        otLogDebgPlat("FIXME step 6");
-        uint8_t magic[2] = {0xed, 0xda};
-        otEXPECT( error = otCoapMessageSetToken(testMsg, magic, 2) == OT_ERROR_NONE);
-
-        otUdpForwardReceive(aInstance, testMsg, evData->mSrcPort, srcIp6, evData->mDstPort);
-        otLogDebgPlat("FIXME step 7");
-
-        validateOtMsg(ip6);
-        otLogDebgPlat("FIXME step 8");
-
-        otUdpForwardReceive(aInstance, ip6, evData->mSrcPort, srcIp6, evData->mDstPort);
+        otUdpForwardReceive(aInstance, ip6, aEvData->mSrcPort, srcIp6, aEvData->mDstPort);
     }else {
-        // non-local: send as IPv6 datagram
+        // non-local: send as IPv6 datagram to (potentially) other node.
         error = otIp6Send(aInstance, ip6);
     }
 exit:
     return error;
 }
 
-// TODO change params to start with 'a'
-otError platformUdpFromHostToNode(otInstance *aInstance, const struct MsgToHostEventData *evData, const uint8_t *msg, size_t msgLen) {
+otError platformUdpFromHostToNode(otInstance *aInstance, const struct MsgToHostEventData *aEvData, const uint8_t *aMsg, size_t aMsgLen) {
     otMessage *udp;
-    otError   error = OT_ERROR_NONE;
-    otIp6Address *dstIp6;
+    otError   error;
+    //otIp6Address *dstIp6;
     otIp6Address *srcIp6;
 
-    otLogDebgPlat("FIXME step 1a");
     udp = otUdpNewMessage(aInstance, NULL);
-    otLogDebgPlat("FIXME step 2a");
-    otEXPECT((error = otMessageAppend(udp, msg, msgLen)) == OT_ERROR_NONE);
-    otLogDebgPlat("FIXME step 3a");
+    otEXPECT((error = otMessageAppend(udp, aMsg, aMsgLen)) == OT_ERROR_NONE);
     otEXPECT_ACTION(udp != NULL, error = OT_ERROR_NO_BUFS);
-    otLogDebgPlat("FIXME step 4a");
 
-    srcIp6 = (otIp6Address *) evData->mSrcIp6;
-    dstIp6 = (otIp6Address *) evData->mDstIp6;
-    otLogDebgPlat("FIXME step 5a");
-
-    otLogDebgPlat("FIXME step 6a");
-    validateOtMsg(udp);
-    otLogDebgPlat("FIXME validateOtMsg passed 7a");
-
-    otUdpForwardReceive(aInstance, udp, evData->mSrcPort, srcIp6, evData->mDstPort);
-    otLogDebgPlat("FIXME step 8a");
+    srcIp6 = (otIp6Address *) aEvData->mSrcIp6;
+    //dstIp6 = (otIp6Address *) aEvData->mDstIp6;
+    otUdpForwardReceive(aInstance, udp, aEvData->mSrcPort, srcIp6, aEvData->mDstPort);
 
 exit:
     return error;
@@ -292,18 +265,18 @@ void handleUdpForwarding(otMessage *aMessage,
 }
 
 // utility function to check IPv6 address for fe80::/10 or ffx2::/16 prefix -> link-local.
-static bool isLinkLocal(otIp6Address *addr)
+static bool isLinkLocal(otIp6Address *aAddr)
 {
-    return (addr->mFields.m8[0] == 0xfe && (addr->mFields.m8[1] & 0b11000000) == 0x80)
-           || (addr->mFields.m8[0] == 0xff && (addr->mFields.m8[1] & 0b00001111) == 0x02);
+    return (aAddr->mFields.m8[0] == 0xfe && (aAddr->mFields.m8[1] & 0b11000000) == 0x80)
+           || (aAddr->mFields.m8[0] == 0xff && (aAddr->mFields.m8[1] & 0b00001111) == 0x02);
 }
 
 // utility function that returns IPv6 address' multicast scope 0x0-0xf or 0xff for parse-error.
-static uint8_t ip6McastScope(otIp6Address  *addr)
+static uint8_t ip6McastScope(otIp6Address *aAddr)
 {
-    if (addr->mFields.m8[0] != 0xff)
+    if (aAddr->mFields.m8[0] != 0xff)
         return 0xff;
-    return addr->mFields.m8[0] & 0x0f;
+    return aAddr->mFields.m8[0] & 0x0f;
 }
 
 void handleIp6FromNodeToHost(otMessage *aMessage, void *aContext)
@@ -312,10 +285,10 @@ void handleIp6FromNodeToHost(otMessage *aMessage, void *aContext)
 
     struct MsgToHostEventData evData;
     uint8_t buf[OPENTHREAD_CONFIG_IP6_MAX_DATAGRAM_LENGTH];
-    const uint8_t dstAddrZero[OT_IP6_ADDRESS_SIZE] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+    //const uint8_t dstAddrZero[OT_IP6_ADDRESS_SIZE] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
     size_t msgLen;
     otMessageInfo ip6Info;
-    otError error = OT_ERROR_NONE;
+    otError error;
 
     msgLen = otMessageGetLength(aMessage);
     OT_ASSERT(msgLen <= sizeof(buf));
@@ -328,7 +301,7 @@ void handleIp6FromNodeToHost(otMessage *aMessage, void *aContext)
     otEXPECT(otMessageIsLoopbackToHostAllowed(aMessage) &&
              ip6Info.mSockPort > 0 &&
              ip6Info.mPeerPort > 0 &&
-             ip6Info.mPeerPort != 61631 &&  // drop mesh-local TMF messages
+             ip6Info.mPeerPort != 61631 &&  // drop mesh-local TMF messages (TODO constant)
              !isLinkLocal(&ip6Info.mPeerAddr) &&
              !isLinkLocal(&ip6Info.mSockAddr) &&
              ip6McastScope(&ip6Info.mPeerAddr) >= 0x4);

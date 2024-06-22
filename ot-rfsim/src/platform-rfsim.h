@@ -132,10 +132,10 @@ void platformAlarmAdvanceNow(uint64_t aDelta);
 /**
  * set the clock drift for the node's simulated clock.
  *
- * @param drift  actual clock drift in PPM - can be positive (=too fast), negative (=too slow),
+ * @param aDrift  actual clock drift in PPM - can be positive (=too fast), negative (=too slow),
  *               or zero (=perfect clock).
  */
-void platformAlarmSetClockDrift(int16_t drift);
+void platformAlarmSetClockDrift(int16_t aDrift);
 
 /**
  * get the clock drift for the node's simulated clock.
@@ -232,16 +232,24 @@ void platformRadioReportStateToSimulator(bool force);
 /**
  * performs the processing of an IPv6 packet that was sent from the (higher-layer) host to the OT node.
  *
- * @param aInstance
- * @param evData
- * @param msg
- * @param msgLen
+ * @param aInstance TODO
+ * @param aEvData
+ * @param aMsg
+ * @param aMsgLen
  * @return
  */
-otError platformIp6FromHostToNode(otInstance *aInstance, const struct MsgToHostEventData *evData, const uint8_t *msg, size_t msgLen);
+otError platformIp6FromHostToNode(otInstance *aInstance, const struct MsgToHostEventData *aEvData, const uint8_t *aMsg, size_t aMsgLen);
 
-// FIXME
-otError platformUdpFromHostToNode(otInstance *aInstance, const struct MsgToHostEventData *evData, const uint8_t *msg, size_t msgLen);
+/**
+ * performs the processing of a UDP datagram that was sent from the (higher-layer) host to the OT node.
+ *
+ * @param aInstance
+ * @param aEvData
+ * @param aMsg
+ * @param aMsgLen
+ * @return
+ */
+otError platformUdpFromHostToNode(otInstance *aInstance, const struct MsgToHostEventData *aEvData, const uint8_t *aMsg, size_t aMsgLen);
 
 /**
  * parses aMessage as an IPv6 packet, writing the packet-info into ip6Info.
@@ -252,7 +260,7 @@ otError platformUdpFromHostToNode(otInstance *aInstance, const struct MsgToHostE
  * @retval  OT_ERROR_NONE   Successfully parsed the message as IPv6 packet.
  * @retval  OT_ERROR_PARSE  Failed to parse the message as IPv6 packet.
  */
-otError platformParseIp6(otMessage *aMessage,  otMessageInfo *ip6Info);
+otError platformParseIp6(otMessage *aMessage,  otMessageInfo *aIp6Info);
 
 /**
  * handler called when OT performs UDP-forwarding to the host. This is for UDP datagrams that
@@ -269,9 +277,6 @@ void handleUdpForwarding(otMessage *aMessage,
                          otIp6Address *aPeerAddr,
                          uint16_t aSockPort,
                          void *aContext);
-
-// FIXME
-void validateOtMsg( otMessage *aMessage);
 
 /**
  * Setup any simulated non-Thread interfaces. For example, an interface to a host process or
