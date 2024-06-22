@@ -221,7 +221,7 @@ otError platformIp6FromHostToNode(otInstance *aInstance, const struct MsgToHostE
         otCoapMessageInit(testMsg, OT_COAP_TYPE_CONFIRMABLE, OT_COAP_CODE_POST);
         otLogDebgPlat("FIXME step 6");
         uint8_t magic[2] = {0xed, 0xda};
-        otCoapMessageSetToken(testMsg, magic, 2);
+        otEXPECT( error = otCoapMessageSetToken(testMsg, magic, 2) == OT_ERROR_NONE);
 
         otUdpForwardReceive(aInstance, testMsg, evData->mSrcPort, srcIp6, evData->mDstPort);
         otLogDebgPlat("FIXME step 7");
