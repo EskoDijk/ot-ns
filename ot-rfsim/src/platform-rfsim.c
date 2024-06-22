@@ -47,6 +47,7 @@
 #include <openthread/logging.h>
 
 #include "common/debug.hpp"
+#include "common/logging.hpp"
 #include "utils/code_utils.h"
 #include "utils/uart.h"
 
