@@ -37,7 +37,7 @@ tracemalloc.start()
 class CommissioningTests(OTNSTestCase):
 
     def setUp(self) -> None:
-        self.ns = OTNS(otns_args=['-ot-script', 'none', '-log', 'debug', '-pcap', 'wpan-tap'])
+        self.ns = OTNS(otns_args=['-ot-script', 'none', '-log', 'debug', '-pcap', 'wpan-tap', '-seed', '23'])
         self.ns.speed = float('inf')
 
     def setFirstNodeDataset(self, n1) -> None:
@@ -49,7 +49,7 @@ class CommissioningTests(OTNSTestCase):
         ns = self.ns
         ns.add("router")
         ns.add("router")
-        self.go(10)
+        self.go(250)
         # can not form any partition without setting network parameters
         self.assertTrue(0 in ns.partitions())
 
@@ -60,25 +60,18 @@ class CommissioningTests(OTNSTestCase):
         n3 = ns.add("router")
 
         # n1 with full dataset becomes Leader.
-        ns.node_cmd(n1, "dataset init new")
-        ns.node_cmd(n1, "dataset panid 0xface")
-        ns.node_cmd(n1, "dataset extpanid dead00beef00cafe")
-        ns.node_cmd(n1, "dataset networkkey 00112233445566778899aabbccddeeff")
-        ns.node_cmd(n1, "dataset networkname test")
-        ns.node_cmd(n1, "dataset channel 15")
-        ns.node_cmd(n1, "dataset commit active")
+        ns.config_dataset(n1, channel=21, panid=0xface, extpanid="dead00beef00cafe", networkkey="00112233445566778899aabbccddeeff",
+                          active_timestamp=1719172243, network_name="test", set_remaining=True)
         ns.ifconfig_up(n1)
         ns.thread_start(n1)
 
-        # n2, n3 with partial dataset - if channel not given - will scan channels to find n1.
-        # This can take some time and may fail even then (FIXME: find cause).
-        # To prevent this failure, channel is provided here.
+        # n2, n3 with partial dataset - will wait for Leader to join to.
         for id in (n2, n3):
-            ns.config_dataset(id, channel=15, panid=0xface, extpanid="dead00beef00cafe", network_name="test", networkkey="00112233445566778899aabbccddeeff")
+            ns.config_dataset(id, network_name="test", networkkey="00112233445566778899aabbccddeeff", set_remaining=False)
             ns.ifconfig_up(id)
             ns.thread_start(id)
 
-        self.go(300)
+        self.go(350)
         self.assertFormPartitions(1)
 
     def testCommissioningOneHop(self):
@@ -92,6 +85,7 @@ class CommissioningTests(OTNSTestCase):
         ns.thread_start(n1)
         self.go(35)
         self.assertTrue(ns.get_state(n1) == "leader")
+
         ns.commissioner_start(n1)
         ns.commissioner_joiner_add(n1, "*", "TEST123")
 
@@ -126,19 +120,19 @@ class CommissioningTests(OTNSTestCase):
 
         ns.ifconfig_up(n2)
         ns.joiner_start(n2, "TEST123")
-        self.go(20)
+        self.go(40)
         ns.thread_start(n2)
 
         ns.ifconfig_up(n3)
         ns.joiner_start(n3, "TEST123")
-        self.go(20)
+        self.go(40)
         ns.thread_start(n3)
-        self.go(20)
 
         ns.ifconfig_up(n4)
         ns.joiner_start(n4, "TEST123")
         self.go(100)
         ns.thread_start(n4)
+
         self.go(100)
         c = ns.counters()
         print('counters', c)
