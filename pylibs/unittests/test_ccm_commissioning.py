@@ -50,7 +50,7 @@ class CommissioningTests(OTNSTestCase):
 
     def testCommissioningOneHop(self):
         ns = self.ns
-        # ns.web()
+        ns.web()
         ns.coaps_enable()
         ns.radiomodel = 'MIDisc' # enforce strict line topologies for testing
 
@@ -62,11 +62,11 @@ class CommissioningTests(OTNSTestCase):
         # TODO update IPv6 addr
         ns.cmd('host add "masa.example.com" "910b::1234" 5683 5683')
 
-        # n1 is out-of-band configured with initial dataset, and becomes leader+ccm-commissioner
+        # n1 is a BR out-of-band configured with initial dataset, and becomes leader+ccm-commissioner
         self.setFirstNodeDataset(n1)
         ns.ifconfig_up(n1)
         ns.thread_start(n1)
-        self.go(35)
+        self.go(15)
         self.assertTrue(ns.get_state(n1) == "leader")
         ns.commissioner_start(n1)
 
@@ -81,18 +81,20 @@ class CommissioningTests(OTNSTestCase):
         print('counters', c)
         joins = ns.joins()
         print('joins', joins)
-        self.assertFormPartitionsIgnoreOrphans(1)
+        self.assertFormPartitionsIgnoreOrphans(1) # ignore orphan n3
         self.assertTrue(joins and joins[0][1] > 0)  # assert join success
 
-        # n3 joins as CCM  joiner
-        # because CoAP server is real, let simulation also move in real time.
+        # n3 joins as CCM joiner
+        # because CoAP server is real, let simulation also move in near real time speed.
         ns.speed = 5
         ns.commissioner_ccm_joiner_add(n1, "*")
         ns.ifconfig_up(n3)
         ns.ccm_joiner_start(n3)
-        self.go(10)
-        #ns.thread_start(n3)
-        #self.go(100)
+        self.go(20)
+        ns.thread_start(n3)
+        self.go(100)
+
+        ns.node_cmd(n3, 'dataset active')
 
         c = ns.counters()
         print('counters', c)
