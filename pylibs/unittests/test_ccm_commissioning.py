@@ -35,18 +35,56 @@ from otns.cli import OTNS
 tracemalloc.start()
 
 
-class CommissioningTests(OTNSTestCase):
+class CcmTests(OTNSTestCase):
 
     def setUp(self) -> None:
         logging.info("Setting up for test: %s", self.name())
-        self.ns = OTNS(otns_args=['-ot-script', 'none', '-log', 'debug'])
-        self.ns.speed = float('inf')
+        self.ns = OTNS(otns_args=['-ot-script', 'none', '-log', 'debug', '-pcap', 'wpan-tap', '-seed', '4'])
+        self.ns.speed = 1e6
 
     def setFirstNodeDataset(self, n1) -> None:
         self.ns.node_cmd(n1, "dataset init new")
+        self.ns.node_cmd(n1, "dataset channel 22")
+        self.ns.node_cmd(n1, "dataset meshlocalprefix fd00:777e::")
         self.ns.node_cmd(n1, "dataset networkkey 00112233445566778899aabbccddeeff") # allow easy Wireshark dissecting
         self.ns.node_cmd(n1, "dataset securitypolicy 672 orcCR 3") # enable CCM-commissioning flag in secpolicy
         self.ns.node_cmd(n1, "dataset commit active")
+
+    def testCommissioningOneCcmNode(self):
+        ns = self.ns
+        ns.web()
+        ns.coaps_enable()
+        ns.radiomodel = 'MIDisc' # enforce strict line topologies for testing
+
+        n1 = ns.add("br", x = 100, y = 100, radio_range = 120)
+        n2 = ns.add("router", x = 100, y = 200, radio_range = 120)
+
+        # configure sim-host server that acts as BRSKI Registrar
+        # TODO update IPv6 addr
+        ns.cmd('host add "masa.example.com" "910b::1234" 5683 5683')
+
+        # n1 is a BR out-of-band configured with initial dataset, and becomes leader+ccm-commissioner
+        self.setFirstNodeDataset(n1)
+        ns.ifconfig_up(n1)
+        ns.thread_start(n1)
+        ns.go(15)
+        self.assertTrue(ns.get_state(n1) == "leader")
+        ns.commissioner_start(n1)
+        ns.go(5)
+        ns.coaps() # see emitted CoAP events
+
+        # n2 joins as CCM joiner
+        # because CoAP server is real, let simulation also move in near real time speed.
+        ns.speed = 5
+        ns.commissioner_ccm_joiner_add(n1, "*")
+        ns.ifconfig_up(n2)
+        ns.ccm_joiner_start(n2)
+        ns.go(20)
+        ns.coaps() # see emitted CoAP events
+        ns.cmd('host list')
+        ns.go(20)
+
+        #ns.interactive_cli()
 
     def testCommissioningOneHop(self):
         ns = self.ns
