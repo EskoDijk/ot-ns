@@ -25,22 +25,24 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-import tracemalloc
-import unittest
 import logging
+import subprocess
+import unittest
 
 from OTNSTestCase import OTNSTestCase
 from otns.cli import OTNS
-
-tracemalloc.start()
 
 
 class CcmTests(OTNSTestCase):
 
     def setUp(self) -> None:
         logging.info("Setting up for test: %s", self.name())
-        self.ns = OTNS(otns_args=['-ot-script', 'none', '-log', 'debug', '-pcap', 'wpan-tap', '-seed', '4'])
+        self.ns = OTNS(otns_args=['-log', 'debug', '-pcap', 'wpan-tap', '-seed', '4'])
         self.ns.speed = 1e6
+
+    def tearDown(self) -> None:
+        self.stopRegistrar()
+        super().tearDown()
 
     def setFirstNodeDataset(self, n1) -> None:
         self.ns.node_cmd(n1, "dataset init new")
@@ -50,18 +52,47 @@ class CcmTests(OTNSTestCase):
         self.ns.node_cmd(n1, "dataset securitypolicy 672 orcCR 3") # enable CCM-commissioning flag in secpolicy
         self.ns.node_cmd(n1, "dataset commit active")
 
+    def startRegistrar(self):
+        self.registrar_process = subprocess.Popen(['java', '-jar', './etc/ot-registrar/ot-registrar-0.2-jar-with-dependencies.jar', \
+                                                 '-registrar', '-f', './etc/ot-registrar/credentials_registrar.p12'], \
+                                                  stdout = subprocess.PIPE, stderr = subprocess.PIPE)
+        self.assertIsNone(self.registrar_process.returncode)
+
+    def stopRegistrar(self):
+        if self.registrar_process is None:
+            return
+        logging.debug("stopping OT Registrar")
+        self.registrar_process.terminate()
+        out, err = self.registrar_process.communicate()
+        f = open('tmp/ot-registrar.log', 'wb') # , encoding='utf-8' if 'wt'
+        f.write(out)
+        f.close()
+        self.registrar_process = None
+
+    def testAddCcmNodesMixedWithRegular(self):
+        ns = self.ns
+
+        n1 = ns.add("br", version="ccm")
+        n2 = ns.add("router", version="ccm")
+        n2 = ns.add("router", version="ccm")
+        n2 = ns.add("router")
+
+        ns.go(30)
+        self.assertFormPartitions(1)
+
     def testCommissioningOneCcmNode(self):
         ns = self.ns
+        self.startRegistrar()
         ns.web()
         ns.coaps_enable()
         ns.radiomodel = 'MIDisc' # enforce strict line topologies for testing
 
-        n1 = ns.add("br", x = 100, y = 100, radio_range = 120, version="ccm")
-        n2 = ns.add("router", x = 100, y = 200, radio_range = 120, version="ccm")
+        n1 = ns.add("br", x = 100, y = 100, radio_range = 120, version="ccm", script="")
+        n2 = ns.add("router", x = 100, y = 200, radio_range = 120, version="ccm", script="")
 
         # configure sim-host server that acts as BRSKI Registrar
         # TODO update IPv6 addr
-        ns.cmd('host add "masa.example.com" "910b::1234" 5683 5683')
+        ns.cmd('host add "masa.example.com" "910b::1234" 5684 5684')
 
         # n1 is a BR out-of-band configured with initial dataset, and becomes leader+ccm-commissioner
         self.setFirstNodeDataset(n1)
@@ -75,7 +106,7 @@ class CcmTests(OTNSTestCase):
 
         # n2 joins as CCM joiner
         # because CoAP server is real, let simulation also move in near real time speed.
-        ns.speed = 5
+        ns.speed = 50
         ns.commissioner_ccm_joiner_add(n1, "*")
         ns.ifconfig_up(n2)
         ns.ccm_joiner_start(n2)
@@ -92,9 +123,9 @@ class CcmTests(OTNSTestCase):
         ns.coaps_enable()
         ns.radiomodel = 'MIDisc' # enforce strict line topologies for testing
 
-        n1 = ns.add("br", x = 100, y = 100, radio_range = 120)
-        n2 = ns.add("router", x = 100, y = 200, radio_range = 120)
-        n3 = ns.add("router", x = 200, y = 100, radio_range = 120)
+        n1 = ns.add("br", x = 100, y = 100, radio_range = 120, script="")
+        n2 = ns.add("router", x = 100, y = 200, radio_range = 120, script="")
+        n3 = ns.add("router", x = 200, y = 100, radio_range = 120, script="")
 
         # configure sim-host server that acts as BRSKI Registrar
         # TODO update IPv6 addr
