@@ -56,8 +56,8 @@ class CcmTests(OTNSTestCase):
         ns.coaps_enable()
         ns.radiomodel = 'MIDisc' # enforce strict line topologies for testing
 
-        n1 = ns.add("br", x = 100, y = 100, radio_range = 120)
-        n2 = ns.add("router", x = 100, y = 200, radio_range = 120)
+        n1 = ns.add("br", x = 100, y = 100, radio_range = 120, version="ccm")
+        n2 = ns.add("router", x = 100, y = 200, radio_range = 120, version="ccm")
 
         # configure sim-host server that acts as BRSKI Registrar
         # TODO update IPv6 addr
