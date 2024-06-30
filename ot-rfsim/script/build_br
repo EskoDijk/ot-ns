@@ -61,7 +61,7 @@ main()
     local options=()
     options+=("${OTBR_OPTIONS[@]}" "$@")
 
-    ./script/build "${options[@]}" ot-cli-ftd
+    ./script/build "${options[@]}"
     cp ./build/bin/ot-cli-ftd ./ot-versions/ot-cli-ftd_br
 }
 
