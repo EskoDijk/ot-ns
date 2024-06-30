@@ -35,6 +35,8 @@ from otns.cli import OTNS
 
 class CcmTests(OTNSTestCase):
 
+    registrar_process = None
+
     def setUp(self) -> None:
         logging.info("Setting up for test: %s", self.name())
         self.ns = OTNS(otns_args=['-log', 'debug', '-pcap', 'wpan-tap', '-seed', '4'])
@@ -82,8 +84,8 @@ class CcmTests(OTNSTestCase):
 
     def testCommissioningOneCcmNode(self):
         ns = self.ns
-        self.startRegistrar()
-        ns.web()
+        #self.startRegistrar()
+        #ns.web()
         ns.coaps_enable()
         ns.radiomodel = 'MIDisc' # enforce strict line topologies for testing
 
