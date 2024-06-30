@@ -27,6 +27,7 @@
 
 import logging
 import subprocess
+import time
 import unittest
 
 from OTNSTestCase import OTNSTestCase
@@ -56,9 +57,10 @@ class CcmTests(OTNSTestCase):
 
     def startRegistrar(self):
         self.registrar_process = subprocess.Popen(['java', '-jar', './etc/ot-registrar/ot-registrar-0.2-jar-with-dependencies.jar', \
-                                                 '-registrar', '-f', './etc/ot-registrar/credentials_registrar.p12'], \
+                                                 '-registrar', '-v', '-f', './etc/ot-registrar/credentials_registrar.p12'], \
                                                   stdout = subprocess.PIPE, stderr = subprocess.PIPE)
         self.assertIsNone(self.registrar_process.returncode)
+        time.sleep(1) # FIXME could detect when Registrar is ready to serve, with process.communicate()
 
     def stopRegistrar(self):
         if self.registrar_process is None:
@@ -84,7 +86,7 @@ class CcmTests(OTNSTestCase):
 
     def testCommissioningOneCcmNode(self):
         ns = self.ns
-        #self.startRegistrar()
+        self.startRegistrar()
         #ns.web()
         ns.coaps_enable()
         ns.radiomodel = 'MIDisc' # enforce strict line topologies for testing
