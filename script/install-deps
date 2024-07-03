@@ -36,6 +36,7 @@ install_packages()
 {
     install_package git --apt git --brew git || true
     install_package cmake --apt cmake --brew cmake || true
+    install_package g++ --apt build-essential --brew gcc || true
     install_package wget --apt wget --brew wget || true
     install_package unzip --apt unzip --brew unzip || true
     install_package python3 --apt python3 --brew python3 || true
