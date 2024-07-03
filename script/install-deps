@@ -34,8 +34,18 @@ apt_update_once=0
 
 install_packages()
 {
+    # Some basic items missing on Ubuntu Docker, assumed present on MacOS.
+    if [[ $Linux == 1 ]]; then
+        install_package sudo --apt sudo || true
+        install_package xdg-open --apt xdg-utils || true
+    fi
+    install_package git --apt git --brew git || true
+    install_package cmake --apt cmake --brew cmake || true
     install_package wget --apt wget --brew wget || true
-    install_package python3-venv --apt wget --brew wget || true
+    install_package unzip --apt unzip --brew unzip || true
+    install_package python3 --apt python3 --brew python3 || true
+    install_package virtualenv --apt python3-venv --brew python3-venv || true
+    install_package go --apt golang --brew golang || true
 }
 
 install_grpcwebproxy()

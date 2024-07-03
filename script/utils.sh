@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (c) 2020-2022, The OTNS Authors.
+# Copyright (c) 2020-2024, The OTNS Authors.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -33,9 +33,13 @@ function die()
     false
 }
 
-function realpath()
+function realpathf()
 {
-    python3 -c "import os; print(os.path.realpath('$1'))"
+    if [[ $Linux == 1 ]]; then
+        realpath -s "$1"
+    else
+        python3 -c "import os; print(os.path.realpath('$1'))"
+    fi
 }
 
 function installed()
@@ -120,13 +124,6 @@ function install_pretty_tools()
 
 install_openthread_buildtools()
 {
-    if installed "ninja"; then
-        return 0
-    fi
-
-    if [[ $Darwin == 1 ]]; then
-        brew install ninja
-    else
-        sudo apt-get install ninja-build
-    fi
+    install_package cmake --apt cmake --brew cmake
+    install_package ninja --apt ninja-build --brew ninja
 }
