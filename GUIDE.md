@@ -6,9 +6,9 @@ This guide covers the installation of OTNS, installation of OpenThread nodes use
 OTNS supports Linux and MacOS. Windows is supported only through the Windows Subsystem for Linux (WSL2) running Ubuntu 22.04, though this 
 is tested less frequently. If Ubuntu Linux is used, the minimum version and tested version is 22.04.
 For MacOS, currently version 13 is best supported. Version 14 is supported but currently without the Thread legacy 
-node versions (Thread 1.1, 1.2, 1.3).
+node versions (Thread 1.1, 1.2, 1.3). MacOS also requires the Homebrew package manager (`brew` command) already installed.
 
-OTNS requires Go 1.18 or higher and Python 3.10 or higher. These will be installed (if needed) by following the rest of this guide.
+OTNS requires Go 1.18 or higher and Python 3.9 or higher. These will be installed (if needed) by following the rest of this guide.
 Also Git is required to get the code and for building OpenThread nodes. If not already available, this needs to be installed using e.g. 
 a package manager (`sudo apt install git`).
 
