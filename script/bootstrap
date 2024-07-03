@@ -27,4 +27,29 @@
 #
 # This script bootstraps a complete install of OTNS, nodes, dependencies.
 
+set -euox pipefail
+
+if [[ "$(uname)" == "Darwin" ]]; then
+    export readonly Darwin=1
+    export readonly Linux=0
+elif [[ "$(uname)" == "Linux" ]]; then
+    export readonly Darwin=0
+    export readonly Linux=1
+else
+    die "Unsupported OS: $(uname)"
+fi
+
+# shellcheck source=script/utils.sh
+. "$(dirname "$0")"/utils.sh
+
+# Some basic items missing on Ubuntu Docker, assumed present on MacOS.
+if [[ $Linux == 1 ]]; then
+    install_package sudo --apt sudo || true
+    install_package xdg-open --apt xdg-utils || true
+fi
+
+# Install Go if needed
+install_package go --apt golang --brew golang || true
+
+# Do the rest
 ./script/test py-ver-unittests

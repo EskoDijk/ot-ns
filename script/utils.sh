@@ -25,8 +25,6 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-readonly Darwin
-
 function die()
 {
     echo "fatal: $1"
@@ -35,11 +33,8 @@ function die()
 
 function realpathf()
 {
-    if [[ $Linux == 1 ]]; then
-        realpath -s "$1"
-    else
-        python3 -c "import os; print(os.path.realpath('$1'))"
-    fi
+    # the Python3 method is a backup.
+    realpath -s "$1" || python3 -c "import os; print(os.path.realpath('$1'))"
 }
 
 function installed()
