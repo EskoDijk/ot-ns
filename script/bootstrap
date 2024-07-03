@@ -53,5 +53,10 @@ fi
 # Install Go if needed
 install_package go --apt golang --brew golang || true
 
-# Do the rest
-./script/test py-ver-unittests
+# Do the rest via the test script
+# TODO: once MacOS supports OT versions, remove the below if.
+if [[ $Linux == 1 ]]; then
+    ./script/test py-ver-unittests
+else
+    ./script/test py-unittests
+fi
