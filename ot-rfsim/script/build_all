@@ -39,7 +39,6 @@ main()
     for VER in v11 v12 v13 latest br; do
         SCRIPTNAME="./script/build_$VER"
         FTDNAME="./ot-versions/ot-cli-ftd_$VER"
-        OT_DIR=""
         if [ "$VER" == "latest" ]; then
             FTDNAME="./ot-versions/ot-cli-ftd"
         fi
@@ -48,10 +47,6 @@ main()
             printf '\n%s: file %s is present, skipping this version build.\n\n' "${VER}" "${FTDNAME}"
         else
             printf '%s: building %s' "${VER}" "${FTDNAME}"
-            if [[ $VER == "v11" || $VER == "v12" || $VER == "v13" ]]; then
-                OT_DIR="openthread_${VER}"
-            fi
-
             ${SCRIPTNAME} "${options[@]}" || printf \
                 '\n********************\n  Failed build script: %s - skipping.\n********************\n\n' "${SCRIPTNAME}"
         fi
