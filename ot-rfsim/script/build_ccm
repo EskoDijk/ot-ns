@@ -57,10 +57,10 @@ main()
     local options=()
     options+=("${OT_OPTIONS[@]}" "$@")
 
-    export OT_DIR=../openthread-ccm
-    ./script/build "${options[@]}"
-    cp ./build/bin/ot-cli-ftd ./ot-versions/ot-cli-ftd_ccm
-    cp ./build/bin/ot-cli-mtd ./ot-versions/ot-cli-mtd_ccm
+    OT_DIR="../openthread-ccm" OT_CMAKE_BUILD_DIR="build-ccm" ./script/build "${options[@]}"
+
+    cp ./build-ccm/bin/ot-cli-ftd ./ot-versions/ot-cli-ftd_ccm
+    cp ./build-ccm/bin/ot-cli-mtd ./ot-versions/ot-cli-mtd_ccm
 }
 
 main "$@"
