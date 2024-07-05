@@ -52,7 +52,7 @@ mkdir -p "$GOPATH"/bin
 export readonly GOLINT_ARGS=(-E goimports -E whitespace -E goconst -E exportloopref -E unconvert)
 export readonly OTNS_BUILD_JOBS
 OTNS_BUILD_JOBS=$(getconf _NPROCESSORS_ONLN)
-export readonly OTNS_EXCLUDE_DIRS=(web/site/node_modules/ openthread/ openthread-v11/ openthread-v12/ openthread-v13/ build/)
+export readonly OTNS_EXCLUDE_DIRS=(web/site/node_modules/ openthread/ openthread-v11/ openthread-v12/ openthread-v13/ build/ build-v11/ build-v12/ build-v13/)
 
 go_install()
 {

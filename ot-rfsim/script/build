@@ -40,7 +40,6 @@ OT_OPTIONS=(
     "-DOT_PLATFORM=external"
     "-DOT_FULL_LOGS=ON"
     "-DOT_VENDOR_NAME=OpenThread.io"
-    "-DOT_VENDOR_MODEL=RFSIM-Node"
     "-DOT_VENDOR_SW_VERSION=2.0.0"
     "-DOT_JOINER=ON"
     "-DOT_COAP=ON"

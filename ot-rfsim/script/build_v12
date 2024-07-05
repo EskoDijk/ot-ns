@@ -37,7 +37,7 @@ OT_OPTIONS=(
 )
 readonly OT_OPTIONS
 
-OT_DIR="../openthread-v12" ./script/build "${OT_OPTIONS[@]}"
+OT_DIR="../openthread-v12" OT_CMAKE_BUILD_DIR="build-v12" ./script/build "${OT_OPTIONS[@]}"
 
 cp ./build/bin/ot-cli-ftd ./ot-versions/ot-cli-ftd_v12
 cp ./build/bin/ot-cli-mtd ./ot-versions/ot-cli-mtd_v12
