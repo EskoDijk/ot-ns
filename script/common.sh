@@ -103,7 +103,7 @@ build_openthread()
 }
 
 build_openthread_br()
-{ƒ
+{
     if [[ ! -f ./ot-rfsim/ot-versions/ot-cli-ftd_br ]]; then
         get_openthread
         install_openthread_buildtools
