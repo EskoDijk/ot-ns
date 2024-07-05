@@ -62,8 +62,22 @@ go_install()
 
 get_openthread()
 {
-    if [[ ! -f ./openthread/script/bootstrap ]]; then
-        git submodule update --init --depth 1
+    if [[ ! -f ./openthread/README.md ]]; then
+        git submodule update --init --depth 1 openthread
+    fi
+}
+
+get_openthread_versions()
+{
+    get_openthread
+    if [[ ! -f ./openthread-v11/README.md ]]; then
+        git submodule update --init --depth 1 openthread-v11
+    fi
+    if [[ ! -f ./openthread-v12/README.md ]]; then
+        git submodule update --init --depth 1 openthread-v12
+    fi
+    if [[ ! -f ./openthread-v13/README.md ]]; then
+        git submodule update --init --depth 1 openthread-v13
     fi
 }
 
@@ -89,7 +103,7 @@ build_openthread()
 }
 
 build_openthread_br()
-{
+{ƒ
     if [[ ! -f ./ot-rfsim/ot-versions/ot-cli-ftd_br ]]; then
         get_openthread
         install_openthread_buildtools
@@ -102,7 +116,7 @@ build_openthread_br()
 
 build_openthread_versions()
 {
-    get_openthread
+    get_openthread_versions
     install_openthread_buildtools
     (
         cd ot-rfsim
