@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Copyright (c) 2020-2023, The OTNS Authors.
+# Copyright (c) 2020-2024, The OTNS Authors.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -57,7 +57,7 @@ def main():
     script_path = sys.argv[0]
     script_dir = os.path.abspath(os.path.dirname(script_path))
     logging.info('script directory: %s' % script_dir)
-
+    logging.info('STRESS_LEVEL    : %d' % int(os.getenv("STRESS_LEVEL", 1)))
     suite_names = sys.argv[1:]
     if not suite_names:
         logging.error("suite names not specified, nothing to do")
