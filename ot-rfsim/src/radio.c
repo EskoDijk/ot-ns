@@ -1032,10 +1032,18 @@ void radioReceive(otInstance *aInstance, otError aError)
 
     if (sTxWait && otMacFrameIsAckRequested(&sTransmitFrame))
     {
+        bool isAwaitedAckReceived = false;
         otError txDoneError = OT_ERROR_NONE;
         // TODO: for Enh-Ack, look at address match too.
-        bool isAwaitedAckReceived = isAck && aError == OT_ERROR_NONE &&
-                                    otMacFrameGetSequence(&sReceiveFrame) == otMacFrameGetSequence(&sTransmitFrame);
+        uint8_t rxSeqNum;
+        uint8_t txSeqNum;
+        if (isAck && aError == OT_ERROR_NONE) {
+            if (otMacFrameGetSequence(&sReceiveFrame, &rxSeqNum) == OT_ERROR_NONE) {
+                if (otMacFrameGetSequence(&sTransmitFrame, &txSeqNum) == OT_ERROR_NONE) {
+                    isAwaitedAckReceived = rxSeqNum == txSeqNum;
+                }
+            }
+        }
         sTxWait = false;
         if (!isAwaitedAckReceived)
         {
@@ -1048,7 +1056,7 @@ void radioReceive(otInstance *aInstance, otError aError)
         radioProcessFrame(aInstance, aError);
     }
 
-    exit:
+exit:
     return;
 }
 
