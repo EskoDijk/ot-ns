@@ -238,7 +238,7 @@ func (e *Event) Deserialize(data []byte) int {
 	}
 
 	data2 := make([]byte, datalen-payloadOffset)
-	copy(data2, e.Data[payloadOffset:payloadOffset+datalen])
+	copy(data2, e.Data[payloadOffset:datalen])
 	e.Data = data2
 
 	// e.Timestamp is not in the event, so set to invalid initially.
