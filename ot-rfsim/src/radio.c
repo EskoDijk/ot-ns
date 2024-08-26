@@ -1035,14 +1035,19 @@ void radioReceive(otInstance *aInstance, otError aError)
         bool isAwaitedAckReceived = false;
         otError txDoneError = OT_ERROR_NONE;
         // TODO: for Enh-Ack, look at address match too.
-        uint8_t rxSeqNum;
-        uint8_t txSeqNum;
         if (isAck && aError == OT_ERROR_NONE) {
+#if OPENTHREAD_API_VERSION >= 431
+            // this function signature change was in PR #10544, merged very close to API version 431 increase.
+            uint8_t rxSeqNum;
+            uint8_t txSeqNum;
             if (otMacFrameGetSequence(&sReceiveFrame, &rxSeqNum) == OT_ERROR_NONE) {
                 if (otMacFrameGetSequence(&sTransmitFrame, &txSeqNum) == OT_ERROR_NONE) {
                     isAwaitedAckReceived = rxSeqNum == txSeqNum;
                 }
             }
+#else
+            isAwaitedAckReceived = otMacFrameGetSequence(&sReceiveFrame) == otMacFrameGetSequence(&sTransmitFrame);
+#endif
         }
         sTxWait = false;
         if (!isAwaitedAckReceived)
