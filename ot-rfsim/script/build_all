@@ -27,9 +27,15 @@
 #  POSSIBILITY OF SUCH DAMAGE.
 #
 
-printf "\n./script/build_all  --  builds only OT node versions for which executables are not found.\n\n"
+printf "\n./script/build_all  --  builds only OT node versions that weren't previously built yet.\n\n"
 
 set -euo pipefail
+
+build_error()
+{
+  printf '\n****************\n  Failed build script: %s - stopping.\n****************\n\n' "$@"
+  exit 1
+}
 
 main()
 {
@@ -38,17 +44,21 @@ main()
 
     for VER in v11 v12 v13 latest br; do
         SCRIPTNAME="./script/build_$VER"
+        BUILDDIR="./build/${VER}"
         FTDNAME="./ot-versions/ot-cli-ftd_$VER"
         if [ "$VER" == "latest" ]; then
             FTDNAME="./ot-versions/ot-cli-ftd"
         fi
 
-        if [ -f $FTDNAME ]; then
+        if [ -d ${BUILDDIR} ] && [ -f ${FTDNAME} ] ; then
             printf '\n%s: file %s is present, skipping this version build.\n\n' "${VER}" "${FTDNAME}"
         else
-            printf '%s: building %s' "${VER}" "${FTDNAME}"
-            ${SCRIPTNAME} "${options[@]}" || printf \
-                '\n********************\n  Failed build script: %s - skipping.\n********************\n\n' "${SCRIPTNAME}"
+            printf '%s: building with script %s (including node %s)' "${VER}" "${SCRIPTNAME}" "${FTDNAME}"
+            if ${SCRIPTNAME} "${options[@]}" ; then
+              printf 'completed build %s' "${SCRIPTNAME}"
+            else
+              build_error "${SCRIPTNAME}"
+            fi
         fi
     done
 }
