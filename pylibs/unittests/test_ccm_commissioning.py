@@ -72,7 +72,7 @@ class CcmTests(OTNSTestCase):
     def startRegistrar(self):
         self.registrar_log_file = open("tmp/ot-registrar.log", 'w')
         self.registrar_process = subprocess.Popen(['java', '-jar', './etc/ot-registrar/ot-registrar-0.3-jar-with-dependencies.jar',
-                                                   '-registrar', '-v', '-f', './etc/ot-registrar/credentials_registrar.p12'],
+                                                   '-registrar', '-vv', '-f', './etc/ot-registrar/credentials_registrar.p12'],
                                                   stdout = self.registrar_log_file, stderr = subprocess.STDOUT)
         self.assertIsNone(self.registrar_process.returncode)
         time.sleep(1) # FIXME could detect when Registrar is ready to serve, with process.communicate()
@@ -179,15 +179,14 @@ class CcmTests(OTNSTestCase):
 
         # n3 joins as CCM joiner - needs to search channel.
         # because CoAP server is real, let simulation also move in near real time speed.
-        ns.speed = 50
+        ns.speed = 1
         ns.commissioner_ccm_joiner_add(n1, "*")
         ns.ifconfig_up(n3)
         ns.node_cmd(n3, 'coaps x509')
         ns.joiner_startccm(n3)
-        ns.go(20)
+        ns.go(10)
         ns.coaps() # see emitted CoAP events
         ns.cmd('host list')
-        ns.go(20)
 
         # n3 automatically has enabled Thread and joined the network
         state_n3 = ns.get_state(n3)
