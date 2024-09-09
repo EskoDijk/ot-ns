@@ -143,8 +143,8 @@ class CcmTests(OTNSTestCase):
     def testCommissioningOneCcmNodeOneJoinerRouter(self):
         ns = self.ns
         self.startRegistrar()
-        ns.web()
-        ns.watch_default('trace')
+        #ns.web()
+        ns.watch_default('debug')
         ns.coaps_enable()
         ns.radiomodel = 'MIDisc' # enforce strict line topologies for testing
 
@@ -189,7 +189,7 @@ class CcmTests(OTNSTestCase):
         ns.cmd('host list')
 
         # n3 automatically has enabled Thread and joined the network
-        ns.interactive_cli()
+        #ns.interactive_cli()
         state_n3 = ns.get_state(n3)
         self.assertTrue(state_n3 == "router" or state_n3 == "child")
 
