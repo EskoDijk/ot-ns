@@ -16,6 +16,7 @@
 
 # Go generated files
 go.sum
+go.mod.orig
 
 # ignore OTNS Go executables
 /cmd/otns/otns

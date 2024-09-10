@@ -131,7 +131,7 @@ do_clang_format()
     echo -e '========================================'
 
     git ls-files "${OT_CLANG_SOURCES[@]}" | grep -v -E "^($(echo "${OTNS_EXCLUDE_DIRS[@]}" | tr ' ' '|'))" \
-        | xargs -n3 -P"$OT_BUILD_JOBS" script/clang-format -style=file -i -verbose
+        | xargs -n3 -P"$OTNS_BUILD_JOBS" openthread/script/clang-format -style=file -i -verbose
 }
 
 do_clang_format_check()
@@ -141,7 +141,7 @@ do_clang_format_check()
     echo -e '========================================'
 
     git ls-files "${OT_CLANG_SOURCES[@]}" | grep -v -E "^($(echo "${OTNS_EXCLUDE_DIRS[@]}" | tr ' ' '|'))" \
-        | xargs -n3 -P"$OT_BUILD_JOBS" script/clang-format-check
+        | xargs -n3 -P"$OTNS_BUILD_JOBS" openthread/script/clang-format-check
 }
 
 do_clang_tidy_fix()
@@ -150,10 +150,10 @@ do_clang_tidy_fix()
     echo -e '     format c/c++ (clang-tidy)'
     echo -e '========================================'
 
-    (mkdir -p ./build/cmake-tidy \
-        && cd ./build/cmake-tidy \
-        && THREAD_VERSION=1.3 cmake "${OT_CLANG_TIDY_BUILD_OPTS[@]}" ../.. \
-        && ../../script/clang-tidy -j"$OT_BUILD_JOBS" "${OT_CLANG_TIDY_FIX_DIRS[@]}" -fix)
+    (cd ./ot-rfsim \
+        && ./script/build_latest \
+        && cd build/latest \
+        && ../../../openthread/script/clang-tidy -j"$OTNS_BUILD_JOBS" "${OT_CLANG_TIDY_FIX_DIRS[@]}" -fix)
 }
 
 do_clang_tidy_check()
@@ -162,10 +162,10 @@ do_clang_tidy_check()
     echo -e '     check c/c++ (clang-tidy)'
     echo -e '========================================'
 
-    (mkdir -p ./build/cmake-tidy \
-        && cd ./build/cmake-tidy \
-        && THREAD_VERSION=1.3 cmake "${OT_CLANG_TIDY_BUILD_OPTS[@]}" ../.. \
-        && ../../script/clang-tidy -j"$OT_BUILD_JOBS" "${OT_CLANG_TIDY_FIX_DIRS[@]}")
+    (cd ./ot-rfsim \
+        && ./script/build_latest \
+        && cd build/latest \
+        && ../../../openthread/script/clang-tidy -j"$OTNS_BUILD_JOBS" "${OT_CLANG_TIDY_FIX_DIRS[@]}")
 }
 
 do_markdown_format()
@@ -175,7 +175,7 @@ do_markdown_format()
     echo -e '========================================'
 
     git ls-files "${OT_MARKDOWN_SOURCES[@]}" | grep -v -E "^($(echo "${OTNS_EXCLUDE_DIRS[@]}" | tr ' ' '|'))" \
-        | xargs -n10 -P"$OT_BUILD_JOBS" npx prettier@2.0.4 --write
+        | xargs -n10 -P"$OTNS_BUILD_JOBS" npx prettier@2.0.4 --write
 }
 
 do_markdown_check()
@@ -185,7 +185,7 @@ do_markdown_check()
     echo -e '========================================'
 
     git ls-files "${OT_MARKDOWN_SOURCES[@]}" | grep -v -E "^($(echo "${OTNS_EXCLUDE_DIRS[@]}" | tr ' ' '|'))" \
-        | xargs -n10 -P"$OT_BUILD_JOBS" npx prettier@2.0.4 --check
+        | xargs -n10 -P"$OTNS_BUILD_JOBS" npx prettier@2.0.4 --check
 }
 
 do_python_format()
@@ -195,7 +195,7 @@ do_python_format()
     echo -e '========================================'
 
     git ls-files "${OT_PYTHON_SOURCES[@]}" | grep -v -E "^($(echo "${OTNS_EXCLUDE_DIRS[@]}" | tr ' ' '|'))" \
-        | xargs -n10 -P"$OT_BUILD_JOBS" python3 -m yapf --verbose --style '{based_on_style: google, column_limit: 119}' -ipr
+        | xargs -n10 -P"$OTNS_BUILD_JOBS" python3 -m yapf --verbose --style '{based_on_style: google, column_limit: 119}' -ipr
 }
 
 do_python_check()
@@ -205,7 +205,7 @@ do_python_check()
     echo -e '========================================'
 
     git ls-files "${OT_PYTHON_SOURCES[@]}" | grep -v -E "^($(echo "${OTNS_EXCLUDE_DIRS[@]}" | tr ' ' '|'))" \
-        | xargs -n10 -P"$OT_BUILD_JOBS" python3 -m yapf --verbose --style '{based_on_style: google, column_limit: 119}' -dpr
+        | xargs -n10 -P"$OTNS_BUILD_JOBS" python3 -m yapf --verbose --style '{based_on_style: google, column_limit: 119}' -dpr
 }
 
 do_shell_format()
@@ -215,7 +215,7 @@ do_shell_format()
     echo -e '========================================'
 
     git ls-files | xargs shfmt -f | grep -v -E "^($(echo "${OTNS_EXCLUDE_DIRS[@]}" | tr ' ' '|'))" \
-        | xargs -n10 -P"$OT_BUILD_JOBS" shfmt -i 4 -bn -ci -fn -s -w
+        | xargs -n10 -P"$OTNS_BUILD_JOBS" shfmt -i 4 -bn -ci -fn -s -w
 }
 
 do_shell_check()
@@ -225,10 +225,10 @@ do_shell_check()
     echo -e '========================================'
 
     git ls-files | xargs shfmt -f | grep -v -E "^($(echo "${OTNS_EXCLUDE_DIRS[@]}" | tr ' ' '|'))" \
-        | xargs -n10 -P"$OT_BUILD_JOBS" shfmt -i 4 -bn -ci -fn -s -d
+        | xargs -n10 -P"$OTNS_BUILD_JOBS" shfmt -i 4 -bn -ci -fn -s -d
 
     git ls-files | xargs shfmt -f | grep -v -E "^($(echo "${OTNS_EXCLUDE_DIRS[@]}" | tr ' ' '|'))" \
-        | xargs -n10 -P"$OT_BUILD_JOBS" shellcheck
+        | xargs -n10 -P"$OTNS_BUILD_JOBS" shellcheck
 }
 
 do_check()
