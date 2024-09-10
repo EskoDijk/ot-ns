@@ -126,6 +126,7 @@ do_go_mod_format()
 
 do_clang_format()
 {
+    get_openthread
     echo -e '========================================'
     echo -e '     format c/c++ (clang-format)'
     echo -e '========================================'
@@ -136,6 +137,7 @@ do_clang_format()
 
 do_clang_format_check()
 {
+    get_openthread
     echo -e '========================================'
     echo -e '     check c/c++ (clang-format)'
     echo -e '========================================'
@@ -146,6 +148,7 @@ do_clang_format_check()
 
 do_clang_tidy_fix()
 {
+    get_openthread
     echo -e '========================================'
     echo -e '     format c/c++ (clang-tidy)'
     echo -e '========================================'
@@ -158,6 +161,7 @@ do_clang_tidy_fix()
 
 do_clang_tidy_check()
 {
+    get_openthread
     echo -e '========================================'
     echo -e '     check c/c++ (clang-tidy)'
     echo -e '========================================'
