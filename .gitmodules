@@ -1,10 +1,6 @@
 [submodule "openthread"]
 	path = openthread
 	url = https://github.com/openthread/openthread.git
-[submodule "openthread-ccm"]
-	path = openthread-ccm
-	url = https://github.com/EskoDijk/openthread-priv.git
-	branch = pr-ccm
 [submodule "openthread-v11"]
 	path = openthread-v11
 	url = https://github.com/EskoDijk/openthread.git
@@ -20,3 +16,7 @@
 	url = https://github.com/EskoDijk/openthread.git
 	branch = otns-v13
 	shallow = true
+#[submodule "openthread-ccm"]
+#	path = openthread-ccm
+#	url = https://github.com/EskoDijk/openthread-priv.git
+#	branch = pr-ccm
