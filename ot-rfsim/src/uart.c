@@ -47,9 +47,9 @@ otError otPlatUartDisable(void)
     return OT_ERROR_NONE;
 }
 
-otError otPlatUartSend(const uint8_t *aData, uint16_t aLength)
+otError otPlatUartSend(const uint8_t *aBuf, uint16_t aBufLength)
 {
-    otSimSendUartWriteEvent(aData, aLength);
+    otSimSendUartWriteEvent(aBuf, aBufLength);
     otPlatUartSendDone();
 
     return OT_ERROR_NONE;
