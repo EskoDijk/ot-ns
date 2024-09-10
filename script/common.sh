@@ -102,7 +102,6 @@ function get_build_options()
 build_openthread()
 {
     get_openthread
-    install_openthread_buildtools
     (
         cd ot-rfsim
         ./script/build_latest "$(get_build_options)"
@@ -112,7 +111,6 @@ build_openthread()
 build_openthread_br()
 {
     get_openthread
-    install_openthread_buildtools
     (
         cd ot-rfsim
         ./script/build_br "$(get_build_options)"
@@ -122,7 +120,6 @@ build_openthread_br()
 build_openthread_versions()
 {
     get_openthread_versions
-    install_openthread_buildtools
     (
         cd ot-rfsim
         ./script/build_all "$(get_build_options)"
