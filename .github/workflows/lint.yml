@@ -49,5 +49,6 @@ jobs:
           go-version: '1.22'
       - name: Check pretty
         run: |
+          ./script/install-deps
           ./script/install
           ./script/make-pretty check
