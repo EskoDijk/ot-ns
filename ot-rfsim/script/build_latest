@@ -57,9 +57,10 @@ main()
     local options=()
     options+=("${OT_OPTIONS[@]}" "$@")
 
-    OT_CMAKE_BUILD_DIR="build/latest" OT_CMAKE_NINJA_TARGET="ot-cli-ftd ot-cli-mtd" ./script/build "${options[@]}"
+    OT_DIR="../openthread" OTNS_NODE_TYPE="latest" OT_CMAKE_NINJA_TARGET="ot-cli-ftd ot-cli-mtd" ./script/build "${options[@]}"
 
-    cp ./build/latest/bin/ot-cli-?td ./ot-versions/
+    cp ./build/latest/bin/ot-cli-ftd ./ot-versions/
+    cp ./build/latest/bin/ot-cli-mtd ./ot-versions/
 }
 
 main "$@"
