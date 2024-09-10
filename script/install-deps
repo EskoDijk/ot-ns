@@ -30,6 +30,8 @@
 # shellcheck source=script/common.sh
 . "$(dirname "$0")"/common.sh
 
+# TODO verify how this is used (interacting with utils.sh)
+# shellcheck disable=SC2034
 apt_update_once=0
 
 install_packages()
