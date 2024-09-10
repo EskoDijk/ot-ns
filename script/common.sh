@@ -58,7 +58,7 @@ OTNS_BUILD_JOBS=$(getconf _NPROCESSORS_ONLN)
 export readonly OTNS_BUILD_JOBS
 
 # excluded dirs for make-pretty or similar operations
-OTNS_EXCLUDE_DIRS=(build/ web/site/node_modules/ proto/ openthread/ openthread-v11/ openthread-v12/ openthread-v13/ openthread-ccm/)
+OTNS_EXCLUDE_DIRS=(ot-rfsim/build/ web/site/node_modules/ pylibs/build/ pylibs/otns/proto/ openthread/ openthread-v11/ openthread-v12/ openthread-v13/ openthread-ccm/)
 export readonly OTNS_EXCLUDE_DIRS
 
 go_install()
