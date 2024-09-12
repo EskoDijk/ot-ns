@@ -1,2 +1,2 @@
-wheel==0.42.0
+wheel>=0.42.0
 aiocoap==0.4.7
