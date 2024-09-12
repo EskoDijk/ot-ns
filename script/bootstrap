@@ -28,7 +28,7 @@
 # This script bootstraps a complete install of OTNS, nodes, dependencies.
 # It can be used after a fresh Git clone, or after an update (Git pull).
 
-set -euo pipefail
+set -euxo pipefail
 
 if [[ "$(uname)" == "Darwin" ]]; then
     export readonly Darwin=1
