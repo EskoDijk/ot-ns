@@ -55,9 +55,6 @@ fi
 # Install Go if needed
 install_package go --apt golang --brew golang || true
 
-# Remove any older standard node builds - these might be incompatible with latest version.
-rm ./ot-rfsim/ot-versions/ot-cli-?td* || true
-
 # Do the rest via the test script, automatically
 ./script/test py-ver-unittests || die "OTNS Installation/tests failed!"
 
