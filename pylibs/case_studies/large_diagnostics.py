@@ -38,7 +38,7 @@ from otns.cli.errors import OTNSExitedError
 
 
 def main():
-    ns = OTNS(otns_args=['-seed','53673'])
+    ns = OTNS(otns_args=['-seed', '53673'])
     ns.loglevel = 'info'
     #ns.watch_default('debug')
     ns.cmd("radioparam ShadowFadingSigmaDb 0.0")
@@ -48,7 +48,7 @@ def main():
     n1 = ns.add("router", x=450, y=150)
     n2 = ns.add("br", x=600, y=300)
     # add n2 to an IPv6 mcast group - trick to receive diagnostic query message.
-    ns.node_cmd(n2,"ipmaddr add ff02::d1a9")
+    ns.node_cmd(n2, "ipmaddr add ff02::d1a9")
     ns.go(10)
 
     ns.add("med", x=400, y=300)
