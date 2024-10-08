@@ -333,17 +333,14 @@ func (nap *NodeAutoPlacer) UpdateReference(x, y, z int) {
 // NextNodePosition lets the autoplacer pick the next position for a new node to be placed.
 func (nap *NodeAutoPlacer) NextNodePosition(isBelowParent bool) (int, int, int) {
 	var x, y, z int
+	var fineCountCol, fineCountRow int
 
 	if isBelowParent {
-		y = nap.Y + nap.NodeDeltaCoarse/2
-		x = nap.X + nap.fineCount*nap.NodeDeltaFine - nap.NodeDeltaFine
+		fineCountCol = nap.fineCount % 16
+		fineCountRow = nap.fineCount / 16
+		y = nap.Y + nap.NodeDeltaCoarse/2*(fineCountRow+1)
+		x = nap.X + fineCountCol*nap.NodeDeltaFine - nap.NodeDeltaFine
 		nap.fineCount++
-		if nap.fineCount > 16 {
-			x = nap.X
-			y += nap.NodeDeltaCoarse / 2
-			nap.Y += nap.NodeDeltaCoarse / 2
-			nap.fineCount = 0
-		}
 	} else {
 		if !nap.isReset {
 			nap.X += nap.NodeDeltaCoarse

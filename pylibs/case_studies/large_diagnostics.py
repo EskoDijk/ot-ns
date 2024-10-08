@@ -52,16 +52,17 @@ def main():
     ns.go(10)
 
     ns.add("med", x=400, y=300)
-    for n in range(1, 60):
+    for n in range(1, 100):
         ns.add("med")
-        ns.go(1)
+        ns.go(0.2)
     ns.go(120)
+    ns.save("tmp/large_diagnostics.yaml")
 
     # try repeated TLV Type IDs
     #ns.node_cmd(n2, f'networkdiagnostic get ff02::d1a9 28 28 28 28 28 28 28 28 28 28 28 25 25 25 25 25 29 29 29 30')
 
     # try relatively large Child info TLVs
-    ns.node_cmd(n1, f'networkdiagnostic get ff02::d1a9 29 30')
+    ns.node_cmd(n1, f'networkdiagnostic get ff02::d1a9 29')  # 30
 
     # test - switch off radio just before receiving the rest of diagnostic answer msg.
     # To verify that the responding Thread device will then stop sending further Answer messages.
