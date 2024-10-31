@@ -20,3 +20,4 @@
 	path = openthread-ccm
 	url = https://github.com/EskoDijk/openthread.git
 	branch = pr-ccm
+	shallow = true
