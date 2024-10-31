@@ -90,6 +90,9 @@ get_openthread_versions()
     if [[ ! -f ./openthread-v13/README.md ]]; then
         git submodule update --init --depth 1 openthread-v13
     fi
+    if [[ ! -f ./openthread-ccm/README.md ]]; then
+        git submodule update --init --depth 1 openthread-ccm
+    fi
 }
 
 function get_build_options()
