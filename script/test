@@ -113,6 +113,7 @@ py_versions_unittests()
     build_openthread_versions
 
     python3 "$OTNSDIR"/pylibs/unittests/test_exe_versions.py
+    python3 "$OTNSDIR"/pylibs/unittests/test_ccm_commissioning.py
 }
 
 check_py_example()
