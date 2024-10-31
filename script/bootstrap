@@ -41,6 +41,9 @@ else
     exit 1
 fi
 
+# Get (first time) or update (after a 'git pull') all submodules.
+git submodule update --init
+
 # shellcheck source=script/utils.sh
 . "$(dirname "$0")"/utils.sh
 
