@@ -31,6 +31,11 @@ printf "\n./script/build_all  --  builds all OT node versions (that weren't buil
 
 set -euo pipefail
 
+Linux=0
+if [[ "$(uname)" == "Linux" ]]; then
+    Linux=1
+fi
+
 build_error()
 {
     printf '\n****************\n  Failed build script: %s - stopping.\n****************\n\n' "$@"
@@ -41,8 +46,14 @@ main()
 {
     local options=()
     options+=("$@")
+    local versions=()
+    versions+=(v11 v12 v13 latest br)
+    # MacOs can't build CCM nodes currently - compiler warnings (treated as errors)
+    if [[ $Linux == 1 ]]; then
+        versions+=(ccm br_ccm)
+    fi
 
-    for VER in v11 v12 v13 latest br ccm br_ccm; do
+    for VER in ${versions[@]}; do
         SCRIPTNAME="./script/build_$VER"
 
         printf 'Node %s: building with script %s\n' "${VER}" "${SCRIPTNAME}"
