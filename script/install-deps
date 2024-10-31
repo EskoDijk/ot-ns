@@ -30,7 +30,7 @@
 # shellcheck source=script/common.sh
 . "$(dirname "$0")"/common.sh
 
-# TODO verify how this is used (interacting with utils.sh)
+# TODO verify how apt_update_once is used (interacting with utils.sh)
 # shellcheck disable=SC2034
 apt_update_once=0
 
@@ -69,11 +69,23 @@ install_python_libs()
     python3 -m pip install setuptools wheel yapf
 }
 
+install_ot_registrar()
+{
+    fileRemote="ot-registrar-0.3.0-jar-with-dependencies.jar"
+    fileLocal="ot-registrar.jar"
+    url="https://github.com/EskoDijk/ot-registrar/releases/download/v0.3.0/${fileRemote}"
+
+    if [ -d "./etc/ot-registrar" ] && [ ! -f "./etc/ot-registrar/${fileLocal}" ]; then
+        wget "${url}" -O "./etc/ot-registrar/${fileLocal}"
+    fi
+}
+
 main()
 {
     install_packages
     install_grpcwebproxy
     install_python_libs
+    install_ot_registrar
 }
 
 main

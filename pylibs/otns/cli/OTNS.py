@@ -894,9 +894,28 @@ class OTNS(object):
         Get network name.
 
         :param nodeid: node ID
-        :return: network name
+        :return: network name of node
         """
         return self._expect_str(self.node_cmd(nodeid, 'networkname'))
+
+    def set_domain_name(self, nodeid: int, name: str = None) -> None:
+        """
+        Set Thread Domain name.
+
+        :param nodeid: node ID
+        :param name: Thread Domain name to set
+        """
+        name = self._escape_whitespace(name)
+        self.node_cmd(nodeid, f'domainname {name}')
+
+    def get_domain_name(self, nodeid: int) -> str:
+        """
+        Get Thread Domain name.
+
+        :param nodeid: node ID
+        :return: Thread Domain name of node
+        """
+        return self._expect_str(self.node_cmd(nodeid, 'domainname'))
 
     def set_panid(self, nodeid: int, panid: int) -> None:
         """
@@ -1091,13 +1110,29 @@ class OTNS(object):
         """
         self.node_cmd(nodeid, f"joiner start {pwd}")
 
-    def joiner_startccm(self, nodeid: int) -> None:
+    def joiner_startae(self, nodeid: int) -> None:
         """
         Start CCM joiner, using Autonomous Enrollment (AE) with cBRSKI.
 
         :param nodeid: joiner node ID
         """
-        self.node_cmd(nodeid, f"joiner startccm")
+        self.node_cmd(nodeid, f"joiner startae")
+
+    def joiner_startccmbr(self, nodeid: int) -> None:
+        """
+        Start CCM BR enrollment with cBRSKI via infrastructure interface.
+
+        :param nodeid: joiner node ID
+        """
+        self.node_cmd(nodeid, f"joiner startccmbr")
+
+    def joiner_startnkp(self, nodeid: int) -> None:
+        """
+        Start CCM joiner, using Network Key Provisioning (NKP).
+
+        :param nodeid: joiner node ID
+        """
+        self.node_cmd(nodeid, f"joiner startnkp")
 
     def commissioner_joiner_add(self, nodeid: int, usr: str, pwd: str, timeout=None) -> None:
         """
