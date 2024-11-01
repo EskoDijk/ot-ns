@@ -31,15 +31,17 @@
 set -euxo pipefail
 
 if [[ "$(uname)" == "Darwin" ]]; then
-    export readonly Darwin=1
-    export readonly Linux=0
+    readonly Darwin=1
+    readonly Linux=0
 elif [[ "$(uname)" == "Linux" ]]; then
-    export readonly Darwin=0
-    export readonly Linux=1
+    readonly Darwin=0
+    readonly Linux=1
 else
     echo "Unsupported OS: $(uname)"
     exit 1
 fi
+export Darwin
+export Linux
 
 # Get (first time) or update (after a 'git pull') all submodules.
 git submodule update --init

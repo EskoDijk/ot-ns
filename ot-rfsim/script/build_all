@@ -53,7 +53,7 @@ main()
         versions+=(ccm br_ccm)
     fi
 
-    for VER in ${versions[@]}; do
+    for VER in "${versions[@]}"; do
         SCRIPTNAME="./script/build_$VER"
 
         printf 'Node %s: building with script %s\n' "${VER}" "${SCRIPTNAME}"
