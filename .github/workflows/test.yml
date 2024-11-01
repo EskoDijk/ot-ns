@@ -84,6 +84,9 @@ jobs:
       - name: Test multiple OT-versions
         run: |
           ./script/test py-ver-unittests
+      - name: Test CCM OT version
+        run: |
+          ./script/test py-ccm-unittests
 
   py-examples:
     name: Examples (${{ matrix.os }})
