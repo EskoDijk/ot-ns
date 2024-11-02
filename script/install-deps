@@ -40,7 +40,7 @@ install_packages()
     PyVersion=$(python3 --version)
     if [[ $PyVersion =~ 3\.([0-9]+) ]]; then
         PyVersion=${BASH_REMATCH[1]}
-        if [[ $PyVersion -lt 19 ]]; then
+        if [[ $PyVersion -lt 9 ]]; then
             echo "OTNS requires Python >= 3.9. Your version: 3.${PyVersion}, exiting."
             exit 1
         fi
