@@ -44,7 +44,7 @@ export Darwin
 export Linux
 
 # For Ubuntu, warn about likely unsupported versions
-if [[ $Linux ]]; then
+if [[ $Linux == 1 ]]; then
     Distro="$(lsb_release -i)"
     if [[ $Distro =~ Ubuntu$ ]]; then
         Ver="$(lsb_release -sr)"
