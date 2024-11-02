@@ -43,6 +43,20 @@ fi
 export Darwin
 export Linux
 
+# For Ubuntu, warn about likely unsupported versions
+if [[ $Linux ]]; then
+    Distro="$(lsb_release -i)"
+    if [[ $Distro =~ Ubuntu$ ]]; then
+        Ver="$(lsb_release -sr)"
+        Ver="${Ver:0:2}"
+        if [[ $Ver -lt 22 ]]; then
+            echo "Likely unsupported Ubuntu version (< 22): ${Ver}"
+            echo "OTNS needs Python >= 3.9 and Golang >= 1.18 which are not easily available in Ubuntu < 22"
+            read -r -p "Press Ctrl+C to break now, or any key to still attempt bootstrap."
+        fi
+    fi
+fi
+
 # Get (first time) or update (after a 'git pull') all submodules.
 git submodule update --init
 
@@ -59,6 +73,16 @@ fi
 
 # Install Go if needed
 install_package go --apt golang --brew golang || true
+
+# Check Go version
+GoVersion=$(go version)
+if [[ $GoVersion =~ go1\.([0-9]+)\. ]]; then
+    GoVersion=${BASH_REMATCH[1]}
+    if [[ $GoVersion -lt 18 ]]; then
+        echo "OTNS requires Golang ('go') >= 1.18. Your version: 1.${GoVersion}, exiting."
+        exit 1
+    fi
+fi
 
 # Do the rest via the test script, automatically
 ./script/test py-ver-unittests || die "OTNS Installation/tests failed!"
