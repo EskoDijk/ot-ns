@@ -903,7 +903,7 @@ class BasicTests(OTNSTestCase):
             ns.add('sed')
             ns.go(30)
             self.assertFormPartitions(1)
-            for nid in range(1,8):
+            for nid in range(1, 8):
                 self.assertEqual('15', ns.node_cmd(nid, 'channel')[0])
 
     def testPhyStats(self):

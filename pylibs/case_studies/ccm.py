@@ -43,9 +43,11 @@ global registrar_log_file
 
 thread_domain_name = "TestCcmDomain"
 
+
 def setupNs():
     logging.info("Setting up for Thread CCM sandbox")
-    ns = OTNS(otns_args=['-log', 'debug', '-pcap', 'wpan-tap', '-seed', '4', '-ot-script', './pylibs/case_studies/ccm.yaml'])
+    ns = OTNS(
+        otns_args=['-log', 'debug', '-pcap', 'wpan-tap', '-seed', '4', '-ot-script', './pylibs/case_studies/ccm.yaml'])
     ns.watch_default('debug')
     ns.web()
     ns.set_title('Thread CCM sandbox for IETF 121')
@@ -54,6 +56,7 @@ def setupNs():
     ns.coaps_enable()
     #ns.radiomodel = 'MIDisc'  # enforce strict line topologies for testing
     return ns
+
 
 def setActiveDataset(ns, n1) -> None:
     ns.node_cmd(n1, "dataset init new")
@@ -68,6 +71,7 @@ def setActiveDataset(ns, n1) -> None:
     ns.node_cmd(n1, "dataset securitypolicy 672 orcCR 3")  # enable CCM-commissioning flag in secpolicy
     ns.node_cmd(n1, "dataset commit active")
 
+
 def startRegistrar(ns):
     logging.debug("starting OT Registrar")
     ns.registrar_log_file = open("tmp/ot-registrar.log", 'w')
@@ -75,8 +79,9 @@ def startRegistrar(ns):
         'java', '-jar', './etc/ot-registrar/ot-registrar.jar', '-registrar', '-vvv', '-f',
         './etc/ot-registrar/credentials_registrar.p12', '-d', thread_domain_name
     ],
-                                             stdout=ns.registrar_log_file,
-                                             stderr=subprocess.STDOUT)
+                     stdout=ns.registrar_log_file,
+                     stderr=subprocess.STDOUT)
+
 
 def verifyRegistrarStarted():
     for n in range(1, 20):
@@ -89,6 +94,7 @@ def verifyRegistrarStarted():
                     if "ot-registrar.jar" in process_list:
                         return True
     return False
+
 
 def enrollBr(ns, nid):
     ns.coaps()  # clear coaps
@@ -103,6 +109,7 @@ def enrollBr(ns, nid):
     if len(coap_events) != 4:  # messages are /rv, /vs, /sen, /es
         logging.error("BR may not have enrolled correctly.")
         #raise Exception("BR may not have enrolled correctly.")
+
 
 def setupStartTopology(ns):
     n1 = ns.add("br", version="ccm")
@@ -128,6 +135,7 @@ def setupStartTopology(ns):
     ns.speed = 1
     ns.autogo = True
 
+
 def main():
     ns = setupNs()
     if not verifyRegistrarStarted():
@@ -137,6 +145,7 @@ def main():
             return
     setupStartTopology(ns)
     ns.interactive_cli()
+
 
 if __name__ == '__main__':
     try:
