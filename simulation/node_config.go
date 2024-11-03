@@ -168,10 +168,11 @@ func DefaultNodeConfig() NodeConfig {
 
 func DefaultNodeScripts() *YamlScriptConfig {
 	return &YamlScriptConfig{
-		Mtd: strings.Join(defaultMtdInitScript, "\n"),
-		Ftd: strings.Join(defaultFtdInitScript, "\n"),
-		Br:  strings.Join(defaultBrScript, "\n"),
-		All: strings.Join(defaultAllInitScript, "\n"),
+		Mtd:           strings.Join(defaultMtdInitScript, "\n"),
+		Ftd:           strings.Join(defaultFtdInitScript, "\n"),
+		Br:            strings.Join(defaultBrScript, "\n"),
+		BrIncludesFtd: true,
+		All:           strings.Join(defaultAllInitScript, "\n"),
 	}
 }
 

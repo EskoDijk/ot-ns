@@ -1,0 +1,25 @@
+#
+# Script for new CCM nodes to use for ccm.py
+#
+
+script:
+    ftd: |
+        joiner startccm
+
+    mtd: |
+        joiner startccm
+
+    br: |
+        routerselectionjitter 1
+        routerdowngradethreshold 33
+        routerupgradethreshold 33
+        netdata publish prefix fd00:f00d:cafe::/64 paros med
+        netdata publish route fc00::/7 s med
+        netdata publish route 64:ff9b::/96 sn med
+        bbr enable
+        srp server enable
+        br init 1 1
+        br enable
+
+    # This will ensure that the 'ftd' script is not run by the 'br'.
+    br-includes-ftd: false
