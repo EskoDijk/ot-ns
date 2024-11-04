@@ -40,6 +40,7 @@ func ReadNodeScript(fn string) (*YamlScriptConfig, error) {
 		return nil, err
 	}
 	cfgFile := YamlConfigFile{}
+	cfgFile.ScriptConfig.BrIncludesFtd = true
 	err = yaml.Unmarshal(b, &cfgFile)
 	if err != nil {
 		err = fmt.Errorf("error in YAML file: %v", err)

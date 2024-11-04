@@ -249,8 +249,6 @@ func (sh *SimHosts) handleUdpFromSimHost(simConn *SimConn, udpData []byte) {
 			},
 		}
 		sh.sim.Dispatcher().PostEventAsync(ev)
-		logger.Debugf("sh.sim.Dispatcher().PostEventAsync(ev) FIXME %v", ev)
-		logger.Debugf("simConn.Nat66State = %v", simConn.Nat66State)
 	}
 }
 

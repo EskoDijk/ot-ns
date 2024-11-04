@@ -26,6 +26,7 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 import logging
+import os
 import subprocess
 import time
 import unittest
@@ -93,6 +94,7 @@ class CcmTests(OTNSTestCase):
         if cls.registrar_process is not None:
             return
         logging.debug("starting OT Registrar")
+        os.makedirs("tmp", exist_ok=True)
         cls.registrar_log_file = open("tmp/ot-registrar.log", 'w')
         cls.registrar_process = subprocess.Popen([
             'java', '-jar', './etc/ot-registrar/ot-registrar.jar', '-registrar', '-vv', '-f',
@@ -113,11 +115,12 @@ class CcmTests(OTNSTestCase):
     def verifyRegistrarStarted(cls) -> None:
         for n in range(1, 20):
             time.sleep(0.5)
-            with open("tmp/ot-registrar.log", 'r') as file:
-                if "Registrar listening (CoAPS)" in file.read():
-                    with open("tmp/ot-masa.log", 'r') as file2:
-                        if "MASA server listening (HTTPS)" in file2.read():
-                            return
+            if os.path.isfile("tmp/ot-registrar.log"):
+                with open("tmp/ot-registrar.log", 'r') as file:
+                    if "Registrar listening (CoAPS)" in file.read():
+                        with open("tmp/ot-masa.log", 'r') as file2:
+                            if "MASA server listening (HTTPS)" in file2.read():
+                                return
         cls.stopRegistrar()
         raise Exception("OT-Registrar or OT-Masa not started correctly")
 
