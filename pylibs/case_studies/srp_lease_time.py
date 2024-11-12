@@ -25,7 +25,8 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-# Case study on SRP registration lease time that differs for two services.
+# Case study on SRP registration lease time that differs for two services, and
+# clearing of a service (followed by timeout of service on SRP registrar).
 # Related to Thread v1.3/1.4 test case 2.16.
 
 from otns.cli import OTNS
@@ -34,6 +35,7 @@ from otns.cli.errors import OTNSExitedError
 def main():
     ns = OTNS(otns_args=['-seed', '34541'])
     ns.web()
+    ns.watch_all('info')
 
     srv = ns.add('br')
     ns.go(10)
@@ -46,14 +48,23 @@ def main():
 
     ns.node_cmd(cl, "srp client keyleaseinterval 600")
     ns.node_cmd(cl, "srp client leaseinterval 30")
-    ns.node_cmd(cl, "srp client service add serv-test-1 _thread-test._udp 55555")
-    ns.go(15)
+    ns.node_cmd(cl, "srp client service add service-test-1 _thread-test._udp 55555")
+    ns.go(2)
 
+    # clear (forget) the service, before reregistration happens.
+    ns.node_cmd(cl, "srp client service clear service-test-1 _thread-test._udp")
+    ns.go(13)
+
+    # perform new service registration, without reregistering service-test-1
     ns.node_cmd(cl, "srp client leaseinterval 90")
-    ns.node_cmd(cl, "srp client service clear serv-test-1 _thread-test._udp")
-    ns.node_cmd(cl, "srp client service add serv-test-2 _thread-test._udp 55556")
-    ns.go(10)
+    ns.node_cmd(cl, "srp client service add service-test-2 _thread-test._udp 55556")
+    ns.go(14)
 
+    # show registered services on SRP registrar - should still include service-test-1
+    ns.node_cmd(srv, "srp server service")
+
+    # let service-test-1 time out - list should not include service-test-1 active
+    ns.go(2)
     ns.node_cmd(srv, "srp server service")
 
     ns.interactive_cli()
