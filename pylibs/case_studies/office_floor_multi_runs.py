@@ -32,6 +32,7 @@ import logging
 import os
 import resource
 import shutil
+import subprocess
 
 from otns.cli import OTNS
 from otns.cli.errors import OTNSExitedError
@@ -82,8 +83,9 @@ def main():
     except:
         pass
 
-    for n in range(1, NUM_RUNS + 1):
-        run_formation(run_id=n, sim_time=MAX_SIM_TIME)
+    for n in range(0, NUM_RUNS):
+        subprocess.run([f"cd ot-rfsim && ./script/build_latest -DOT_MLE_MAX_CHILDREN={n+10} && cd .."], shell=True, executable="/bin/bash")
+        run_formation(run_id=n+1, sim_time=MAX_SIM_TIME)
 
 
 if __name__ == '__main__':
