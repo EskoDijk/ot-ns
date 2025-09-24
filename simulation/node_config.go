@@ -160,6 +160,8 @@ func DefaultNodeConfig() NodeConfig {
 		NodeLogFile:    true,
 		RadioRange:     defaultRadioRange,
 		ExecutablePath: "",
+		AppScriptPath:  "",
+		HasAppScript:   false,
 		Restore:        false,
 		InitScript:     []string{},
 		RandomSeed:     0, // 0 means not specified, i.e. truly unpredictable.

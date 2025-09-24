@@ -445,6 +445,10 @@ func (rt *CmdRunner) executeAddNode(cc *CommandContext, cmd *AddCmd) {
 	if cmd.Raw != nil {
 		cfg.IsRaw = true
 	}
+	if cmd.App != nil {
+		cfg.AppScriptPath = cmd.App.Path
+		cfg.HasAppScript = true
+	}
 
 	rt.postAsyncWait(cc, func(sim *simulation.Simulation) {
 		sim.NodeConfigFinalize(&cfg)
@@ -626,7 +630,9 @@ func (rt *CmdRunner) executeNode(cc *CommandContext, cmd *NodeCmd) {
 		if cmd.Command != nil {
 			var output []string
 
-			if cc.isBackgroundCmd {
+			if strings.HasPrefix(*cmd.Command, "/") {
+				output = node.AppLayerCommand((*cmd.Command)[1:])
+			} else if cc.isBackgroundCmd {
 				output = node.CommandNoDone(*cmd.Command)
 			} else {
 				output = node.Command(*cmd.Command)

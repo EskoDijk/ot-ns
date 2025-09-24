@@ -94,12 +94,21 @@ func newNode(s *Simulation, nodeid NodeId, cfg *NodeConfig, dnode *dispatcher.No
 	}
 
 	var cmd *exec.Cmd
-	if cfg.RandomSeed == 0 {
-		cmd = exec.CommandContext(context.Background(), cfg.ExecutablePath, strconv.Itoa(nodeid), s.d.GetUnixSocketName())
+	var cmdName string
+	var args []string
+
+	if cfg.HasAppScript {
+		cmdName = "/bin/bash"
+		args = append(args, cfg.AppScriptPath, cfg.ExecutablePath)
 	} else {
-		seedParam := fmt.Sprintf("%d", cfg.RandomSeed)
-		cmd = exec.CommandContext(context.Background(), cfg.ExecutablePath, strconv.Itoa(nodeid), s.d.GetUnixSocketName(), seedParam)
+		cmdName = cfg.ExecutablePath
 	}
+	args = append(args, strconv.Itoa(nodeid), s.d.GetUnixSocketName())
+	if cfg.RandomSeed != 0 {
+		seedParam := fmt.Sprintf("%d", cfg.RandomSeed)
+		args = append(args, seedParam)
+	}
+	cmd = exec.CommandContext(context.Background(), cmdName, args...)
 
 	node := &Node{
 		S:             s,
@@ -110,7 +119,7 @@ func newNode(s *Simulation, nodeid NodeId, cfg *NodeConfig, dnode *dispatcher.No
 		cmd:           cmd,
 		pendingLines:  make(chan string, 10000),
 		pendingEvents: make(chan *event.Event, 100),
-		uartType:      nodeUartTypeUndefined,
+		uartType:      nodeUartTypeVirtualTime,
 		uartReader:    make(chan []byte, 10000),
 		version:       "",
 		sendGroupIds:  make(map[int]struct{}),
@@ -139,6 +148,7 @@ func newNode(s *Simulation, nodeid NodeId, cfg *NodeConfig, dnode *dispatcher.No
 	}
 
 	go node.lineReaderStdErr(node.pipeErr) // reads StdErr output from OT node exe and acts on failures
+	go node.lineReaderStdOut(node.pipeOut)
 
 	return node, err
 }
@@ -254,17 +264,28 @@ func (node *Node) assurePrompt() {
 	}
 }
 
+// inputCommand sends a single CLI command to the node's default (OT CLI) UART.
 func (node *Node) inputCommand(cmd string) error {
-	logger.AssertTrue(node.uartType != nodeUartTypeUndefined)
 	var err error
 	node.cmdErr = nil // reset last command error
 
-	if node.uartType == nodeUartTypeRealTime {
+	if node.uartType == nodeUartTypeVirtualTime {
+		err = node.DNode.SendToUART([]byte(cmd + "\n"))
+	} else if node.uartType == nodeUartTypeRealTime {
 		_, err = node.pipeIn.Write([]byte(cmd + "\n"))
 		node.S.Dispatcher().NotifyCommand(node.Id)
 	} else {
-		err = node.DNode.SendToUART([]byte(cmd + "\n"))
+		logger.Panicf("unknown uartType %d", node.uartType)
 	}
+	return err
+}
+
+// inputAppLayer sends a single CLI command to the node's app layer.
+func (node *Node) inputAppLayer(cmd string) error {
+	var err error
+	node.cmdErr = nil // reset last command error
+
+	_, err = node.pipeIn.Write([]byte(cmd + "\n"))
 	return err
 }
 
@@ -326,6 +347,32 @@ func (node *Node) Command(cmd string) []string {
 	output, result = output[:len(output)-1], output[len(output)-1]
 	if result != "Done" {
 		node.error(errors.New(result))
+	}
+	return output
+}
+
+// AppLayerCommand sends a command to the application layer running on the node, if any.
+// It returns command result lines that are immediately available (more lines may come later).
+// If no app layer was started, it will return an empty slice.
+func (node *Node) AppLayerCommand(cmd string) []string {
+
+	if !node.cfg.HasAppScript {
+		return []string{}
+	}
+
+	err := node.inputAppLayer(cmd)
+	if err != nil {
+		node.error(err)
+		return []string{}
+	}
+
+	var output []string
+	for {
+		line, ok := node.readLine()
+		if !ok {
+			break
+		}
+		output = append(output, line)
 	}
 	return output
 }
@@ -1084,6 +1131,17 @@ func (node *Node) lineReaderStdErr(reader io.Reader) {
 	// when the stderr of the node closes and any error was raised, inform simulation of node's failure.
 	if errProc != nil {
 		node.onProcessFailure()
+	}
+}
+
+// lineReaderStdOut reads lines from the node's stdout; only for type 'runner' (FIXME)
+func (node *Node) lineReaderStdOut(reader io.Reader) {
+	scanner := bufio.NewScanner(bufio.NewReader(reader)) // no filter applied.
+	scanner.Split(bufio.ScanLines)
+
+	for scanner.Scan() {
+		line := scanner.Text()
+		node.pendingLines <- line
 	}
 }
 

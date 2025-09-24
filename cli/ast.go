@@ -307,6 +307,7 @@ type AddCmd struct {
 	Restore    *RestoreFlag    `| @@`                 //nolint
 	Version    *ThreadVersion  `| @@`                 //nolint
 	Raw        *RawFlag        `| @@`                 //nolint
+	App        *AppFlag        `| @@`                 //nolint
 	Executable *ExecutableFlag `| @@ )*`              //nolint
 }
 
@@ -338,6 +339,12 @@ type ThreadVersion struct {
 // noinspection GoVetStructTag
 type ExecutableFlag struct {
 	Dummy struct{} `"exe"`   //nolint
+	Path  string   `@String` //nolint
+}
+
+// noinspection GoVetStructTag
+type AppFlag struct {
+	Dummy struct{} `"app"`   //nolint
 	Path  string   `@String` //nolint
 }
 
