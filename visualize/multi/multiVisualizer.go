@@ -72,10 +72,9 @@ func (mv *MultiVisualizer) Init() {
 }
 
 func (mv *MultiVisualizer) Run() {
-	for i := 1; i < len(mv.vs); i++ {
-		go mv.vs[i].Run()
+	for _, v := range mv.vs {
+		v.Run()
 	}
-	mv.vs[0].Run()
 }
 
 func (mv *MultiVisualizer) Stop() {

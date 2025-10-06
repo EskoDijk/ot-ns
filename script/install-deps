@@ -49,21 +49,6 @@ install_packages()
     install_package virtualenv --apt python3-venv --brew python3 || true
 }
 
-install_grpcwebproxy()
-{
-    if ! installed grpcwebproxy; then
-        if [[ $Darwin == 1 ]]; then
-            wget https://github.com/improbable-eng/grpc-web/releases/download/v0.12.0/grpcwebproxy-v0.12.0-osx-x86_64.zip -O /tmp/grpcwebproxy.zip && cd /tmp/ && unzip grpcwebproxy.zip && mv dist/grpcwebproxy* "$GOPATH"/bin/grpcwebproxy
-        else
-            wget https://github.com/improbable-eng/grpc-web/releases/download/v0.12.0/grpcwebproxy-v0.12.0-linux-x86_64.zip -O /tmp/grpcwebproxy.zip && cd /tmp/ && unzip grpcwebproxy.zip && mv dist/grpcwebproxy* "$GOPATH"/bin/grpcwebproxy
-        fi
-        cd -
-        echo "grpcwebproxy installed: $(command -v grpcwebproxy)"
-    else
-        echo "grpcwebproxy found: $(command -v grpcwebproxy)"
-    fi
-}
-
 install_python_libs()
 {
     activate_python_venv
@@ -73,7 +58,6 @@ install_python_libs()
 main()
 {
     install_packages
-    install_grpcwebproxy
     install_python_libs
 }
 

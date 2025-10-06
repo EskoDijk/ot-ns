@@ -28,9 +28,11 @@ package visualize_grpc
 
 import (
 	"math"
-	"net"
 	"sync"
 	"time"
+
+	"github.com/improbable-eng/grpc-web/go/grpcweb"
+	"google.golang.org/grpc"
 
 	"github.com/openthread/ot-ns/energy"
 	"github.com/openthread/ot-ns/logger"
@@ -52,7 +54,7 @@ type grpcVisualizer struct {
 }
 
 // NewGrpcVisualizer creates a new Visualizer that uses Google RPC communication with a web page.
-func NewGrpcVisualizer(address string, replayFn string, chanNewClientNotifier chan string) visualize.Visualizer {
+func NewGrpcVisualizer(replayFn string, chanNewClientNotifier chan string) (visualize.Visualizer, *grpcweb.WrappedGrpcServer, *grpc.Server) {
 	gsv := &grpcVisualizer{
 		simctrl: nil,
 		f:       newGrpcField(),
@@ -62,8 +64,8 @@ func NewGrpcVisualizer(address string, replayFn string, chanNewClientNotifier ch
 		gsv.replay = replay.NewReplay(replayFn)
 	}
 
-	gsv.server = newGrpcServer(gsv, address, chanNewClientNotifier)
-	return gsv
+	gsv.server = newGrpcServer(gsv, chanNewClientNotifier)
+	return gsv, gsv.server.webServer, gsv.server.server
 }
 
 func (gv *grpcVisualizer) SetNetworkInfo(networkInfo visualize.NetworkInfo) {
@@ -91,22 +93,8 @@ func (gv *grpcVisualizer) Init() {
 }
 
 func (gv *grpcVisualizer) Run() {
-	defer logger.Debugf("gRPC server exit.")
-	err := gv.server.Run()
-
 	gv.Lock()
 	defer gv.Unlock()
-	gv.server.stop()
-
-	if err != nil {
-		if opErr, ok := err.(*net.OpError); ok {
-			if opErr.Op == "listen" {
-				logger.Errorf("gRPC server could not listen on %s - port may be in use?", gv.server.address)
-				return
-			}
-		}
-		logger.Errorf("gRPC server quit with error: %v", err)
-	}
 }
 
 func (gv *grpcVisualizer) Stop() {

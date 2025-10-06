@@ -31,16 +31,18 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"net"
 	"net/http"
 	"os"
 
+	"github.com/improbable-eng/grpc-web/go/grpcweb"
+	"google.golang.org/grpc"
+
 	"github.com/openthread/ot-ns/logger"
 	"github.com/openthread/ot-ns/progctx"
+	"github.com/openthread/ot-ns/types"
 	"github.com/openthread/ot-ns/visualize/grpc/pb"
 	"github.com/openthread/ot-ns/web"
 	webSite "github.com/openthread/ot-ns/web/site"
-	"google.golang.org/grpc"
 )
 
 var args struct {
@@ -70,37 +72,26 @@ func main() {
 	ctx := progctx.New(context.Background())
 
 	server := grpc.NewServer(grpc.ReadBufferSize(1024*8), grpc.WriteBufferSize(1024*1024*1))
+	wrappedServer := grpcweb.WrapServer(server)
 	gs := &grpcService{
 		replayFile:  args.ReplayFile,
 		serviceDone: make(chan struct{}),
 	}
 	pb.RegisterVisualizeGrpcServiceServer(server, gs)
 
-	lis, err := net.Listen("tcp", ":8999")
-	logger.PanicIfError(err)
-
+	siteAddr := fmt.Sprintf("localhost:%d", types.DefaultWebServerPort)
 	go func() {
-		siteAddr := ":8997"
-		err := webSite.Serve(siteAddr)
+		err := webSite.Serve(siteAddr, wrappedServer, server)
 		if !errors.Is(err, http.ErrServerClosed) {
 			logger.PanicIfError(err)
 		}
 	}()
 
-	go func() {
-		web.ConfigWeb("", 8998, 8999, 8997)
-		_ = web.OpenWeb(ctx, web.MainTab)
-	}()
+	web.ConfigWeb("localhost", types.DefaultWebServerPort)
+	_ = web.OpenWeb(ctx, web.MainTab)
 
-	go func() {
-		<-gs.serviceDone
-		server.GracefulStop()
-	}()
-
-	err = server.Serve(lis)
-	if err != nil {
-		logger.Errorf("server quit: %v", err)
-	}
+	<-gs.serviceDone
+	//server.GracefulStop()
 }
 
 func checkReplayFile(filename string) {
