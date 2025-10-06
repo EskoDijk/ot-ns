@@ -80,8 +80,8 @@ window.addEventListener("resize", function () {
 });
 
 function loadOk() {
-    console.log('connecting to gRPC server ' + server);
-    grpcServiceClient = new VisualizeGrpcServiceClient(server);
+    console.log('connecting to gRPC server');
+    grpcServiceClient = new VisualizeGrpcServiceClient('');
 
     vis = new PixiVisualizer(app, grpcServiceClient);
 

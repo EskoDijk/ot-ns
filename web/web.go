@@ -45,32 +45,20 @@ const (
 )
 
 var (
-	grpcWebProxyProc *exec.Cmd
-
-	grpcWebProxyParams struct {
-		serverBindAddress   string
-		serverHttpDebugPort int
-		grpcServicePort     int
-		webSitePort         int
+	webParams struct {
+		webSiteHost string
+		webSitePort int
 	}
 )
 
-func ConfigWeb(serverBindAddress string, serverHttpDebugPort int, grpcServicePort int, webSitePort int) {
-	grpcWebProxyParams.serverBindAddress = serverBindAddress
-	grpcWebProxyParams.serverHttpDebugPort = serverHttpDebugPort
-	grpcWebProxyParams.grpcServicePort = grpcServicePort
-	grpcWebProxyParams.webSitePort = webSitePort
-	logger.Debugf("ConfigWeb: %+v", grpcWebProxyParams)
+func ConfigWeb(webSiteHost string, webSitePort int) {
+	webParams.webSiteHost = webSiteHost
+	webParams.webSitePort = webSitePort
+	logger.Debugf("ConfigWeb: %+v", webParams)
 }
 
 func OpenWeb(ctx *progctx.ProgCtx, tabResourceName string) error {
-	if err := assureGrpcWebProxyRunning(ctx); err != nil {
-		logger.Errorf("start grpcwebproxy failed: %v", err)
-		logger.Errorf("Web visualization is unusable. Please make sure grpcwebproxy is installed.")
-		return err
-	}
-
-	err := openWebBrowser(fmt.Sprintf("http://localhost:%d/%s?addr=localhost:%d", grpcWebProxyParams.webSitePort, tabResourceName, grpcWebProxyParams.serverHttpDebugPort))
+	err := openWebBrowser(fmt.Sprintf("http://%s:%d/%s", webParams.webSiteHost, webParams.webSitePort, tabResourceName))
 	if err != nil {
 		return err
 	}
@@ -80,7 +68,7 @@ func OpenWeb(ctx *progctx.ProgCtx, tabResourceName string) error {
 	return nil
 }
 
-// open opens the specified URL in the default browser of the user.
+// openWebBrowser opens the specified URL in the default browser of the user.
 func openWebBrowser(url string) error {
 	var cmd string
 	var args []string
@@ -97,76 +85,4 @@ func openWebBrowser(url string) error {
 
 	args = append(args, url)
 	return exec.Command(cmd, args...).Start()
-}
-
-func startGrpcWebProxy(ctx *progctx.ProgCtx) error {
-	grpcWebProxyProc = exec.CommandContext(ctx, "grpcwebproxy", []string{
-		fmt.Sprintf("--backend_addr=localhost:%d", grpcWebProxyParams.grpcServicePort),
-		"--run_tls_server=false",
-		"--allow_all_origins",
-		"--server_http_max_read_timeout=1h",
-		"--server_http_max_write_timeout=1h",
-		fmt.Sprintf("--server_bind_address=%s", grpcWebProxyParams.serverBindAddress),
-		fmt.Sprintf("--server_http_debug_port=%d", grpcWebProxyParams.serverHttpDebugPort),
-	}...)
-
-	return grpcWebProxyProc.Start()
-}
-
-func assureGrpcWebProxyRunning(ctx *progctx.ProgCtx) error {
-	if grpcWebProxyProc == nil {
-		if err := startGrpcWebProxy(ctx); err != nil {
-			return err
-		}
-
-		logger.Infof("grpcwebproxy started.")
-
-		ctx.WaitAdd("grpcwebproxy", 1)
-		go func() {
-			defer ctx.WaitDone("grpcwebproxy")
-
-			err := grpcWebProxyProc.Wait()
-			if err != nil && ctx.Err() == nil {
-				logger.Warnf("grpcwebproxy exit unexpectedly: %v, try restarting ...", err)
-
-				tryKillExistingGrpcWebProxyProcess()
-
-				if err = startGrpcWebProxy(ctx); err != nil {
-					logger.Errorf("grpcwebproxy restart failed: %v", err)
-					return
-				}
-
-				logger.Infof("grpcwebproxy restarted.")
-				err = grpcWebProxyProc.Wait()
-
-				if err != nil && ctx.Err() == nil {
-					logger.Errorf("grpcwebproxy exit unexpectedly: %v", err)
-					logger.Errorf("Web visualization might not be working properly!")
-				}
-			}
-		}()
-	}
-
-	return nil
-}
-
-func tryKillExistingGrpcWebProxyProcess() {
-	var err error
-
-	defer func() {
-		if err != nil {
-			logger.Warnf("Kill existing grpcwebproxy process failed: %v", err)
-		}
-	}()
-
-	pattern := fmt.Sprintf("grpcwebproxy.*--server_http_debug_port=%d", grpcWebProxyParams.serverHttpDebugPort)
-	cmd := exec.Command("pkill", "-f", pattern)
-	if err = cmd.Start(); err != nil {
-		logger.Errorf("pkill grpcwebproxy failed: %v", err)
-		return
-	}
-
-	if err = cmd.Wait(); err != nil || !cmd.ProcessState.Success() {
-		logger.Errorf("pkill grpcwebproxy failed: %s", cmd.ProcessState)
-	}
 }

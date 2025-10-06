@@ -37,9 +37,9 @@ type NodeId = int
 type ChannelId = uint8
 
 const (
-	InvalidNodeId         NodeId = 0
-	BroadcastNodeId       NodeId = -1
-	InitialDispatcherPort        = 9000
+	InvalidNodeId        NodeId = 0
+	BroadcastNodeId      NodeId = -1
+	DefaultWebServerPort        = 9000
 
 	// InvalidExtAddr defines the invalid extended address for nodes.
 	InvalidExtAddr       uint64 = math.MaxUint64

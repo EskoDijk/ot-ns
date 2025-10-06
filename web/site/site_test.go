@@ -46,7 +46,7 @@ func TestMimeTypes(t *testing.T) {
 
 func TestServe(t *testing.T) {
 	go func() {
-		_ = Serve("localhost:8997")
+		_ = Serve("localhost:8997", nil, nil)
 	}()
 	deadline := time.Now().Add(time.Second * 5)
 	for time.Now().Before(deadline) {
@@ -64,13 +64,13 @@ func TestServe(t *testing.T) {
 	assert.True(t, resp.ContentLength > 0)
 	assert.Equal(t, "text/html; charset=utf-8", resp.Header.Get("content-type"))
 
-	resp, err = http.Get("http://localhost:8997/visualize?addr=")
+	resp, err = http.Get("http://localhost:8997/visualize")
 	assert.Nil(t, err)
 	assert.Equal(t, resp.StatusCode, 200)
 	assert.True(t, resp.ContentLength > 0)
 	assert.Equal(t, "text/html; charset=utf-8", resp.Header.Get("content-type"))
 
-	resp, err = http.Get("http://localhost:8997/energyViewer?addr=")
+	resp, err = http.Get("http://localhost:8997/energyViewer")
 	assert.Nil(t, err)
 	assert.Equal(t, resp.StatusCode, 200)
 	assert.True(t, resp.ContentLength > 0)

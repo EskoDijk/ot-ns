@@ -39,6 +39,7 @@
 
 // The IPv4 group for receiving
 #define TREL_SIM_GROUP "224.0.0.116"
+// FIXME the base port 9200 may not be suitable for OTNS. OTNS-web has sim-IDs 0-999 which maps to ports 9000-9999.
 #define TREL_SIM_PORT 9200
 
 #define TREL_MAX_PACKET_SIZE 1800
