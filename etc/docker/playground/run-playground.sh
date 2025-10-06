@@ -31,7 +31,7 @@
 echo "OTNS playground - use this Docker for a first try of the OpenThread Network Simulator (OTNS)."
 echo
 echo "Open below link in a browser for the GUI, e.g. right-click & select 'Open Link':"
-echo "   http://localhost:8997/visualize?addr=localhost:8998"
+echo "   http://localhost:9000/"
 echo
 echo "OTNS CLI prompt - type 'help' for a command overview."
 otns "-listen" "0.0.0.0:9000" "$@"

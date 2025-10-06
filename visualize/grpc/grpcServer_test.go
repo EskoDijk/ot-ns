@@ -40,7 +40,7 @@ func TestStartStopServer(t *testing.T) {
 		simctrl: nil,
 		f:       newGrpcField(),
 	}
-	srv := newGrpcServer(vis, "localhost:8997", nil)
+	srv := newGrpcServer(vis, nil)
 
 	var err error
 	done := make(chan bool)
@@ -60,7 +60,7 @@ func TestStopBeforeStart(t *testing.T) {
 		simctrl: nil,
 		f:       newGrpcField(),
 	}
-	srv := newGrpcServer(vis, "localhost:8997", nil)
+	srv := newGrpcServer(vis, nil)
 
 	var err error
 	done := make(chan bool)

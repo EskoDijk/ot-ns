@@ -50,14 +50,14 @@ RUN set -x \
     && git submodule update --init \
     \
     && ./script/bootstrap \
-    && strip /go/bin/grpcwebproxy /go/bin/otns # /go/bin is the default location for "FROM golang:*" Dockers.
+    && strip /go/bin/otns # /go/bin is the default location for "FROM golang:*" Dockers.
 
 # Stage 1: build the final image
 FROM ubuntu:24.04
 
 RUN apt-get update && apt-get install -y xdg-utils
 # Copy over the produced binaries (including all built node types) from stage 0
-COPY --from=0 /go/bin/grpcwebproxy /go/bin/otns /otns/ot-rfsim/ot-versions/ot-* /otns/etc/docker/playground/run-playground.sh /usr/bin/
-EXPOSE 8997 8998 8999 9000
+COPY --from=0 /go/bin/otns /otns/ot-rfsim/ot-versions/ot-* /otns/etc/docker/playground/run-playground.sh /usr/bin/
+EXPOSE 9000
 
 ENTRYPOINT [ "run-playground.sh" ]

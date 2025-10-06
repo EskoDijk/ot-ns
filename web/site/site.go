@@ -1,4 +1,4 @@
-// Copyright (c) 2022-2023, The OTNS Authors.
+// Copyright (c) 2022-2025, The OTNS Authors.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -27,7 +27,8 @@
 package web_site
 
 import (
-	"html"
+	"errors"
+	"fmt"
 	"html/template"
 	"net/http"
 	_ "net/http/pprof"
@@ -35,15 +36,23 @@ import (
 	"path/filepath"
 	"sync"
 
+	"github.com/improbable-eng/grpc-web/go/grpcweb"
+	"golang.org/x/net/http2"
+	"golang.org/x/net/http2/h2c"
+
+	"strings"
+
 	"github.com/openthread/ot-ns/logger"
+	"google.golang.org/grpc"
 )
 
 var httpServer *http.Server = nil
+var debugServer *http.Server = nil
 var canServe bool = true
 var httpServerMutex sync.Mutex
 var Started = make(chan struct{})
 
-func Serve(listenAddr string) error {
+func Serve(listenAddr string, wrappedGrpcServer *grpcweb.WrappedGrpcServer, nativeGrpcServer *grpc.Server) error {
 	defer logger.Debugf("webserver exit.")
 
 	assetDir := os.Getenv("HOME")
@@ -76,39 +85,32 @@ func Serve(listenAddr string) error {
 		}
 	}
 
+	mux := http.NewServeMux()
+
 	templates := template.Must(template.ParseGlob(filepath.Join(assetDir, "templates", "*.html")))
 
 	fs := http.FileServer(http.Dir(filepath.Join(assetDir, "static")))
-	http.Handle("/static/", http.StripPrefix("/static/", fs))
+	mux.Handle("/static/", http.StripPrefix("/static/", fs))
 
-	http.HandleFunc("/visualize", func(writer http.ResponseWriter, request *http.Request) {
-		addr := html.EscapeString(request.URL.Query()["addr"][0])
-		logger.Debugf("visualizing addr=%+v", addr)
-		err := templates.ExecuteTemplate(writer, "visualize.html", map[string]interface{}{
-			"addr": addr,
-		})
+	mux.HandleFunc("/visualize", func(writer http.ResponseWriter, request *http.Request) {
+		logger.Debugf("visualizing new client")
+		err := templates.ExecuteTemplate(writer, "visualize.html", nil)
 		if err != nil {
 			writer.WriteHeader(501)
 		}
 	})
 
-	http.HandleFunc("/energyViewer", func(writer http.ResponseWriter, request *http.Request) {
-		addr := html.EscapeString(request.URL.Query()["addr"][0])
-		logger.Debugf("energy charts visualizing addr=%+v", addr)
-		err := templates.ExecuteTemplate(writer, "energyViewer.html", map[string]interface{}{
-			"addr": addr,
-		})
+	mux.HandleFunc("/energyViewer", func(writer http.ResponseWriter, request *http.Request) {
+		logger.Debugf("energyViewer visualizing")
+		err := templates.ExecuteTemplate(writer, "energyViewer.html", nil)
 		if err != nil {
 			writer.WriteHeader(501)
 		}
 	})
 
-	http.HandleFunc("/statsViewer", func(writer http.ResponseWriter, request *http.Request) {
-		addr := html.EscapeString(request.URL.Query()["addr"][0])
-		logger.Debugf("statsViewer visualizing addr=%+v", addr)
-		err := templates.ExecuteTemplate(writer, "statsViewer.html", map[string]interface{}{
-			"addr": addr,
-		})
+	mux.HandleFunc("/statsViewer", func(writer http.ResponseWriter, request *http.Request) {
+		logger.Debugf("statsViewer visualizing")
+		err := templates.ExecuteTemplate(writer, "statsViewer.html", nil)
 		if err != nil {
 			writer.WriteHeader(501)
 		}
@@ -121,7 +123,27 @@ func Serve(listenAddr string) error {
 		close(Started)
 		return http.ErrServerClosed
 	}
-	httpServer = &http.Server{Addr: listenAddr, Handler: nil}
+
+	// Create a multiplexing handler that checks the request's content type.
+	multiplexHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Use the IsGrpcWebRequest helper to determine if it's a gRPC-Web HTTP/1.1 request.
+		if wrappedGrpcServer != nil && (wrappedGrpcServer.IsGrpcWebRequest(r) || wrappedGrpcServer.IsAcceptableGrpcCorsRequest(r)) {
+			wrappedGrpcServer.ServeHTTP(w, r)
+			return
+		}
+		// Check if it's a gRPC-Web HTTP/2 request.
+		if nativeGrpcServer != nil && r.ProtoMajor == 2 && strings.Contains(r.Header.Get("Content-Type"), "application/grpc") {
+			nativeGrpcServer.ServeHTTP(w, r)
+			return
+		}
+		// Or, fall back to the standard HTTP mux.
+		mux.ServeHTTP(w, r)
+	})
+
+	httpServer = &http.Server{
+		Addr:    listenAddr,
+		Handler: h2c.NewHandler(multiplexHandler, &http2.Server{}),
+	}
 	logger.Infof("OTNS webserver now serving on %s ...", listenAddr)
 	defer logger.Tracef("webserver: httpServer.ListenAndServe() done")
 	httpServerMutex.Unlock()
@@ -129,12 +151,34 @@ func Serve(listenAddr string) error {
 	return httpServer.ListenAndServe()
 }
 
-func StopServe() {
-	logger.Debugf("requesting webserver to exit ...")
+// ServeDebugPort starts the Go pprof debug server on the specified port. Function does not block.
+func ServeDebugPort(httpDebugPort int) {
 	httpServerMutex.Lock()
+	defer httpServerMutex.Unlock()
+
+	if !canServe {
+		debugServer = nil
+		return
+	}
+	debugServer = &http.Server{Addr: fmt.Sprintf("localhost:%d", httpDebugPort)}
+	go func() {
+		err := debugServer.ListenAndServe()
+		if !errors.Is(err, http.ErrServerClosed) {
+			logger.Errorf("pprof debug server failed: %v", err)
+		}
+	}()
+}
+
+func StopServe() {
+	logger.Debugf("requesting OTNS webserver to exit ...")
+	httpServerMutex.Lock()
+	defer httpServerMutex.Unlock()
+
 	if httpServer != nil {
 		_ = httpServer.Close()
 	}
+	if debugServer != nil {
+		_ = debugServer.Close()
+	}
 	canServe = false // prevent serving again in same execution.
-	httpServerMutex.Unlock()
 }
