@@ -42,6 +42,7 @@
 #include <stdlib.h>
 
 #include <openthread/coap.h>
+#include <openthread/ip6.h>
 #include <openthread/logging.h>
 #include <openthread/tasklet.h>
 #include <openthread/udp.h>
