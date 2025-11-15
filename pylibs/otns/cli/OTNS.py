@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (c) 2020-2024, The OTNS Authors.
+# Copyright (c) 2020-2025, The OTNS Authors.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -25,7 +25,6 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-from .errors import *
 import ipaddress
 import json
 import logging
@@ -39,6 +38,9 @@ import threading
 import time
 from typing import List, Union, Optional, Tuple, Dict, Any, Collection
 import yaml
+
+from .errors import *
+from otns.errors import *
 
 
 class OTNS(object):
@@ -92,10 +94,10 @@ class OTNS(object):
         logging.info("waiting for OTNS to close ...")
         try:
             self._do_command("exit", do_logging=False)
-        except OTNSExitedError:
-            pass
+        except OTNSError:
+            self._otns.send_signal(signal.SIGTERM)
+
         time.sleep(0.010)
-        self._otns.send_signal(signal.SIGTERM)
         try:
             self._otns.__exit__(None, None, None)
         except BrokenPipeError:
@@ -1196,6 +1198,7 @@ class OTNS(object):
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
+        return False
 
     def __del__(self):
         self.close()
