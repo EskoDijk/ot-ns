@@ -65,8 +65,9 @@ type MainArgs struct {
 	OpenWeb        bool
 	Realtime       bool
 	ListenAddr     string
-	DispatcherHost string
-	DispatcherPort int
+	ServerHost     string
+	ServerPort     int
+	DebugPort      int
 	DumpPackets    bool
 	PcapType       string
 	NoReplay       bool
@@ -94,44 +95,58 @@ func parseArgs() {
 	flag.StringVar(&args.OtCliPath, "ot-cli", defaultOtCli, "specify the OT CLI executable, for FTD and also for MTD if not configured otherwise.")
 	flag.StringVar(&args.OtCliMtdPath, "ot-cli-mtd", defaultOtCliMtd, "specify the OT CLI MTD executable, separately from FTD executable.")
 	flag.StringVar(&args.InitScriptName, "ot-script", "", "specify the OT node init script filename, to use for init of new nodes. By default an internal script is used. Use 'none' for no script.")
-	flag.BoolVar(&args.AutoGo, "autogo", true, "auto go (runs the simulation at given speed, without issuing 'go' commands.)")
+	flag.BoolVar(&args.AutoGo, "autogo", true, "auto go (runs the simulation at given speed, without issuing 'go' commands to advance time.)")
 	flag.BoolVar(&args.ReadOnly, "readonly", false, "readonly simulation can not be manipulated")
 	flag.StringVar(&args.LogLevel, "log", "warn", "set OTNS display logging level: trace, debug, info, warn, error.")
 	flag.StringVar(&args.LogFileLevel, "logfile", "debug", "set OTNS + node file logging level: trace, debug, info, warn, error, off.")
 	flag.StringVar(&args.WatchLevel, "watch", "off", "set default watch (display) level for new nodes: trace, debug, info, note, warn, error, off.")
 	flag.BoolVar(&args.OpenWeb, "web", true, "open web visualization")
 	flag.BoolVar(&args.Realtime, "realtime", false, "use real-time mode (forced speed=1 and autogo)")
-	flag.StringVar(&args.ListenAddr, "listen", fmt.Sprintf("localhost:%d", InitialDispatcherPort), "specify TCP/UDP host and port base value for web-GUI/RPC. Recommended ports are 9000, 9010, 9020, etc.")
+	flag.StringVar(&args.ListenAddr, "listen", fmt.Sprintf("localhost:%d", DefaultWebServerPort), "specify HTTP(S) host (bind IP address) and port for web-GUI.")
+	flag.IntVar(&args.DebugPort, "pprof-port", 0, "specify a port for enabling Go pprof debug server over HTTP. Disabled by default (port '0').")
 	flag.BoolVar(&args.DumpPackets, "dump-packets", false, "dump packets")
 	flag.StringVar(&args.PcapType, "pcap", pcap.FrameTypeWpanStr, "PCAP file type: 'off', 'wpan', or 'wpan-tap'. PCAP is saved to file 'current.pcap'.")
 	flag.BoolVar(&args.NoReplay, "no-replay", false, "do not generate Replay file (named \"otns_?.replay\")")
-	flag.Int64Var(&args.RandomSeed, "seed", 0, "set specific random-seed value (for reproducability)")
+	flag.Int64Var(&args.RandomSeed, "seed", 0, "set specific random-seed value (for reproducibility)")
 	flag.BoolVar(&args.PhyTxStats, "phy-tx-stats", false, "generate PHY Tx statistics CSV file")
 	flag.Parse()
 }
 
 func parseListenAddr() (int, error) {
 	var err error
+	var simId int
 
 	notifyInvalidListenAddr := func() {
-		err = fmt.Errorf("invalid listen address: %s (port must be larger than or equal to 9000 and must be a multiple of 10", args.ListenAddr)
+		err = fmt.Errorf("invalid listen address: '%s' (port must be 80, 8080, or 9000-9999; for example 'localhost:9001')", args.ListenAddr)
 	}
 
-	subs := strings.Split(args.ListenAddr, ":")
-	if len(subs) != 2 {
+	// try to parse it as a single port number first
+	if args.ServerPort, err = strconv.Atoi(args.ListenAddr); err == nil {
+		args.ServerHost = "localhost"
+	} else {
+		subs := strings.Split(args.ListenAddr, ":")
+		if len(subs) != 2 {
+			notifyInvalidListenAddr()
+			return 0, err
+		} else {
+			args.ServerHost = subs[0]
+			if args.ServerPort, err = strconv.Atoi(subs[1]); err != nil {
+				notifyInvalidListenAddr()
+				return 0, err
+			}
+		}
+	}
+
+	if args.ServerPort == 80 || args.ServerPort == 8080 {
+		simId = 0
+	} else if args.ServerPort >= 9000 && args.ServerPort <= 9999 {
+		simId = args.ServerPort - 9000
+	} else {
 		notifyInvalidListenAddr()
+		return 0, err
 	}
 
-	args.DispatcherHost = subs[0]
-	if args.DispatcherPort, err = strconv.Atoi(subs[1]); err != nil {
-		notifyInvalidListenAddr()
-	}
-
-	if args.DispatcherPort < InitialDispatcherPort || args.DispatcherPort%10 != 0 {
-		notifyInvalidListenAddr()
-	}
-
-	simId := (args.DispatcherPort - InitialDispatcherPort) / 10
+	args.ListenAddr = fmt.Sprintf("%s:%d", args.ServerHost, args.ServerPort)
 	return simId, err
 }
 
@@ -143,9 +158,7 @@ func Main(ctx *progctx.ProgCtx, cliOptions *cli.CliOptions) {
 
 	prng.Init(args.RandomSeed)
 	sim, err := createSimulation(simId, ctx)
-	logger.FatalIfError(err)
-
-	visGrpcServerAddr := fmt.Sprintf("%s:%d", args.DispatcherHost, args.DispatcherPort-1)
+	logger.PanicIfError(err)
 
 	replayFn := ""
 	if !args.NoReplay {
@@ -154,8 +167,9 @@ func Main(ctx *progctx.ProgCtx, cliOptions *cli.CliOptions) {
 
 	chanGrpcClientNotifier := make(chan string, 1)
 
+	grpcVisualizer, wrappedServer, grpcServer := visualizeGrpc.NewGrpcVisualizer(replayFn, chanGrpcClientNotifier)
 	vis := visualizeMulti.NewMultiVisualizer(
-		visualizeGrpc.NewGrpcVisualizer(visGrpcServerAddr, replayFn, chanGrpcClientNotifier),
+		grpcVisualizer,
 		visualizeStatslog.NewStatslogVisualizer(sim.GetConfig().OutputDir, simId, visualizeStatslog.NodeStatsType),
 	)
 	if args.PhyTxStats {
@@ -166,8 +180,11 @@ func Main(ctx *progctx.ProgCtx, cliOptions *cli.CliOptions) {
 	ctx.WaitAdd("webserver", 1)
 	go func() {
 		defer ctx.WaitDone("webserver")
-		siteAddr := fmt.Sprintf("%s:%d", args.DispatcherHost, args.DispatcherPort-3)
-		err := webSite.Serve(siteAddr) // blocks until webSite.StopServe() called
+
+		if args.DebugPort > 0 {
+			webSite.ServeDebugPort(args.DebugPort)
+		}
+		err := webSite.Serve(args.ListenAddr, wrappedServer, grpcServer) // blocks until webSite.StopServe() called
 		if err != nil && ctx.Err() == nil {
 			logger.Errorf("webserver stopped unexpectedly: %+v, OTNS-Web won't be available!", err)
 		}
@@ -196,7 +213,11 @@ func Main(ctx *progctx.ProgCtx, cliOptions *cli.CliOptions) {
 	}()
 	<-sim.Started
 
-	web.ConfigWeb(args.DispatcherHost, args.DispatcherPort-2, args.DispatcherPort-1, args.DispatcherPort-3)
+	webHost := args.ServerHost
+	if webHost == "0.0.0.0" {
+		webHost = "localhost"
+	}
+	web.ConfigWeb(webHost, args.ServerPort)
 	logger.Debugf("open web: %v", args.OpenWeb)
 	if args.OpenWeb {
 		sim.PostAsync(func() {
@@ -207,11 +228,11 @@ func Main(ctx *progctx.ProgCtx, cliOptions *cli.CliOptions) {
 		})
 	}
 
+	vis.Run() // we expect all visualizers to not block (but create their own goroutines to run).
+
 	ctx.WaitAdd("autogo", 1)
 	go sim.AutoGoRoutine(ctx, sim)
-
-	vis.Run() // visualize must run in the main thread
-	ctx.Cancel("main")
+	<-ctx.Done()
 
 	logger.Debugf("waiting for OTNS to stop gracefully ...")
 	cli.Cli.Stop()
@@ -279,8 +300,8 @@ func createSimulation(simId int, ctx *progctx.ProgCtx) (*simulation.Simulation, 
 	simcfg.Speed = speed
 	simcfg.ReadOnly = args.ReadOnly
 	simcfg.Realtime = args.Realtime
-	simcfg.DispatcherHost = args.DispatcherHost
-	simcfg.DispatcherPort = args.DispatcherPort
+	simcfg.ServerHost = args.ServerHost
+	simcfg.ServerPort = args.ServerPort
 	simcfg.DumpPackets = args.DumpPackets
 	simcfg.AutoGo = args.AutoGo
 	simcfg.Id = simId

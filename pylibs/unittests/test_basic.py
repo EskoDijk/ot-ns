@@ -356,8 +356,10 @@ class BasicTests(OTNSTestCase):
         make sure OTNS works in with-statement
         """
         self.ns.close()
+        self.assertEqual(True, self.ns._closed)
 
         with OTNS(otns_args=['-log', 'debug']) as ns:
+            self.assertEqual(False, ns._closed)
             self.assertEqual(OTNS.DEFAULT_SIMULATE_SPEED, ns.speed)
             ns.speed = 19999
             nid = ns.add("router")
@@ -367,6 +369,7 @@ class BasicTests(OTNSTestCase):
 
         # run a second time to make sure the previous simulation is properly terminated
         with OTNS(otns_args=['-log', 'warn', '-speed', '18123']) as ns:
+            self.assertEqual(False, ns._closed)
             self.assertEqual(18123, ns.speed)
             nid = ns.add("router")
             self.assertEqual(1, nid)
@@ -374,6 +377,7 @@ class BasicTests(OTNSTestCase):
             self.assertEqual(10, ns.time)
 
         with OTNS() as ns:
+            self.assertEqual(False, ns._closed)
             ns.add('router')
             ns.add('router')
             self.assertEqual(OTNS.DEFAULT_SIMULATE_SPEED, ns.speed)

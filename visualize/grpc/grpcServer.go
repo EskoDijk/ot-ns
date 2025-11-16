@@ -28,11 +28,13 @@ package visualize_grpc
 
 import (
 	"context"
-	"net"
 	"time"
 
 	"google.golang.org/grpc"
 
+	"net"
+
+	"github.com/improbable-eng/grpc-web/go/grpcweb"
 	"github.com/openthread/ot-ns/logger"
 	"github.com/openthread/ot-ns/visualize/grpc/pb"
 )
@@ -47,6 +49,7 @@ const (
 type grpcServer struct {
 	vis                *grpcVisualizer
 	server             *grpc.Server
+	webServer          *grpcweb.WrappedGrpcServer
 	address            string
 	visualizingStreams map[*grpcStream]struct{}
 	energyStreams      map[*grpcEnergyStream]struct{}
@@ -173,7 +176,7 @@ func (gs *grpcServer) stop() {
 	for stream := range gs.visualizingStreams {
 		stream.close()
 	}
-	gs.server.Stop()
+	gs.server.GracefulStop()
 }
 
 func (gs *grpcServer) disposeStream(stream *grpcStream) {
@@ -194,12 +197,14 @@ func (gs *grpcServer) prepareStream(stream *grpcStream) error {
 	return gs.vis.prepareStream(stream)
 }
 
-func newGrpcServer(vis *grpcVisualizer, address string, chanNewClientNotifier chan string) *grpcServer {
+func newGrpcServer(vis *grpcVisualizer, chanNewClientNotifier chan string) *grpcServer {
 	server := grpc.NewServer(grpc.ReadBufferSize(1024*8), grpc.WriteBufferSize(1024*1024*1))
+	wrappedServer := grpcweb.WrapServer(server)
 	gs := &grpcServer{
 		vis:                vis,
 		server:             server,
-		address:            address,
+		webServer:          wrappedServer,
+		address:            "localhost:9000", // FIXME
 		visualizingStreams: map[*grpcStream]struct{}{},
 		energyStreams:      map[*grpcEnergyStream]struct{}{},
 		grpcClientAdded:    chanNewClientNotifier,

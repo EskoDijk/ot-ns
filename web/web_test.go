@@ -28,7 +28,6 @@ package web
 
 import (
 	"context"
-	"runtime"
 	"testing"
 
 	"github.com/openthread/ot-ns/progctx"
@@ -36,6 +35,8 @@ import (
 
 func TestOpenWeb(t *testing.T) {
 	ctx := progctx.New(context.Background())
+	ConfigWeb("localhost", 8080)
+
 	err := OpenWeb(ctx, MainTab)
 	if err != nil {
 		t.Error(err)
@@ -47,10 +48,6 @@ func TestOpenWeb(t *testing.T) {
 	err = OpenWeb(ctx, EnergyTab)
 	if err != nil {
 		t.Error(err)
-	}
-
-	for ctx.WaitCount() == 0 {
-		runtime.Gosched()
 	}
 
 	ctx.Cancel(context.Background())
