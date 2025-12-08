@@ -1072,7 +1072,6 @@ class BasicTests(OTNSTestCase):
         self.assertEqual(0, len(ns.node_cmd(nid_ldr, f'scan')))
         ns.go(10)
 
-
         # Sanity check that the invalid command detection still works.
         with self.assertRaises(errors.OTNSCliError):
             ns.node_cmd(nid_diag, f'abcdefgdns xquery test.example')
