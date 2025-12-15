@@ -1076,6 +1076,23 @@ class BasicTests(OTNSTestCase):
         with self.assertRaises(errors.OTNSCliError):
             ns.node_cmd(nid_diag, f'abcdefgdns xquery test.example')
 
+    def testNodeReset(self):
+        ns: OTNS = self.ns
+
+        ns.add('router')
+        ns.add('router')
+        ns.go(20)
+        self.assertFormPartitions(1)
+
+        ns.node_cmd(1, 'reset')
+        ns.go(20)
+        self.assertFormPartitions(1)
+
+        # TODO: find out why settings are not cleared?
+        ns.node_cmd(1, 'factoryreset')
+        ns.go(20)
+        self.assertFormPartitions(1)
+
 
 if __name__ == '__main__':
     unittest.main()

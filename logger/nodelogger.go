@@ -158,7 +158,7 @@ func (nl *NodeLogger) IsLevelVisible(level Level) bool {
 }
 
 // LogOt logs a complete OT format log string, which includes timestamp, log level character, and
-// the log message. The right level to log is automatically determined.
+// the log message. The right log level is automatically determined.
 func (nl *NodeLogger) LogOt(levelAndMsg string) {
 	isOtLogLine, level := ParseOtLogLine(levelAndMsg)
 	levelAndMsg = strings.TrimSpace(levelAndMsg)

@@ -129,8 +129,8 @@ func (node *Node) String() string {
 	return GetNodeName(node.Id)
 }
 
-// SendToUART sends any data to virtual time UART of the node.
-func (node *Node) SendToUART(data []byte) error {
+// SendToVirtualUART sends any data to the virtual time UART of the node.
+func (node *Node) SendToVirtualUART(data []byte) error {
 	var err error
 	evt := &Event{
 		Timestamp: node.D.CurTime,
@@ -190,7 +190,7 @@ func (node *Node) sendEvent(evt *Event) {
 		reEvaluateTime, isUpdated := node.failureCtrl.OnTimeAdvanced(oldTime)
 		if isUpdated {
 			wakeEvt := &Event{
-				Type:      EventTypeAlarmFired,
+				Type:      EventTypeScheduleNode,
 				NodeId:    node.Id,
 				Timestamp: reEvaluateTime,
 			}
@@ -243,10 +243,6 @@ func (node *Node) Recover() {
 		node.D.vis.OnNodeRecover(node.Id)
 		node.logger.Debugf("radio recovered from scheduled failure")
 	}
-}
-
-func (node *Node) DumpStat() string {
-	return fmt.Sprintf("CurTime=%v, Failed=%-5v, RecoverTS=%v", node.CurTime, node.isFailed, node.failureCtrl.recoverTs)
 }
 
 func (node *Node) SetFailTime(failTime FailTime) {

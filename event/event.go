@@ -43,7 +43,7 @@ type EventType = uint8
 const (
 	// Event type IDs (external, shared between OT-NS and OT node)
 	EventTypeAlarmFired         EventType = 0
-	EventTypeRadioReceived      EventType = 1
+	EventTypeScheduleNode       EventType = 1
 	EventTypeUartWrite          EventType = 2
 	EventTypeRadioSpinelWrite   EventType = 3
 	EventTypePostCmd            EventType = 4

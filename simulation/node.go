@@ -74,16 +74,16 @@ type Node struct {
 	sendGroupIds  map[int]struct{}
 
 	pendingLines  chan string       // OT node CLI output lines, pending processing.
-	pendingEvents chan *event.Event // OT node emitted events to be processed.
+	pendingEvents chan *event.Event // OT-RFSIM events for sim-node, pending processing.
 	pipeIn        io.WriteCloser
 	pipeOut       io.ReadCloser
 	pipeErr       io.ReadCloser
-	uartReader    chan []byte
+	uartLine      string // builds a line based on received UART characters/string-parts.
 	uartType      NodeUartType
 }
 
 // newNode creates a new simulation node. If unsuccessful, it returns an error != nil and the Node object created
-// so far (if node return != nil), or nil if node object wasn't created yet.
+// so far which may be nil if the node object wasn't created yet.
 func newNode(s *Simulation, nodeid NodeId, cfg *NodeConfig, dnode *dispatcher.Node) (*Node, error) {
 	var err error
 
@@ -113,25 +113,23 @@ func newNode(s *Simulation, nodeid NodeId, cfg *NodeConfig, dnode *dispatcher.No
 		pendingLines:  make(chan string, 10000),
 		pendingEvents: make(chan *event.Event, 100),
 		uartType:      nodeUartTypeUndefined,
-		uartReader:    make(chan []byte, 10000),
+		uartLine:      "",
 		version:       "",
 		sendGroupIds:  make(map[int]struct{}),
 	}
 
 	node.Logger.SetFileLevel(s.cfg.LogFileLevel)
-	node.Logger.Debugf("Node config: type=%s IsMtd=%t IsRouter=%t IsBR=%t RxOffWhenIdle=%t", cfg.Type, cfg.IsMtd,
-		cfg.IsRouter, cfg.IsBorderRouter, cfg.RxOffWhenIdle)
+	node.Logger.Debugf("Node config: type=%s IsMtd=%t IsRcp=%t IsRouter=%t IsBR=%t RxOffWhenIdle=%t", cfg.Type, cfg.IsMtd,
+		cfg.IsRcp, cfg.IsRouter, cfg.IsBorderRouter, cfg.RxOffWhenIdle)
 	node.Logger.Debugf("  exe cmd : %v", cmd)
 	node.Logger.Debugf("  position: (%d,%d,%d)", cfg.X, cfg.Y, cfg.Z)
 
 	if node.pipeIn, err = cmd.StdinPipe(); err != nil {
 		return node, err
 	}
-
 	if node.pipeOut, err = cmd.StdoutPipe(); err != nil {
 		return node, err
 	}
-
 	if node.pipeErr, err = cmd.StderrPipe(); err != nil {
 		return node, err
 	}
@@ -140,6 +138,12 @@ func newNode(s *Simulation, nodeid NodeId, cfg *NodeConfig, dnode *dispatcher.No
 		return node, err
 	}
 
+	if cfg.IsRcp {
+		node.uartType = nodeUartTypeRealTime
+		go node.lineReaderStdOut(node.pipeOut) // reads StdOut output from OT node for CLI/UART, and for logs
+	} else {
+		node.uartType = nodeUartTypeVirtualTime
+	}
 	go node.lineReaderStdErr(node.pipeErr) // reads StdErr output from OT node exe and acts on failures
 
 	return node, err
@@ -232,40 +236,20 @@ func (node *Node) exit() error {
 	return err
 }
 
-func (node *Node) assurePrompt() {
-	err := node.inputCommand("")
-	if err == nil {
-		if _, err := node.expectLine("", time.Second); err == nil {
-			return
-		}
-	}
-
-	err = node.inputCommand("")
-	if err == nil {
-		if _, err := node.expectLine("", time.Second); err == nil {
-			return
-		}
-	}
-
-	err = node.inputCommand("")
-	if err == nil {
-		_, err := node.expectLine("", DefaultCommandTimeout)
-		if err != nil {
-			node.Logger.Error(err)
-		}
-	}
-}
-
+// inputCommand is a helper method to send a command to the node's UART.
 func (node *Node) inputCommand(cmd string) error {
-	logger.AssertTrue(node.uartType != nodeUartTypeUndefined)
 	var err error
 	node.cmdErr = nil // reset last command error
+	cmdBytes := []byte(cmd + "\n")
 
-	if node.uartType == nodeUartTypeRealTime {
-		_, err = node.pipeIn.Write([]byte(cmd + "\n"))
-		node.S.Dispatcher().NotifyCommand(node.Id)
-	} else {
-		err = node.DNode.SendToUART([]byte(cmd + "\n"))
+	switch node.uartType {
+	case nodeUartTypeRealTime:
+		_, err = node.pipeIn.Write(cmdBytes)
+		node.S.Dispatcher().NotifyCommand(node.Id, false)
+	case nodeUartTypeVirtualTime:
+		err = node.DNode.SendToVirtualUART(cmdBytes)
+	default:
+		err = fmt.Errorf("invalid node.uartType: %d", node.uartType)
 	}
 	return err
 }
@@ -407,10 +391,6 @@ func (node *Node) CommandExpectEnabledOrDisabled(cmd string) bool {
 	return false
 }
 
-func (node *Node) SetChannel(ch ChannelId) {
-	node.Command(fmt.Sprintf("channel %d", ch))
-}
-
 func (node *Node) GetRfSimParam(param RfSimParam) RfSimParamValue {
 	switch param {
 	case ParamRxSensitivity,
@@ -463,45 +443,18 @@ func (node *Node) SetRfSimParam(param RfSimParam, value RfSimParamValue) {
 	}
 }
 
-func (node *Node) GetRxSensitivity() int8 {
-	return int8(node.getOrSetRfSimParam(false, ParamRxSensitivity, RssiInvalid))
-}
-
-func (node *Node) SetRxSensitivity(rxSens int8) {
-	logger.AssertTrue(rxSens >= RssiMin && rxSens <= RssiMax)
-	node.getOrSetRfSimParam(true, ParamRxSensitivity, RfSimParamValue(rxSens))
-}
-
-func (node *Node) GetCslAccuracy() uint8 {
-	return uint8(node.getOrSetRfSimParam(false, ParamCslAccuracy, 255))
-}
-
-func (node *Node) SetCslAccuracy(accPpm uint8) {
-	node.getOrSetRfSimParam(true, ParamCslAccuracy, RfSimParamValue(accPpm))
-}
-
-func (node *Node) GetCslUncertainty() uint8 {
-	return uint8(node.getOrSetRfSimParam(false, ParamCslUncertainty, 255))
-}
-
-func (node *Node) SetCslUncertainty(unc10us uint8) {
-	node.getOrSetRfSimParam(true, ParamCslUncertainty, RfSimParamValue(unc10us))
-}
-
 func (node *Node) getOrSetRfSimParam(isSet bool, param RfSimParam, value RfSimParamValue) RfSimParamValue {
 	node.cmdErr = nil
 	err := node.DNode.SendRfSimEvent(isSet, param, value)
 	if err == nil {
 		// wait for response event
-		for {
-			evt, err := node.expectEvent(event.EventTypeRadioRfSimParamRsp, DefaultCommandTimeout)
-			if err != nil {
-				node.error(err)
-				return value
-			}
-			if evt.NodeId == node.Id && evt.RfSimParamData.Param == param {
-				return RfSimParamValue(evt.RfSimParamData.Value)
-			}
+		evt, err := node.expectEvent(event.EventTypeRadioRfSimParamRsp, DefaultCommandTimeout)
+		if err != nil {
+			node.error(err)
+			return value
+		}
+		if evt.RfSimParamData.Param == param {
+			value = RfSimParamValue(evt.RfSimParamData.Value)
 		}
 	}
 	node.error(err)
@@ -531,50 +484,8 @@ func (node *Node) GetChannel() int {
 	return node.CommandExpectInt("channel")
 }
 
-func (node *Node) GetChildList() (childlist []int) {
-	s := node.CommandExpectString("child list")
-	ss := strings.Split(s, " ")
-
-	for _, ids := range ss {
-		id, err := strconv.Atoi(ids)
-		if err != nil {
-			node.Logger.Errorf("unexpected child list: '%#v'", s)
-		}
-		childlist = append(childlist, id)
-	}
-	return
-}
-
-func (node *Node) GetChildTimeout() int {
-	return node.CommandExpectInt("childtimeout")
-}
-
-func (node *Node) SetChildTimeout(timeout int) {
-	node.Command(fmt.Sprintf("childtimeout %d", timeout))
-}
-
-func (node *Node) GetContextReuseDelay() int {
-	return node.CommandExpectInt("contextreusedelay")
-}
-
-func (node *Node) SetContextReuseDelay(delay int) {
-	node.Command(fmt.Sprintf("contextreusedelay %d", delay))
-}
-
-func (node *Node) GetNetworkName() string {
-	return node.CommandExpectString("networkname")
-}
-
-func (node *Node) SetNetworkName(name string) {
-	node.Command(fmt.Sprintf("networkname %s", name))
-}
-
 func (node *Node) GetEui64() string {
 	return node.CommandExpectString("eui64")
-}
-
-func (node *Node) SetEui64(eui64 string) {
-	node.Command(fmt.Sprintf("eui64 %s", eui64))
 }
 
 func (node *Node) GetExtAddr() uint64 {
@@ -589,35 +500,6 @@ func (node *Node) GetExtAddr() uint64 {
 		return InvalidExtAddr
 	}
 	return v
-}
-
-func (node *Node) SetExtAddr(extaddr uint64) {
-	node.Command(fmt.Sprintf("extaddr %016x", extaddr))
-}
-
-func (node *Node) GetExtPanid() string {
-	return node.CommandExpectString("extpanid")
-}
-
-func (node *Node) SetExtPanid(extpanid string) {
-	node.Command(fmt.Sprintf("extpanid %s", extpanid))
-}
-
-func (node *Node) GetIfconfig() string {
-	return node.CommandExpectString("ifconfig")
-}
-
-func (node *Node) IfconfigUp() {
-	node.Command("ifconfig up")
-}
-
-func (node *Node) IfconfigDown() {
-	node.Command("ifconfig down")
-}
-
-func (node *Node) GetIpAddr() []string {
-	addrs := node.Command("ipaddr")
-	return addrs
 }
 
 func (node *Node) GetIpAddrLinkLocal() []string {
@@ -647,69 +529,8 @@ func (node *Node) GetIpAddrSlaac() []string {
 	return slaacAddrs
 }
 
-func (node *Node) GetIpMaddr() []string {
-	addrs := node.Command("ipmaddr")
-	return addrs
-}
-
-func (node *Node) GetIpMaddrPromiscuous() bool {
-	return node.CommandExpectEnabledOrDisabled("ipmaddr promiscuous")
-}
-
-func (node *Node) IpMaddrPromiscuousEnable() {
-	node.Command("ipmaddr promiscuous enable")
-}
-
-func (node *Node) IpMaddrPromiscuousDisable() {
-	node.Command("ipmaddr promiscuous disable")
-}
-
-func (node *Node) GetPromiscuous() bool {
-	return node.CommandExpectEnabledOrDisabled("promiscuous")
-}
-
-func (node *Node) PromiscuousEnable() {
-	node.Command("promiscuous enable")
-}
-
-func (node *Node) PromiscuousDisable() {
-	node.Command("promiscuous disable")
-}
-
-func (node *Node) GetRouterEligible() bool {
-	return node.CommandExpectEnabledOrDisabled("routereligible")
-}
-
-func (node *Node) RouterEligibleEnable() {
-	node.Command("routereligible enable")
-}
-
 func (node *Node) RouterEligibleDisable() {
 	node.Command("routereligible disable")
-}
-
-func (node *Node) GetJoinerPort() int {
-	return node.CommandExpectInt("joinerport")
-}
-
-func (node *Node) SetJoinerPort(port int) {
-	node.Command(fmt.Sprintf("joinerport %d", port))
-}
-
-func (node *Node) GetKeySequenceCounter() int {
-	return node.CommandExpectInt("keysequence counter")
-}
-
-func (node *Node) SetKeySequenceCounter(counter int) {
-	node.Command(fmt.Sprintf("keysequence counter %d", counter))
-}
-
-func (node *Node) GetKeySequenceGuardTime() int {
-	return node.CommandExpectInt("keysequence guardtime")
-}
-
-func (node *Node) SetKeySequenceGuardTime(guardtime int) {
-	node.Command(fmt.Sprintf("keysequence guardtime %d", guardtime))
 }
 
 type LeaderData struct {
@@ -752,54 +573,13 @@ func (node *Node) GetLeaderData() (leaderData LeaderData) {
 	return
 }
 
-func (node *Node) GetLeaderWeight() int {
-	return node.CommandExpectInt("leaderweight")
-}
-
-func (node *Node) SetLeaderWeight(weight int) {
-	node.Command(fmt.Sprintf("leaderweight %d", weight))
-}
-
-func (node *Node) FactoryReset() {
-	node.Logger.Warn("node factoryreset")
-	err := node.inputCommand("factoryreset")
-	if err != nil {
-		node.error(err)
-		return
-	}
-	node.assurePrompt()
-	node.Logger.Info("factoryreset complete")
-}
-
-func (node *Node) Reset() {
-	node.Logger.Warn("node reset")
-	err := node.inputCommand("reset")
-	if err != nil {
-		node.error(err)
-		return
-	}
-	node.assurePrompt()
-	node.Logger.Warn("reset complete")
-}
-
 func (node *Node) Ping(addr string, payloadSize int, count int, interval float64, hopLimit int) {
 	cmd := fmt.Sprintf("ping async %s %d %d %f %d", addr, payloadSize, count, interval, hopLimit)
-	err := node.inputCommand(cmd)
-	if err != nil {
-		node.error(err)
-		return
-	}
-	_, err = node.expectLine(cmd, DefaultCommandTimeout)
-	node.Logger.Error(err)
-	node.assurePrompt()
+	node.Command(cmd)
 }
 
 func (node *Node) GetNetworkKey() string {
 	return node.CommandExpectString("networkkey")
-}
-
-func (node *Node) SetNetworkKey(key string) {
-	node.Command(fmt.Sprintf("networkkey %s", key))
 }
 
 func (node *Node) GetMode() string {
@@ -815,48 +595,8 @@ func (node *Node) GetPanid() uint16 {
 	return uint16(node.CommandExpectInt("panid"))
 }
 
-func (node *Node) SetPanid(panid uint16) {
-	node.Command(fmt.Sprintf("panid 0x%x", panid))
-}
-
-func (node *Node) GetRloc16() uint16 {
-	return uint16(node.CommandExpectHex("rloc16"))
-}
-
-func (node *Node) GetRouterSelectionJitter() int {
-	return node.CommandExpectInt("routerselectionjitter")
-}
-
-func (node *Node) SetRouterSelectionJitter(timeout int) {
-	node.Command(fmt.Sprintf("routerselectionjitter %d", timeout))
-}
-
-func (node *Node) GetRouterUpgradeThreshold() int {
-	return node.CommandExpectInt("routerupgradethreshold")
-}
-
-func (node *Node) SetRouterUpgradeThreshold(timeout int) {
-	node.Command(fmt.Sprintf("routerupgradethreshold %d", timeout))
-}
-
-func (node *Node) GetRouterDowngradeThreshold() int {
-	return node.CommandExpectInt("routerdowngradethreshold")
-}
-
-func (node *Node) SetRouterDowngradeThreshold(timeout int) {
-	node.Command(fmt.Sprintf("routerdowngradethreshold %d", timeout))
-}
-
 func (node *Node) GetState() string {
 	return node.CommandExpectString("state")
-}
-
-func (node *Node) ThreadStart() error {
-	return node.CommandChecked("thread start")
-}
-
-func (node *Node) ThreadStop() error {
-	return node.CommandChecked("thread stop")
 }
 
 // SendInit inits the node to participate in OTNS 'send' command sending or receiving.
@@ -974,21 +714,6 @@ func (node *Node) GetExecutableName() string {
 	return filepath.Base(node.cfg.ExecutablePath)
 }
 
-func (node *Node) GetSingleton() bool {
-	s := node.CommandExpectString("singleton")
-	if s == "true" {
-		return true
-	} else if s == "false" {
-		return false
-	} else if len(s) == 0 {
-		node.Logger.Errorf("GetSingleton(): no data received")
-		return false
-	} else {
-		node.Logger.Errorf("expected true/false, but read: '%#v'", s)
-		return false
-	}
-}
-
 func (node *Node) GetCounters(counterType string, keyPrefix string) NodeCounters {
 	lines := node.Command("counters " + counterType)
 	res := make(NodeCounters)
@@ -1009,52 +734,23 @@ func (node *Node) GetCounters(counterType string, keyPrefix string) NodeCounters
 	return res
 }
 
-func (node *Node) processUartData() {
-	var deadline <-chan time.Time
-	done := node.S.ctx.Done()
-
-loop:
-	for {
-		select {
-		case <-done:
-			break loop
-		case data := <-node.uartReader:
-			line := string(data)
-			if line == "> " { // filter out the prompt.
-				continue
-			}
-			idxNewLine := strings.IndexByte(line, '\n')
-			if idxNewLine == -1 { // if no newline, get more items until a line can be formed.
-				deadline = time.After(dispatcher.DefaultReadTimeout)
-
-			loop2:
-				for {
-					select {
-					case nextData := <-node.uartReader:
-						nextPart := string(nextData)
-						idxNewLinePart := strings.IndexByte(nextPart, '\n')
-						line += nextPart
-						if idxNewLinePart >= 0 {
-							lineTrim := strings.TrimRightFunc(line, unicode.IsSpace)
-							node.pendingLines <- lineTrim
-							break loop2
-						}
-					case <-done:
-						break loop
-					case <-deadline:
-						node.Logger.Panicf("processUart deadline: line='%s'", strings.TrimSpace(line))
-						break loop2
-					}
-				}
-			} else {
-				lineTrim := strings.TrimRightFunc(line, unicode.IsSpace)
-				node.pendingLines <- lineTrim
-			}
-
-		default:
-			break loop
-		}
+// processUartData is called by the Simulation to deliver new UART data (from the OT node) to the sim-node.
+func (node *Node) processUartData(data []byte) {
+	s := string(data)
+	if s == "> " { // filter out the OT node prompt.
+		return
 	}
+	node.uartLine += s
+	idxNewLine := strings.IndexByte(node.uartLine, '\n')
+	if idxNewLine < 0 { // if no newline, we wait for more data next time until a line can be formed.
+		return
+	}
+
+	// push the completed UART line into the node.pendingLines queue.
+	line := node.uartLine[:idxNewLine]
+	node.uartLine = node.uartLine[idxNewLine+1:]
+	lineTrim := strings.TrimRightFunc(line, unicode.IsSpace)
+	node.pendingLines <- lineTrim
 }
 
 func (node *Node) onStart() {
@@ -1082,7 +778,7 @@ func (node *Node) onProcessFailure() {
 }
 
 func (node *Node) lineReaderStdErr(reader io.Reader) {
-	scanner := bufio.NewScanner(bufio.NewReader(reader)) // no filter applied.
+	scanner := bufio.NewScanner(bufio.NewReader(reader))
 	scanner.Split(bufio.ScanLines)
 
 	var errProc error = nil
@@ -1103,6 +799,29 @@ func (node *Node) lineReaderStdErr(reader io.Reader) {
 	}
 }
 
+func (node *Node) lineReaderStdOut(reader io.Reader) {
+	scanner := bufio.NewScanner(bufio.NewReader(reader))
+	scanner.Split(bufio.ScanLines)
+
+	for scanner.Scan() {
+		evType := event.EventTypeUartWrite
+		line := scanner.Text()
+
+		if isOtLogLine, _ := logger.ParseOtLogLine(line); isOtLogLine {
+			evType = event.EventTypeLogWrite
+		}
+		ev := &event.Event{
+			Delay:  0,
+			Type:   evType,
+			Data:   []byte(line + "\n"),
+			NodeId: node.Id,
+		}
+		node.S.Dispatcher().PostEventAsync(ev)
+	}
+}
+
+// expectEvent waits for an event of the specified type to arrive from the OT node, for at most the
+// timeout duration.
 func (node *Node) expectEvent(evtType event.EventType, timeout time.Duration) (*event.Event, error) {
 	done := node.S.ctx.Done()
 	deadline := time.After(timeout)
@@ -1111,17 +830,18 @@ func (node *Node) expectEvent(evtType event.EventType, timeout time.Duration) (*
 		select {
 		case <-done:
 			return nil, CommandInterruptedError
-		case <-deadline:
-			err := fmt.Errorf("expectEvent timeout: expected type %d", evtType)
-			return nil, err
 		case evt := <-node.pendingEvents:
 			node.Logger.Tracef("expectEvent() received: %v", evt)
-			return evt, nil
-		default:
-			if !node.S.Dispatcher().IsAlive(node.Id) {
-				time.Sleep(time.Millisecond * 10) // in case of node connection error, this becomes busy-loop.
+			if evt.Type == evtType {
+				return evt, nil
+			} else {
+				node.Logger.Warnf("expectEvent() received unexpected event type %d", evt.Type)
 			}
-			node.S.Dispatcher().RecvEvents() // keep virtual-UART events coming.
+		case <-deadline:
+			err := fmt.Errorf("expectEvent timeout: expected event type %d", evtType)
+			return nil, err
+		default:
+			node.S.waitForSimulation(true)
 		}
 	}
 }
@@ -1129,29 +849,22 @@ func (node *Node) expectEvent(evtType event.EventType, timeout time.Duration) (*
 // readLine attempts to read a line from the node. Returns false when the node is asleep and
 // therefore cannot return any more lines at the moment.
 func (node *Node) readLine() (string, bool) {
-	done := node.S.ctx.Done()
-	pendingLinesReceived := false
+	node.S.waitForSimulation(false)
 
-	for {
-		select {
-		case <-done:
-			return "", false
-		case readLine := <-node.pendingLines:
-			if len(readLine) > 0 {
-				node.Logger.Tracef("UART: %s", readLine)
-			}
-			return readLine, true
-		default:
-			node.S.Dispatcher().RecvEvents() // keep virtual-UART events coming.
-			node.processUartData()           // forge data from UART-events into lines (fills up node.pendingLines)
-			if pendingLinesReceived && !node.S.Dispatcher().IsAlive(node.Id) {
-				return "", false
-			}
-			pendingLinesReceived = true
+	select {
+	case readLine := <-node.pendingLines:
+		if len(readLine) > 0 {
+			node.Logger.Tracef("UART: %s", readLine)
 		}
+		return readLine, true
+	default:
+		return "", false
 	}
 }
 
+// expectLine reads potentially multiple lines from the node until it finds a matching line, or timeout
+// occurs. The matching line is returned as the final line in the output string array. The expected line
+// can be defined using various data types as detailed in isLineMatch().
 func (node *Node) expectLine(line interface{}, timeout time.Duration) ([]string, error) {
 	var outputLines []string
 	done := node.S.ctx.Done()
@@ -1163,24 +876,18 @@ func (node *Node) expectLine(line interface{}, timeout time.Duration) ([]string,
 			return []string{}, CommandInterruptedError
 		case <-deadline:
 			//_ = pprof.Lookup("goroutine").WriteTo(os.Stdout, 2) // @DEBUG: useful log info when node stuck
-			err := fmt.Errorf("expectLine timeout: expected %v", line)
+			err := fmt.Errorf("expectLine timeout: expected '%v'", line)
 			return outputLines, err
 		case readLine := <-node.pendingLines:
 			if len(readLine) > 0 {
 				node.Logger.Tracef("UART: %s", readLine)
 			}
-
 			outputLines = append(outputLines, readLine)
-			if node.isLineMatch(readLine, line) { // found the exact line
-				node.S.Dispatcher().RecvEvents() // this blocks until node is asleep.
+			if node.isLineMatch(readLine, line) { // found a matching line
 				return outputLines, nil
 			}
 		default:
-			if !node.S.Dispatcher().IsAlive(node.Id) {
-				time.Sleep(time.Millisecond * 10) // in case of node connection error, this becomes busy-loop.
-			}
-			node.S.Dispatcher().RecvEvents() // keep virtual-UART events coming.
-			node.processUartData()           // forge data from UART-events into lines (fills up node.pendingLines)
+			node.S.waitForSimulation(true)
 		}
 	}
 }
@@ -1201,10 +908,6 @@ func (node *Node) isLineMatch(line string, _expectedLine interface{}) bool {
 		node.Logger.Panicf("unknown data type %v, expected string, Regexp or []string", expectedLine)
 	}
 	return false
-}
-
-func (node *Node) DumpStat() string {
-	return fmt.Sprintf("extaddr %016x, addr %04x, state %-6s", node.GetExtAddr(), node.GetRloc16(), node.GetState())
 }
 
 func (node *Node) setupMode() {
