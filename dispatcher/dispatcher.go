@@ -496,14 +496,7 @@ func (d *Dispatcher) processNextEvent(simSpeed float64) bool {
 	// fetch time of next event
 	nextAlarmTime := d.alarmMgr.NextTimestamp()
 	nextSendTime := d.eventQueue.NextTimestamp()
-	if nextSendTime < d.CurTime {
-		logger.Errorf("Eventqueue: d.CurTime=%v, nextSendTime=%v, q:", d.CurTime, nextSendTime)
-		for _, evt := range d.eventQueue.q {
-			logger.Errorf("  %v", evt)
-		}
-	}
-	logger.AssertTrue(nextSendTime >= d.CurTime)
-	logger.AssertTrue(nextAlarmTime >= d.CurTime)
+	logger.AssertTrue(nextSendTime >= d.CurTime && nextAlarmTime >= d.CurTime)
 
 	nextEventTime := min(nextAlarmTime, nextSendTime)
 
@@ -601,7 +594,7 @@ func (d *Dispatcher) processNextEvent(simSpeed float64) bool {
 						}
 					}
 				}
-			} else if evt.Type != EventTypeNoOperation && evt.NodeId > 0 {
+			} else if evt.Type != EventTypeNoOperation && evt.NodeId != InvalidNodeId {
 				logger.Warnf("processNextEvent() with deleted/unknown node %v: %v", evt.NodeId, evt)
 			}
 		}
@@ -610,6 +603,7 @@ func (d *Dispatcher) processNextEvent(simSpeed float64) bool {
 		nextEventTime = min(nextAlarmTime, nextSendTime)
 	}
 
+	// simulation needs to continue if there are events in queue, and/or nodes are still present
 	return nextEventTime <= d.pauseTime || len(d.nodes) > 0
 }
 
@@ -1163,7 +1157,6 @@ func (d *Dispatcher) visSend(srcid NodeId, dstid NodeId, visInfo *visualize.MsgV
 func (d *Dispatcher) advanceTime(ts uint64) {
 	logger.AssertTrue(d.CurTime <= ts, "%v > %v", d.CurTime, ts)
 	d.CurTime = ts
-	d.eventQueue.SetTimestamp(ts)
 
 	elapsedTime := int64(d.CurTime - d.speedStartTime)
 	elapsedRealTime := time.Since(d.speedStartRealTime) / time.Microsecond
