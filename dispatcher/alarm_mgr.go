@@ -42,6 +42,10 @@ type alarmEvent struct {
 
 type alarmQueue []*alarmEvent
 
+var (
+	ts uint64 = 0
+)
+
 func (aq alarmQueue) Len() int {
 	return len(aq)
 }
@@ -105,6 +109,10 @@ func (am *alarmMgr) SetNotified(nodeid NodeId) {
 }
 
 func (am *alarmMgr) SetTimestamp(nodeid int, timestamp uint64) {
+	if timestamp < ts {
+		logger.Panicf("Set ts %v smaller than current ts %v", timestamp, ts)
+	}
+
 	e := am.events[nodeid]
 	logger.AssertNotNil(e)
 
@@ -112,6 +120,13 @@ func (am *alarmMgr) SetTimestamp(nodeid int, timestamp uint64) {
 		e.Timestamp = timestamp
 		heap.Fix(&am.q, e.index)
 	}
+}
+
+func (am *alarmMgr) SetTs(timestamp uint64) {
+	if timestamp > am.NextTimestamp() {
+		logger.Panicf("Set ts %v larger than next ts %v", timestamp, am.NextTimestamp())
+	}
+	ts = timestamp
 }
 
 func (am *alarmMgr) GetTimestamp(nodeid int) uint64 {

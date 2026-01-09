@@ -30,11 +30,23 @@ import (
 	"container/heap"
 
 	. "github.com/openthread/ot-ns/event"
+	"github.com/openthread/ot-ns/logger"
 	. "github.com/openthread/ot-ns/types"
 )
 
 type sendQueue struct {
-	q []*Event
+	q  []*Event
+	ts uint64
+}
+
+func (sq *sendQueue) SetTimestamp(ts uint64) {
+	if ts > sq.ts {
+		logger.Tracef("Ts  %v", ts)
+		if sq.NextTimestamp() < sq.ts {
+			logger.Panicf("Advance time to %v with next event %v", ts, sq.NextTimestamp())
+		}
+	}
+	sq.ts = ts
 }
 
 func (sq *sendQueue) Len() int {
@@ -82,6 +94,10 @@ func (sq *sendQueue) NextEvent() *Event {
 }
 
 func (sq *sendQueue) Add(evt *Event) {
+	logger.Tracef("Add %v\t\t%v", evt.Timestamp, evt)
+	if evt.Timestamp < sq.ts {
+		logger.Panicf("Add event with timestamp %v before next event %v", evt.Timestamp, sq.ts)
+	}
 	heap.Push(sq, evt)
 }
 
@@ -90,7 +106,8 @@ func (sq *sendQueue) Add(evt *Event) {
 func (sq *sendQueue) DisableEventsForNode(nodeid NodeId) {
 	for _, evt := range sq.q {
 		if evt.NodeId == nodeid {
-			evt.NodeId = 0 // make the event invalid.
+			evt.Type = EventTypeNoOperation // make the event do nothing.
+			evt.NodeId = InvalidNodeId
 		}
 	}
 }
