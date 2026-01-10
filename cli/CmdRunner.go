@@ -359,7 +359,7 @@ func (rt *CmdRunner) executeGo(cc *CommandContext, cmd *GoCmd) {
 		})
 		cc.err = <-done // block for the simulation period.
 	} else {
-		for { // run forever but stop if rt.ctx.Err indicates "done"
+		for { // run forever but stop if an error occurs or the context indicates "done".
 			rt.postAsyncWait(cc, func(sim *simulation.Simulation) {
 				sim.SetSpeed(speed) // permanent speed update
 				done = sim.Go(time.Hour)

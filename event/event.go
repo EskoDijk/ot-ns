@@ -43,7 +43,7 @@ type EventType = uint8
 const (
 	// Event type IDs (external, shared between OT-NS and OT node)
 	EventTypeAlarmFired         EventType = 0
-	EventTypeRadioReceived      EventType = 1
+	EventTypeScheduleNode       EventType = 1
 	EventTypeUartWrite          EventType = 2
 	EventTypeRadioSpinelWrite   EventType = 3
 	EventTypePostCmd            EventType = 4
@@ -65,6 +65,7 @@ const (
 	EventTypeIp6ToHost          EventType = 21
 	EventTypeUdpFromHost        EventType = 22
 	EventTypeIp6FromHost        EventType = 23
+	EventTypeNoOperation        EventType = 255
 )
 
 const (
@@ -316,17 +317,6 @@ func (e *Event) String() string {
 	if len(e.Data) > 0 {
 		paylStr = fmt.Sprintf(",payl=%s", hex.EncodeToString(e.Data))
 	}
-	s := fmt.Sprintf("Ev{%2d,nid=%d,mid=%d,dly=%v%s}", e.Type, e.NodeId, e.MsgId, e.Delay, paylStr)
+	s := fmt.Sprintf("Ev{%2d,ts=%d,nid=%d,mid=%d,dly=%v%s}", e.Type, e.Timestamp, e.NodeId, e.MsgId, e.Delay, paylStr)
 	return s
 }
-
-/*
-func keepPrintableChars(s string) string {
-	return strings.Map(func(r rune) rune {
-		if unicode.IsPrint(r) {
-			return r
-		}
-		return -1
-	}, s)
-}
-*/
