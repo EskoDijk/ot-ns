@@ -129,7 +129,7 @@ func (node *Node) String() string {
 	return GetNodeName(node.Id)
 }
 
-// SendToVirtualUART sends any data to the virtual time UART of the node.
+// SendToVirtualUART sends any data to the virtual-time UART of the node.
 func (node *Node) SendToVirtualUART(data []byte) error {
 	var err error
 	evt := &Event{

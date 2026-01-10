@@ -528,10 +528,10 @@ func (s *Simulation) GoAtSpeed(duration time.Duration, speed float64) <-chan err
 
 // waitForSimulation is called to wait for the simulation to progress, receiving and handling events as
 // needed until all nodes are asleep. It returns the total number of new events received from nodes.
+// isBusyWaiting must be only true if the caller repeatedly calls this method, waiting for new events.
 func (s *Simulation) waitForSimulation(isBusyWaiting bool) int {
 	eventCount := s.Dispatcher().RecvEvents()
 	if isBusyWaiting && eventCount == 0 {
-		// avoid busy-loop when this method is repeatedly called, waiting for more events.
 		time.Sleep(10 * time.Millisecond)
 	}
 	return eventCount

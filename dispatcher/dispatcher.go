@@ -471,7 +471,7 @@ loop:
 					blockTimeout = time.After(time.Millisecond * 250) // shorten timeout when exiting
 					isExiting = true
 				}
-				time.Sleep(time.Millisecond * 10) // avoid high CPU usage
+				time.Sleep(time.Millisecond * 10) // avoid high CPU usage while we stay in the for loop
 				break
 			}
 		} else {
@@ -594,7 +594,7 @@ func (d *Dispatcher) processNextEvent(simSpeed float64) bool {
 						}
 					}
 				}
-			} else if evt.Type != EventTypeNoOperation && evt.NodeId != InvalidNodeId {
+			} else if evt.Type != EventTypeNoOperation {
 				logger.Warnf("processNextEvent() with deleted/unknown node %v: %v", evt.NodeId, evt)
 			}
 		}

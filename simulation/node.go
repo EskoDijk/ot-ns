@@ -399,7 +399,7 @@ func (node *Node) GetRfSimParam(param RfSimParam) RfSimParamValue {
 		ParamClockDrift,
 		ParamCslAccuracy,
 		ParamPhyBitrate:
-		return node.getOrSetRfSimParam(false, param, 0)
+		return node.getRfSimParam(param)
 	case ParamCcaThreshold:
 		return node.GetCcaThreshold()
 	default:
@@ -415,7 +415,7 @@ func (node *Node) SetRfSimParam(param RfSimParam, value RfSimParamValue) {
 			node.error(fmt.Errorf("parameter out of range %d - %d", RssiMin, RssiMax))
 			return
 		}
-		node.getOrSetRfSimParam(true, param, value)
+		node.setRfSimParam(param, value)
 	case ParamCslAccuracy,
 		ParamCslUncertainty,
 		ParamTxInterferer:
@@ -423,7 +423,7 @@ func (node *Node) SetRfSimParam(param RfSimParam, value RfSimParamValue) {
 			node.error(fmt.Errorf("parameter out of range 0-255"))
 			return
 		}
-		node.getOrSetRfSimParam(true, param, value)
+		node.setRfSimParam(param, value)
 	case ParamCcaThreshold:
 		node.SetCcaThreshold(value)
 	case ParamClockDrift:
@@ -431,34 +431,48 @@ func (node *Node) SetRfSimParam(param RfSimParam, value RfSimParamValue) {
 			node.error(fmt.Errorf("parameter out of range %d - %d", math.MinInt16, math.MaxInt16))
 			return
 		}
-		node.getOrSetRfSimParam(true, param, value)
+		node.setRfSimParam(param, value)
 	case ParamPhyBitrate:
 		if value < 1 || value > RfSimValueMax {
 			node.error(fmt.Errorf("parameter out of range 1 - %d", RfSimValueMax))
 			return
 		}
-		node.getOrSetRfSimParam(true, param, value)
+		node.setRfSimParam(param, value)
 	default:
 		node.error(fmt.Errorf("unknown RfSim parameter: %d", param))
 	}
 }
 
-func (node *Node) getOrSetRfSimParam(isSet bool, param RfSimParam, value RfSimParamValue) RfSimParamValue {
+func (node *Node) getRfSimParam(param RfSimParam) (value RfSimParamValue) {
+	var evt *event.Event
+
 	node.cmdErr = nil
-	err := node.DNode.SendRfSimEvent(isSet, param, value)
+	value = RfSimValueInvalid
+	err := node.DNode.SendRfSimEvent(false, param, RfSimValueInvalid)
 	if err == nil {
 		// wait for response event
-		evt, err := node.expectEvent(event.EventTypeRadioRfSimParamRsp, DefaultCommandTimeout)
-		if err != nil {
-			node.error(err)
-			return value
-		}
-		if evt.RfSimParamData.Param == param {
+		evt, err = node.expectEvent(event.EventTypeRadioRfSimParamRsp, DefaultCommandTimeout)
+		if err == nil && evt.RfSimParamData.Param == param {
 			value = RfSimParamValue(evt.RfSimParamData.Value)
 		}
 	}
 	node.error(err)
-	return value
+	return
+}
+
+func (node *Node) setRfSimParam(param RfSimParam, value RfSimParamValue) {
+	var evt *event.Event
+
+	node.cmdErr = nil
+	err := node.DNode.SendRfSimEvent(true, param, value)
+	if err == nil {
+		// wait for response event
+		evt, err = node.expectEvent(event.EventTypeRadioRfSimParamRsp, DefaultCommandTimeout)
+		if err == nil && evt.RfSimParamData.Param != param {
+			err = fmt.Errorf("unexpected RfSimParam: %d", evt.RfSimParamData.Param)
+		}
+	}
+	node.error(err)
 }
 
 func (node *Node) GetCcaThreshold() RfSimParamValue {
@@ -742,7 +756,7 @@ func (node *Node) processUartData(data []byte) {
 	}
 	node.uartLine += s
 	idxNewLine := strings.IndexByte(node.uartLine, '\n')
-	if idxNewLine < 0 { // if no newline, we wait for more data next time until a line can be formed.
+	if idxNewLine < 0 { // if no newline char, we wait for more data next time until a line can be formed.
 		return
 	}
 
@@ -835,7 +849,7 @@ func (node *Node) expectEvent(evtType event.EventType, timeout time.Duration) (*
 			if evt.Type == evtType {
 				return evt, nil
 			} else {
-				node.Logger.Warnf("expectEvent() received unexpected event type %d", evt.Type)
+				node.Logger.Errorf("expectEvent() received unexpected event type %d", evt.Type)
 			}
 		case <-deadline:
 			err := fmt.Errorf("expectEvent timeout: expected event type %d", evtType)
