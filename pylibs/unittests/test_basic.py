@@ -940,7 +940,8 @@ class BasicTests(OTNSTestCase):
 
         n1 = ns.add('router')
         n2 = ns.add('router')
-        ns.go(10)
+        ns.go(20)
+        self.assertFormPartitions(1)
         n1_ipaddr = ns.get_ipaddrs(n1, 'mleid')[0]
 
         ns.node_cmd(n1, 'udp open')
