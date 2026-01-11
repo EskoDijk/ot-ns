@@ -1,4 +1,4 @@
-// Copyright (c) 2020-2025, The OTNS Authors.
+// Copyright (c) 2020-2026, The OTNS Authors.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -28,6 +28,7 @@ package simulation
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/hex"
 	"fmt"
@@ -74,16 +75,16 @@ type Node struct {
 	sendGroupIds  map[int]struct{}
 
 	pendingLines  chan string       // OT node CLI output lines, pending processing.
-	pendingEvents chan *event.Event // OT node emitted events to be processed.
+	pendingEvents chan *event.Event // OT-RFSIM incoming events for sim-node, pending processing.
 	pipeIn        io.WriteCloser
 	pipeOut       io.ReadCloser
 	pipeErr       io.ReadCloser
-	uartReader    chan []byte
+	uartLine      bytes.Buffer // builds a line based on received UART characters/string-parts.
 	uartType      NodeUartType
 }
 
 // newNode creates a new simulation node. If unsuccessful, it returns an error != nil and the Node object created
-// so far (if node return != nil), or nil if node object wasn't created yet.
+// so far which may be nil if the node object wasn't created yet.
 func newNode(s *Simulation, nodeid NodeId, cfg *NodeConfig, dnode *dispatcher.Node) (*Node, error) {
 	var err error
 
@@ -113,14 +114,14 @@ func newNode(s *Simulation, nodeid NodeId, cfg *NodeConfig, dnode *dispatcher.No
 		pendingLines:  make(chan string, 10000),
 		pendingEvents: make(chan *event.Event, 100),
 		uartType:      nodeUartTypeUndefined,
-		uartReader:    make(chan []byte, 10000),
+		uartLine:      bytes.Buffer{},
 		version:       "",
 		sendGroupIds:  make(map[int]struct{}),
 	}
 
 	node.Logger.SetFileLevel(s.cfg.LogFileLevel)
-	node.Logger.Debugf("Node config: type=%s IsMtd=%t IsRouter=%t IsBR=%t RxOffWhenIdle=%t", cfg.Type, cfg.IsMtd,
-		cfg.IsRouter, cfg.IsBorderRouter, cfg.RxOffWhenIdle)
+	node.Logger.Debugf("Node config: type=%s IsMtd=%t IsRcp=%t IsRouter=%t IsBR=%t RxOffWhenIdle=%t", cfg.Type, cfg.IsMtd,
+		cfg.IsRcp, cfg.IsRouter, cfg.IsBorderRouter, cfg.RxOffWhenIdle)
 	node.Logger.Debugf("  exe cmd : %v", cmd)
 	node.Logger.Debugf("  position: (%d,%d,%d)", cfg.X, cfg.Y, cfg.Z)
 
@@ -140,6 +141,12 @@ func newNode(s *Simulation, nodeid NodeId, cfg *NodeConfig, dnode *dispatcher.No
 		return node, err
 	}
 
+	if cfg.IsRcp {
+		node.uartType = nodeUartTypeRealTime
+		go node.lineReaderStdOut(node.pipeOut) // reads StdOut output from OT node for CLI/UART, and for logs
+	} else {
+		node.uartType = nodeUartTypeVirtualTime
+	}
 	go node.lineReaderStdErr(node.pipeErr) // reads StdErr output from OT node exe and acts on failures
 
 	return node, err
@@ -256,16 +263,20 @@ func (node *Node) assurePrompt() {
 	}
 }
 
+// inputCommand is a helper method to send a CLI command to the node's UART
 func (node *Node) inputCommand(cmd string) error {
-	logger.AssertTrue(node.uartType != nodeUartTypeUndefined)
 	var err error
 	node.cmdErr = nil // reset last command error
+	cmdBytes := []byte(cmd + "\n")
 
-	if node.uartType == nodeUartTypeRealTime {
-		_, err = node.pipeIn.Write([]byte(cmd + "\n"))
-		node.S.Dispatcher().NotifyCommand(node.Id)
-	} else {
-		err = node.DNode.SendToUART([]byte(cmd + "\n"))
+	switch node.uartType {
+	case nodeUartTypeRealTime:
+		_, err = node.pipeIn.Write(cmdBytes)
+		node.S.Dispatcher().NotifyCommand(node.Id, false)
+	case nodeUartTypeVirtualTime:
+		err = node.DNode.SendToVirtualUART(cmdBytes)
+	default:
+		err = fmt.Errorf("invalid node.uartType: %d", node.uartType)
 	}
 	return err
 }
@@ -1009,51 +1020,24 @@ func (node *Node) GetCounters(counterType string, keyPrefix string) NodeCounters
 	return res
 }
 
-func (node *Node) processUartData() {
-	var deadline <-chan time.Time
-	done := node.S.ctx.Done()
+// processUartData is called by the Simulation to deliver new UART data (from the OT node) to the sim-node.
+func (node *Node) processUartData(data []byte) {
+	if len(data) == 2 && data[0] == '>' && data[1] == ' ' { // filter out the OT node prompt.
+		return
+	}
 
-loop:
+	node.uartLine.Write(data)
+
+	// find completed UART line(s) and push into the node.pendingLines queue.
 	for {
-		select {
-		case <-done:
-			break loop
-		case data := <-node.uartReader:
-			line := string(data)
-			if line == "> " { // filter out the prompt.
-				continue
-			}
-			idxNewLine := strings.IndexByte(line, '\n')
-			if idxNewLine == -1 { // if no newline, get more items until a line can be formed.
-				deadline = time.After(dispatcher.DefaultReadTimeout)
-
-			loop2:
-				for {
-					select {
-					case nextData := <-node.uartReader:
-						nextPart := string(nextData)
-						idxNewLinePart := strings.IndexByte(nextPart, '\n')
-						line += nextPart
-						if idxNewLinePart >= 0 {
-							lineTrim := strings.TrimRightFunc(line, unicode.IsSpace)
-							node.pendingLines <- lineTrim
-							break loop2
-						}
-					case <-done:
-						break loop
-					case <-deadline:
-						node.Logger.Panicf("processUart deadline: line='%s'", strings.TrimSpace(line))
-						break loop2
-					}
-				}
-			} else {
-				lineTrim := strings.TrimRightFunc(line, unicode.IsSpace)
-				node.pendingLines <- lineTrim
-			}
-
-		default:
-			break loop
+		buf := node.uartLine.Bytes()
+		idx := bytes.IndexByte(buf, '\n')
+		if idx == -1 {
+			break // any remaining data stays in node.uartLine for next time.
 		}
+		lineBytes := node.uartLine.Next(idx + 1)
+		lineStr := strings.TrimRightFunc(string(lineBytes), unicode.IsSpace)
+		node.pendingLines <- lineStr
 	}
 }
 
@@ -1082,7 +1066,7 @@ func (node *Node) onProcessFailure() {
 }
 
 func (node *Node) lineReaderStdErr(reader io.Reader) {
-	scanner := bufio.NewScanner(bufio.NewReader(reader)) // no filter applied.
+	scanner := bufio.NewScanner(bufio.NewReader(reader))
 	scanner.Split(bufio.ScanLines)
 
 	var errProc error = nil
@@ -1103,6 +1087,29 @@ func (node *Node) lineReaderStdErr(reader io.Reader) {
 	}
 }
 
+func (node *Node) lineReaderStdOut(reader io.Reader) {
+	scanner := bufio.NewScanner(bufio.NewReader(reader))
+	scanner.Split(bufio.ScanLines)
+
+	for scanner.Scan() {
+		evType := event.EventTypeUartWrite
+		line := scanner.Text()
+
+		if isOtLogLine, _ := logger.ParseOtLogLine(line); isOtLogLine {
+			evType = event.EventTypeLogWrite
+		}
+		ev := &event.Event{
+			Delay:  0,
+			Type:   evType,
+			Data:   []byte(line + "\n"),
+			NodeId: node.Id,
+		}
+		node.S.Dispatcher().PostEventAsync(ev)
+	}
+}
+
+// expectEvent waits for an event of the specified type to arrive from the OT node, for at most the
+// timeout duration.
 func (node *Node) expectEvent(evtType event.EventType, timeout time.Duration) (*event.Event, error) {
 	done := node.S.ctx.Done()
 	deadline := time.After(timeout)
@@ -1111,17 +1118,18 @@ func (node *Node) expectEvent(evtType event.EventType, timeout time.Duration) (*
 		select {
 		case <-done:
 			return nil, CommandInterruptedError
-		case <-deadline:
-			err := fmt.Errorf("expectEvent timeout: expected type %d", evtType)
-			return nil, err
 		case evt := <-node.pendingEvents:
 			node.Logger.Tracef("expectEvent() received: %v", evt)
-			return evt, nil
-		default:
-			if !node.S.Dispatcher().IsAlive(node.Id) {
-				time.Sleep(time.Millisecond * 10) // in case of node connection error, this becomes busy-loop.
+			if evt.Type == evtType {
+				return evt, nil
+			} else {
+				node.Logger.Errorf("expectEvent() received unexpected event type %d", evt.Type)
 			}
-			node.S.Dispatcher().RecvEvents() // keep virtual-UART events coming.
+		case <-deadline:
+			err := fmt.Errorf("expectEvent timeout: expected event type %d", evtType)
+			return nil, err
+		default:
+			node.S.waitForSimulation(true)
 		}
 	}
 }
@@ -1129,29 +1137,22 @@ func (node *Node) expectEvent(evtType event.EventType, timeout time.Duration) (*
 // readLine attempts to read a line from the node. Returns false when the node is asleep and
 // therefore cannot return any more lines at the moment.
 func (node *Node) readLine() (string, bool) {
-	done := node.S.ctx.Done()
-	pendingLinesReceived := false
+	node.S.waitForSimulation(false)
 
-	for {
-		select {
-		case <-done:
-			return "", false
-		case readLine := <-node.pendingLines:
-			if len(readLine) > 0 {
-				node.Logger.Tracef("UART: %s", readLine)
-			}
-			return readLine, true
-		default:
-			node.S.Dispatcher().RecvEvents() // keep virtual-UART events coming.
-			node.processUartData()           // forge data from UART-events into lines (fills up node.pendingLines)
-			if pendingLinesReceived && !node.S.Dispatcher().IsAlive(node.Id) {
-				return "", false
-			}
-			pendingLinesReceived = true
+	select {
+	case readLine := <-node.pendingLines:
+		if len(readLine) > 0 {
+			node.Logger.Tracef("UART: %s", readLine)
 		}
+		return readLine, true
+	default:
+		return "", false
 	}
 }
 
+// expectLine reads potentially multiple lines from the node until it finds a matching line, or timeout
+// occurs. The matching line is returned as the final line in the output string array. The expected line
+// can be defined using various data types as detailed in isLineMatch().
 func (node *Node) expectLine(line interface{}, timeout time.Duration) ([]string, error) {
 	var outputLines []string
 	done := node.S.ctx.Done()
@@ -1163,24 +1164,18 @@ func (node *Node) expectLine(line interface{}, timeout time.Duration) ([]string,
 			return []string{}, CommandInterruptedError
 		case <-deadline:
 			//_ = pprof.Lookup("goroutine").WriteTo(os.Stdout, 2) // @DEBUG: useful log info when node stuck
-			err := fmt.Errorf("expectLine timeout: expected %v", line)
+			err := fmt.Errorf("expectLine timeout: expected '%v'", line)
 			return outputLines, err
 		case readLine := <-node.pendingLines:
 			if len(readLine) > 0 {
 				node.Logger.Tracef("UART: %s", readLine)
 			}
-
 			outputLines = append(outputLines, readLine)
-			if node.isLineMatch(readLine, line) { // found the exact line
-				node.S.Dispatcher().RecvEvents() // this blocks until node is asleep.
+			if node.isLineMatch(readLine, line) { // found a matching line
 				return outputLines, nil
 			}
 		default:
-			if !node.S.Dispatcher().IsAlive(node.Id) {
-				time.Sleep(time.Millisecond * 10) // in case of node connection error, this becomes busy-loop.
-			}
-			node.S.Dispatcher().RecvEvents() // keep virtual-UART events coming.
-			node.processUartData()           // forge data from UART-events into lines (fills up node.pendingLines)
+			node.S.waitForSimulation(true)
 		}
 	}
 }

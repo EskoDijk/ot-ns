@@ -1,4 +1,4 @@
-// Copyright (c) 2020-2025, The OTNS Authors.
+// Copyright (c) 2020-2026, The OTNS Authors.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -36,6 +36,7 @@ type NodeConfig struct {
 	IsAutoPlaced   bool
 	IsRaw          bool // A raw node skips all initialization CLI commands, including any init-script.
 	IsMtd          bool
+	IsRcp          bool // An RCP node runs in real-time and is driven by a (non-simulated) host process.
 	IsRouter       bool
 	IsBorderRouter bool
 	RxOffWhenIdle  bool
