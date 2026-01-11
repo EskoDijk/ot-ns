@@ -211,12 +211,12 @@ func (node *Node) exit() error {
 	if node.cmd.Process != nil {
 		processDone := make(chan bool)
 		node.Logger.Tracef("Waiting for process PID %d to exit ...", node.cmd.Process.Pid)
-		timeout := time.After(NodeExitTimeout)
+		deadline := time.After(NodeExitTimeout)
 		go func() {
 			select {
 			case processDone <- true:
 				break
-			case <-timeout:
+			case <-deadline:
 				node.Logger.Warn("Node did not exit in time, sending SIGKILL.")
 				_ = node.cmd.Process.Kill()
 				processDone <- true

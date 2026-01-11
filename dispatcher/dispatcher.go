@@ -31,9 +31,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"math"
 	"net"
 	"os"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -450,7 +452,7 @@ func (d *Dispatcher) RecvEvents() int {
 	done := d.ctx.Done()
 	count := 0
 	isExiting := false
-	blockTimeout := time.After(DefaultReadTimeout)
+	deadline := time.After(DefaultReadTimeout)
 
 loop:
 	for {
@@ -460,11 +462,14 @@ loop:
 			case evt := <-d.eventChan: // get new event from (any) node
 				count += 1
 				d.handleRecvEvent(evt)
-			case <-blockTimeout: // timeout
+			case <-deadline:
+				if !isExiting {
+					logger.Errorf("RecvEvents timeout: alive nodes are %v", slices.Collect(maps.Keys(d.aliveNodes)))
+				}
 				break loop
 			case <-done:
 				if !isExiting {
-					blockTimeout = time.After(time.Millisecond * 250) // shorten timeout when exiting
+					deadline = time.After(time.Millisecond * 250) // shorten timeout when exiting
 					isExiting = true
 				}
 				time.Sleep(time.Millisecond * 10) // avoid high CPU usage while we stay in the for loop
