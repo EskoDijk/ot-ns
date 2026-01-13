@@ -26,6 +26,10 @@
 
 package types
 
+import (
+	"fmt"
+)
+
 // NodeConfig is a generic config for a new simulated node (used in dispatcher, simulation, radiomodel,
 // ... packages).
 type NodeConfig struct {
@@ -43,46 +47,42 @@ type NodeConfig struct {
 	NodeLogFile    bool
 	RadioRange     int
 	ExecutablePath string // executable full path or "" for auto-determined
+	HostExePath    string // for RCPs, the executable full path for the host process
 	Restore        bool
 	InitScript     []string // a sequence of CLI commands executed at first startup of node
 	RandomSeed     int32
 	RfSimParams    map[RfSimParam]RfSimParamValue // optional modified RF simulation parameters
 }
 
-// UpdateNodeConfigFromType sets NodeConfig flags correctly, based on chosen node type cfg.Type
-func (cfg *NodeConfig) UpdateNodeConfigFromType() {
+// UpdateNodeConfigFromType sets NodeConfig flags correctly, based on the chosen node type cfg.Type.
+// An error is returned if the type is unknown.
+func (cfg *NodeConfig) UpdateNodeConfigFromType() error {
+	cfg.IsRouter = false
+	cfg.IsMtd = false
+	cfg.IsBorderRouter = false
+	cfg.IsRcp = false
+	cfg.RxOffWhenIdle = false
+
 	switch cfg.Type {
 	case ROUTER, REED, FTD:
 		cfg.IsRouter = true
-		cfg.IsMtd = false
-		cfg.IsBorderRouter = false
-		cfg.RxOffWhenIdle = false
 	case FED:
-		cfg.IsRouter = false
-		cfg.IsMtd = false
-		cfg.IsBorderRouter = false
-		cfg.RxOffWhenIdle = false
+		break
 	case MED, MTD:
-		cfg.IsRouter = false
 		cfg.IsMtd = true
-		cfg.IsBorderRouter = false
-		cfg.RxOffWhenIdle = false
 	case SED, SSED:
-		cfg.IsRouter = false
 		cfg.IsMtd = true
-		cfg.IsBorderRouter = false
 		cfg.RxOffWhenIdle = true
 	case BR:
 		cfg.IsRouter = true
-		cfg.IsMtd = false
 		cfg.IsBorderRouter = true
-		cfg.RxOffWhenIdle = false
 	case WIFI:
+		break
+	case RCP:
 		cfg.IsRouter = true
-		cfg.IsMtd = false
-		cfg.IsBorderRouter = false
-		cfg.RxOffWhenIdle = false
+		cfg.IsRcp = true
 	default:
-		panic("unknown node type cfg.Type")
+		return fmt.Errorf("unknown node type cfg.Type: %s", cfg.Type)
 	}
+	return nil
 }

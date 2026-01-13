@@ -1,0 +1,98 @@
+#!/bin/bash
+#
+#  Copyright (c) 2026, The OpenThread Authors.
+#  All rights reserved.
+#
+#  Redistribution and use in source and binary forms, with or without
+#  modification, are permitted provided that the following conditions are met:
+#  1. Redistributions of source code must retain the above copyright
+#     notice, this list of conditions and the following disclaimer.
+#  2. Redistributions in binary form must reproduce the above copyright
+#     notice, this list of conditions and the following disclaimer in the
+#     documentation and/or other materials provided with the distribution.
+#  3. Neither the name of the copyright holder nor the
+#     names of its contributors may be used to endorse or promote products
+#     derived from this software without specific prior written permission.
+#
+#  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+#  AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+#  IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+#  ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+#  LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+#  CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+#  SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+#  INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+#  CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+#  ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+#  POSSIBILITY OF SUCH DAMAGE.
+#
+
+set -euxo pipefail
+
+OT_BASE_OPTIONS=(
+    "-DCMAKE_BUILD_TYPE=Debug"
+    "-DOT_FULL_LOGS=ON"
+    "-DOT_VENDOR_NAME=OpenThread.io"
+    "-DOT_VENDOR_SW_VERSION=2.0.0"
+    "-DOT_JOINER=ON"
+    "-DOT_COAP=ON"
+    "-DOT_COAPS=ON"
+    "-DOT_COMMISSIONER=ON"
+    "-DOT_ECDSA=ON"
+    "-DOT_NETDIAG_CLIENT=ON"
+    "-DOT_MESH_DIAG=ON"
+    "-DOT_SERVICE=ON"
+    "-DOT_MLE_MAX_CHILDREN=10"
+)
+readonly OT_BASE_OPTIONS
+
+OT_OPTIONS=(
+    "-DOT_THREAD_VERSION=1.4"
+    "-DOT_VENDOR_MODEL=RFSIM-RCP-Node-v1.4.0"
+    "-DOT_BACKBONE_ROUTER=OFF"
+    "-DOT_BACKBONE_ROUTER_MULTICAST_ROUTING=OFF"
+    "-DOT_BORDER_ROUTER=ON"
+    "-DOT_BORDER_ROUTING=OFF"
+    "-DOT_BORDER_ROUTING_DHCP6_PD=OFF"
+    "-DOT_BORDER_ROUTING_COUNTERS=OFF"
+    "-DOT_NAT64_BORDER_ROUTING=OFF"
+    "-DOT_MLR=ON"
+    "-DOT_COAP_BLOCK=OFF"
+    "-DOT_DNSSD_SERVER=OFF"
+    "-DOT_NETDATA_PUBLISHER=ON"
+    "-DOT_SRP_SERVER=OFF"
+    "-DOT_TREL=OFF"
+    "-DOT_TCP=ON"
+    "-DOT_POWER_SUPPLY=EXTERNAL"
+    "-DOT_DEVICE_PROP_LEADER_WEIGHT=ON"
+    "-DOT_HISTORY_TRACKER=OFF"
+    "-DOT_BLE_TCAT=ON"
+)
+readonly OT_OPTIONS
+
+# For the RCP, the real-time UART is used to communicate HDLC/SPINEL to the host process.
+OT_RCP_OPTIONS=(
+    "-DOT_SIMULATION_VIRTUAL_TIME_UART=OFF"
+)
+readonly OT_RCP_OPTIONS
+
+main()
+{
+    local options=()
+    options+=("${OT_OPTIONS[@]}" "${OT_RCP_OPTIONS[@]}" "$@")
+
+    OTNS_NODE_TYPE="latest" OT_CMAKE_NINJA_TARGET="ot-rcp" ./script/build "${options[@]}"
+
+    cp ./build/latest/bin/ot-rcp ./ot-versions/
+
+    (
+        local options=()
+        options+=("${OT_BASE_OPTIONS[@]}" "${OT_OPTIONS[@]}" "$@")
+
+        cd ../openthread
+        OT_CMAKE_NINJA_TARGET="ot-cli" ./script/cmake-build posix "${options[@]}"
+        cp ./build/posix/src/posix/ot-cli ../ot-rfsim/ot-versions
+    )
+}
+
+main "$@"

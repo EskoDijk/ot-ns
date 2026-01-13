@@ -40,7 +40,7 @@ var (
 )
 
 var (
-	doneOrErrorRegexp = regexp.MustCompile(`(Done|Error \d+: .*)`)
+	doneOrErrorRegexp = regexp.MustCompile(`^\s*(Done|Error \d+: .*)`)
 )
 
 type NodeUartType int

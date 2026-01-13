@@ -42,7 +42,6 @@ import (
 	"strings"
 	"syscall"
 	"time"
-	"unicode"
 
 	"github.com/pkg/errors"
 
@@ -66,6 +65,7 @@ type Node struct {
 	DNode  *dispatcher.Node
 	Logger *logger.NodeLogger
 
+	nameStr       string
 	cfg           *NodeConfig
 	cmd           *exec.Cmd
 	cmdErr        error // store the last CLI command error; nil if none.
@@ -96,13 +96,28 @@ func newNode(s *Simulation, nodeid NodeId, cfg *NodeConfig, dnode *dispatcher.No
 		}
 	}
 
-	var cmd *exec.Cmd
-	if cfg.RandomSeed == 0 {
-		cmd = exec.CommandContext(context.Background(), cfg.ExecutablePath, strconv.Itoa(nodeid), s.d.GetUnixSocketName())
+	var args []string
+	var exePath string
+
+	if !cfg.IsRcp {
+		exePath = cfg.ExecutablePath
+		args = append(args, strconv.Itoa(nodeid))
+		args = append(args, s.d.GetUnixSocketName())
+		if cfg.RandomSeed != 0 {
+			args = append(args, fmt.Sprintf("%d", cfg.RandomSeed))
+		}
 	} else {
-		seedParam := fmt.Sprintf("%d", cfg.RandomSeed)
-		cmd = exec.CommandContext(context.Background(), cfg.ExecutablePath, strconv.Itoa(nodeid), s.d.GetUnixSocketName(), seedParam)
+		exePath = cfg.HostExePath
+		// Provide the args: node-id, socket name and random seed, through the
+		// SPINEL URL's forkpty-arg query parameter, that can be repeated.
+		spinelUrl := fmt.Sprintf("spinel+hdlc+forkpty://%s?forkpty-arg=%d&forkpty-arg=%s",
+			cfg.ExecutablePath, nodeid, s.d.GetUnixSocketName())
+		if cfg.RandomSeed != 0 {
+			spinelUrl += fmt.Sprintf("&forkpty-arg=%d", cfg.RandomSeed)
+		}
+		args = append(args, spinelUrl)
 	}
+	cmd := exec.CommandContext(context.Background(), exePath, args...)
 
 	node := &Node{
 		S:             s,
@@ -153,7 +168,10 @@ func newNode(s *Simulation, nodeid NodeId, cfg *NodeConfig, dnode *dispatcher.No
 }
 
 func (node *Node) String() string {
-	return GetNodeName(node.Id)
+	if len(node.nameStr) == 0 {
+		node.nameStr = GetNodeName(node.Id)
+	}
+	return node.nameStr
 }
 
 func (node *Node) error(err error) {
@@ -342,8 +360,9 @@ func (node *Node) Command(cmd string) []string {
 	}
 
 	var result string
-	logger.AssertTrue(len(output) >= 1) // there's always a Done or Error line in output.
+	logger.AssertTrue(len(output) >= 1) // regexp matched - there's a Done or Error line in last output line.
 	output, result = output[:len(output)-1], output[len(output)-1]
+	result = strings.TrimSpace(result)
 	if result != "Done" {
 		node.error(errors.New(result))
 	}
@@ -1022,10 +1041,6 @@ func (node *Node) GetCounters(counterType string, keyPrefix string) NodeCounters
 
 // processUartData is called by the Simulation to deliver new UART data (from the OT node) to the sim-node.
 func (node *Node) processUartData(data []byte) {
-	if len(data) == 2 && data[0] == '>' && data[1] == ' ' { // filter out the OT node prompt.
-		return
-	}
-
 	node.uartLine.Write(data)
 
 	// find completed UART line(s) and push into the node.pendingLines queue.
@@ -1035,9 +1050,13 @@ func (node *Node) processUartData(data []byte) {
 		if idx == -1 {
 			break // any remaining data stays in node.uartLine for next time.
 		}
+		if bytes.HasPrefix(buf, OtCliPrompt) {
+			node.uartLine.Next(OtCliPromptLen) // consume the OT prompt, if any
+			idx -= OtCliPromptLen
+		}
 		lineBytes := node.uartLine.Next(idx + 1)
-		lineStr := strings.TrimRightFunc(string(lineBytes), unicode.IsSpace)
-		node.pendingLines <- lineStr
+		lineStr := bytes.TrimRight(lineBytes, "\r\n")
+		node.pendingLines <- string(lineStr)
 	}
 }
 
@@ -1094,7 +1113,6 @@ func (node *Node) lineReaderStdOut(reader io.Reader) {
 	for scanner.Scan() {
 		evType := event.EventTypeUartWrite
 		line := scanner.Text()
-
 		if isOtLogLine, _ := logger.ParseOtLogLine(line); isOtLogLine {
 			evType = event.EventTypeLogWrite
 		}
@@ -1140,11 +1158,9 @@ func (node *Node) readLine() (string, bool) {
 	node.S.waitForSimulation(false)
 
 	select {
-	case readLine := <-node.pendingLines:
-		if len(readLine) > 0 {
-			node.Logger.Tracef("UART: %s", readLine)
-		}
-		return readLine, true
+	case line := <-node.pendingLines:
+		node.Logger.Tracef("UART: %s", line)
+		return line, true
 	default:
 		return "", false
 	}
@@ -1167,9 +1183,7 @@ func (node *Node) expectLine(line interface{}, timeout time.Duration) ([]string,
 			err := fmt.Errorf("expectLine timeout: expected '%v'", line)
 			return outputLines, err
 		case readLine := <-node.pendingLines:
-			if len(readLine) > 0 {
-				node.Logger.Tracef("UART: %s", readLine)
-			}
+			node.Logger.Tracef("UART: %s", readLine)
 			outputLines = append(outputLines, readLine)
 			if node.isLineMatch(readLine, line) { // found a matching line
 				return outputLines, nil
@@ -1229,15 +1243,22 @@ func (node *Node) setupMode() {
 }
 
 func (node *Node) DisplayPendingLines() {
-	prefix := ""
+	var prefix string
+
+	useNodePrefix := node.S.cmdRunner.GetNodeContext() != node.Id
+	if useNodePrefix {
+		prefix = node.String()
+	}
+
 loop:
 	for {
 		select {
 		case line := <-node.pendingLines:
-			if len(prefix) == 0 && node.S.cmdRunner.GetNodeContext() != node.Id {
-				prefix = node.String() // lazy init of node-specific prefix
+			if useNodePrefix {
+				logger.Println(prefix + line)
+			} else {
+				logger.Println(line)
 			}
-			logger.Println(prefix + line)
 		default:
 			break loop
 		}

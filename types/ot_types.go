@@ -1,4 +1,4 @@
-// Copyright (c) 2023-2024, The OTNS Authors.
+// Copyright (c) 2023-2026, The OTNS Authors.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -45,6 +45,11 @@ const (
 const (
 	InvalidRloc16   uint16 = 0xfffe
 	BroadcastRloc16 uint16 = 0xffff
+)
+
+var (
+	OtCliPrompt    = []byte("> ")
+	OtCliPromptLen = len(OtCliPrompt)
 )
 
 type OtDeviceRole int
