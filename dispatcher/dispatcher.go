@@ -913,6 +913,7 @@ func (d *Dispatcher) syncAliveNodes() {
 	for nodeid := range d.aliveNodes {
 		d.advanceNodeTime(d.nodes[nodeid], d.CurTime, true)
 	}
+	d.RecvEvents() // blocks until all nodes asleep again.
 }
 
 // syncAllNodes advances all the node's time to current dispatcher time.
@@ -1378,7 +1379,13 @@ func (d *Dispatcher) NotifyCommand(nodeid NodeId, isNodeProcessEnding bool) {
 	if node := d.nodes[nodeid]; node != nil {
 		d.setAlive(nodeid)
 		if !isNodeProcessEnding {
-			d.advanceNodeTime(node, d.CurTime, false)
+			// Due to the externally received command, the virtual time of the node may now be
+			// running behind. We need to forcibly update the node's virtual time to the current
+			// simulation time. Even for cases where the node's virtual time is already up to date,
+			// this will in any case trigger reading further events from the node that may be caused
+			// by the execution of the command. After sending these resulting events to the simulator,
+			// the node process can go back to sleep.
+			d.advanceNodeTime(node, d.CurTime, true)
 		}
 	}
 }

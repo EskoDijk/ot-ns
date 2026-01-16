@@ -29,6 +29,7 @@
 
 set -euxo pipefail
 
+# Base OT options for the Posix platform build of the NCP.
 OT_BASE_OPTIONS=(
     "-DCMAKE_BUILD_TYPE=Debug"
     "-DOT_FULL_LOGS=ON"
@@ -43,9 +44,11 @@ OT_BASE_OPTIONS=(
     "-DOT_MESH_DIAG=ON"
     "-DOT_SERVICE=ON"
     "-DOT_MLE_MAX_CHILDREN=10"
+    "-DOT_OTNS=ON"
 )
 readonly OT_BASE_OPTIONS
 
+# OT build options for both Posix NCP and RCP.
 OT_OPTIONS=(
     "-DOT_THREAD_VERSION=1.4"
     "-DOT_VENDOR_MODEL=RFSIM-RCP-Node-v1.4.0"
@@ -81,9 +84,9 @@ main()
     local options=()
     options+=("${OT_OPTIONS[@]}" "${OT_RCP_OPTIONS[@]}" "$@")
 
-    OTNS_NODE_TYPE="latest" OT_CMAKE_NINJA_TARGET="ot-rcp" ./script/build "${options[@]}"
+    #OTNS_NODE_TYPE="latest" OT_CMAKE_NINJA_TARGET="ot-rcp" ./script/build "${options[@]}"
 
-    cp ./build/latest/bin/ot-rcp ./ot-versions/
+    #cp ./build/latest/bin/ot-rcp ./ot-versions/
 
     (
         local options=()

@@ -68,6 +68,7 @@ type Node struct {
 	nameStr       string
 	cfg           *NodeConfig
 	cmd           *exec.Cmd
+	isExiting     bool
 	cmdErr        error // store the last CLI command error; nil if none.
 	version       string
 	threadVersion uint16
@@ -107,7 +108,11 @@ func newNode(s *Simulation, nodeid NodeId, cfg *NodeConfig, dnode *dispatcher.No
 			args = append(args, fmt.Sprintf("%d", cfg.RandomSeed))
 		}
 	} else {
+		// The executable and args formed here are for the Posix NCP that will fork an RCP.
 		exePath = cfg.HostExePath
+		// Flag -v to send OT log messages also to stderr (and not only syslog)
+		// Flag -d 5 to enable all levels of log messages to be captured in the node's log file.
+		args = append(args, "-d", "5")
 		// Provide the args: node-id, socket name and random seed, through the
 		// SPINEL URL's forkpty-arg query parameter, that can be repeated.
 		spinelUrl := fmt.Sprintf("spinel+hdlc+forkpty://%s?forkpty-arg=%d&forkpty-arg=%s",
@@ -119,6 +124,8 @@ func newNode(s *Simulation, nodeid NodeId, cfg *NodeConfig, dnode *dispatcher.No
 	}
 	cmd := exec.CommandContext(context.Background(), exePath, args...)
 
+	logger.Tracef("Starting node %d: %s %v", nodeid, exePath, args)
+
 	node := &Node{
 		S:             s,
 		Id:            nodeid,
@@ -126,6 +133,7 @@ func newNode(s *Simulation, nodeid NodeId, cfg *NodeConfig, dnode *dispatcher.No
 		DNode:         dnode,
 		cfg:           cfg,
 		cmd:           cmd,
+		isExiting:     false,
 		pendingLines:  make(chan string, 10000),
 		pendingEvents: make(chan *event.Event, 100),
 		uartType:      nodeUartTypeUndefined,
@@ -158,11 +166,12 @@ func newNode(s *Simulation, nodeid NodeId, cfg *NodeConfig, dnode *dispatcher.No
 
 	if cfg.IsRcp {
 		node.uartType = nodeUartTypeRealTime
-		go node.lineReaderStdOut(node.pipeOut) // reads StdOut output from OT node for CLI/UART, and for logs
+		go node.lineReaderStdOut(node.pipeOut)      // reader for Posix NCP CLI output
+		go node.lineReaderStdErrPosix(node.pipeErr) // reader for Posix NCP log events including errors
 	} else {
 		node.uartType = nodeUartTypeVirtualTime
+		go node.lineReaderStdErr(node.pipeErr) // reader for OT node process errors/failures
 	}
-	go node.lineReaderStdErr(node.pipeErr) // reads StdErr output from OT node exe and acts on failures
 
 	return node, err
 }
@@ -204,7 +213,7 @@ func (node *Node) runScript(cfg []string) error {
 }
 
 func (node *Node) signalExit() error {
-	if node.cmd.Process == nil {
+	if node.cmd.Process == nil || node.cmd.ProcessState != nil {
 		return nil
 	}
 	node.Logger.Tracef("Sending SIGTERM to node process PID %d", node.cmd.Process.Pid)
@@ -212,6 +221,7 @@ func (node *Node) signalExit() error {
 }
 
 func (node *Node) exit() error {
+	node.isExiting = true
 	_ = node.signalExit()
 
 	// Pipes are closed to allow cmd.Wait() to be successful and not hang.
@@ -1084,37 +1094,41 @@ func (node *Node) onProcessFailure() {
 	})
 }
 
+// lineReaderStdErr is a goroutine to read stderr lines from an OT node process and log any lines
+// as node errors.
 func (node *Node) lineReaderStdErr(reader io.Reader) {
-	scanner := bufio.NewScanner(bufio.NewReader(reader))
+	scanner := bufio.NewScanner(reader)
 	scanner.Split(bufio.ScanLines)
 
-	var errProc error = nil
+	isError := false
 	for scanner.Scan() {
 		line := scanner.Text()
-		stderrLine := fmt.Sprintf("StdErr: %s", line)
-
-		// mark the first error output line of the node
-		if errProc == nil {
-			errProc = errors.New(stderrLine)
-		}
-		node.Logger.Error(errProc)
+		err := fmt.Errorf("StdErr: %s", line)
+		node.Logger.Error(err)
+		isError = true
 	}
 
 	// when the stderr of the node closes and any error was raised, inform simulation of node's failure.
-	if errProc != nil {
+	if isError && !node.isExiting {
 		node.onProcessFailure()
 	}
 }
 
+// lineReaderStdOut is a goroutine to read lines from an OT CLI node process and turn these into
+// either UART-write events or Log events, depending on the line format.
 func (node *Node) lineReaderStdOut(reader io.Reader) {
-	scanner := bufio.NewScanner(bufio.NewReader(reader))
+	scanner := bufio.NewScanner(reader)
 	scanner.Split(bufio.ScanLines)
 
 	for scanner.Scan() {
-		evType := event.EventTypeUartWrite
+		var evType event.EventType
+
 		line := scanner.Text()
+		logger.Debugf("lineReaderStdOut: %s", line)
 		if isOtLogLine, _ := logger.ParseOtLogLine(line); isOtLogLine {
 			evType = event.EventTypeLogWrite
+		} else {
+			evType = event.EventTypeUartWrite
 		}
 		ev := &event.Event{
 			Delay:  0,
@@ -1123,6 +1137,45 @@ func (node *Node) lineReaderStdOut(reader io.Reader) {
 			NodeId: node.Id,
 		}
 		node.S.Dispatcher().PostEventAsync(ev)
+	}
+}
+
+// lineReaderStdErrPosix is a goroutine to read lines from an OT Posix NCP node process and turn these
+// into either log events or status-push events, depending on line format.
+func (node *Node) lineReaderStdErrPosix(reader io.Reader) {
+	scanner := bufio.NewScanner(reader)
+	scanner.Split(bufio.ScanLines)
+
+	for scanner.Scan() {
+		var ev *event.Event
+
+		line := scanner.Text()
+		logger.Debugf("lineReaderStdErrPosix: %s", line)
+		if isStatusPush, status := logger.ParseOtnsStatusPush(line); isStatusPush {
+			ev = &event.Event{
+				Delay:  0,
+				Type:   event.EventTypeStatusPush,
+				Data:   []byte(status),
+				NodeId: node.Id,
+			}
+		} else {
+			// remove the syslog-specific contents to get the canonical OT log format.
+			if isPosixLine, _, _, logMsg := logger.ParseOtPosixSyslogLine(line); isPosixLine {
+				line = logMsg
+			}
+			ev = &event.Event{
+				Delay:  0,
+				Type:   event.EventTypeLogWrite,
+				Data:   []byte(line + "\n"),
+				NodeId: node.Id,
+			}
+		}
+		node.S.Dispatcher().PostEventAsync(ev)
+	}
+
+	// Check if the closing of stderr pipe is expected or not. If unexpected, it's a failure.
+	if !node.isExiting {
+		node.onProcessFailure()
 	}
 }
 
