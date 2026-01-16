@@ -166,12 +166,12 @@ func newNode(s *Simulation, nodeid NodeId, cfg *NodeConfig, dnode *dispatcher.No
 
 	if cfg.IsRcp {
 		node.uartType = nodeUartTypeRealTime
-		go node.lineReaderStdOut(node.pipeOut)      // reader for Posix NCP CLI output
-		go node.lineReaderStdErrPosix(node.pipeErr) // reader for Posix NCP log events including errors
+		go node.lineReaderStdOut(node.pipeOut) // reader for Posix NCP CLI output and logging
 	} else {
 		node.uartType = nodeUartTypeVirtualTime
-		go node.lineReaderStdErr(node.pipeErr) // reader for OT node process errors/failures
+		// for a regular CLI node (not RCP), stdout is not used: UART output is sent via events.
 	}
+	go node.lineReaderStdErr(node.pipeErr) // reader for OT node process errors/failures written to stderr
 
 	return node, err
 }
@@ -1115,67 +1115,45 @@ func (node *Node) lineReaderStdErr(reader io.Reader) {
 }
 
 // lineReaderStdOut is a goroutine to read lines from an OT CLI node process and turn these into
-// either UART-write events or Log events, depending on the line format.
+// one of 1) UART-write event, 2) Log-write event, or 3) Status-push event, depending on format.
+// Only the NCP/RCP can generate status-push.
 func (node *Node) lineReaderStdOut(reader io.Reader) {
+	isRcp := node.cfg.IsRcp
 	scanner := bufio.NewScanner(reader)
 	scanner.Split(bufio.ScanLines)
 
 	for scanner.Scan() {
 		var evType event.EventType
+		var data []byte
+		var status string
 
 		line := scanner.Text()
-		logger.Debugf("lineReaderStdOut: %s", line)
-		if isOtLogLine, _ := logger.ParseOtLogLine(line); isOtLogLine {
-			evType = event.EventTypeLogWrite
-		} else {
-			evType = event.EventTypeUartWrite
+		isStatusPush := false
+		isOtLogLine := false
+		if isRcp {
+			if isStatusPush, status = logger.ParseOtnsStatusPush(line); isStatusPush {
+				evType = event.EventTypeStatusPush
+				data = []byte(status)
+			}
 		}
+		if !isStatusPush {
+			if isOtLogLine, _ = logger.ParseOtLogLine(line); isOtLogLine {
+				evType = event.EventTypeLogWrite
+				data = []byte(line)
+			}
+		}
+		if !isOtLogLine && !isStatusPush {
+			evType = event.EventTypeUartWrite
+			data = []byte(line + "\n")
+		}
+
 		ev := &event.Event{
 			Delay:  0,
 			Type:   evType,
-			Data:   []byte(line + "\n"),
+			Data:   data,
 			NodeId: node.Id,
 		}
 		node.S.Dispatcher().PostEventAsync(ev)
-	}
-}
-
-// lineReaderStdErrPosix is a goroutine to read lines from an OT Posix NCP node process and turn these
-// into either log events or status-push events, depending on line format.
-func (node *Node) lineReaderStdErrPosix(reader io.Reader) {
-	scanner := bufio.NewScanner(reader)
-	scanner.Split(bufio.ScanLines)
-
-	for scanner.Scan() {
-		var ev *event.Event
-
-		line := scanner.Text()
-		logger.Debugf("lineReaderStdErrPosix: %s", line)
-		if isStatusPush, status := logger.ParseOtnsStatusPush(line); isStatusPush {
-			ev = &event.Event{
-				Delay:  0,
-				Type:   event.EventTypeStatusPush,
-				Data:   []byte(status),
-				NodeId: node.Id,
-			}
-		} else {
-			// remove the syslog-specific contents to get the canonical OT log format.
-			if isPosixLine, _, _, logMsg := logger.ParseOtPosixSyslogLine(line); isPosixLine {
-				line = logMsg
-			}
-			ev = &event.Event{
-				Delay:  0,
-				Type:   event.EventTypeLogWrite,
-				Data:   []byte(line + "\n"),
-				NodeId: node.Id,
-			}
-		}
-		node.S.Dispatcher().PostEventAsync(ev)
-	}
-
-	// Check if the closing of stderr pipe is expected or not. If unexpected, it's a failure.
-	if !node.isExiting {
-		node.onProcessFailure()
 	}
 }
 

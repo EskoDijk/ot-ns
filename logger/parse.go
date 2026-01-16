@@ -40,8 +40,7 @@ const (
 // Example: ./ot-rfsim/ot-versions/ot-cli[333748]: 00:00:00.003 [D] P-OTNS--------: status_push ...
 var (
 	logPattern               = regexp.MustCompile(`\[(-|C|W|N|I|D|CRIT|WARN|NOTE|INFO|DEBG)]`)
-	posixLogPattern          = regexp.MustCompile(`^>? ?(.*)\[(\d+)\]: (.*)$`)
-	otnsStatusPushLogPattern = regexp.MustCompile(` P-OTNS-+: status_push\s+(.*)$`)
+	otnsStatusPushLogPattern = regexp.MustCompile(` P-OTNS-+: status_push (.*)$`)
 )
 
 func ParseLevelString(level string) (Level, error) {
@@ -96,18 +95,6 @@ func ParseOtLogLine(line string) (bool, Level) {
 		return false, 0
 	}
 	return true, parseOtLevelChar(line[logIdx[2]])
-}
-
-// ParseOtPosixSyslogLine attempts to parse 'line' as an OT Posix generated syslog style line prefixed
-// by executable name/path and PID.
-// Example: ./ot-rfsim/ot-versions/ot-cli[333748]: 00:00:00.003 [D] P-OTNS--------: status_push ...
-// Returns true if successful along with the executable name, PID string, and remaining OT log line.
-func ParseOtPosixSyslogLine(line string) (bool, string, string, string) {
-	match := posixLogPattern.FindStringSubmatch(line)
-	if len(match) > 3 {
-		return true, match[1], match[2], match[3]
-	}
-	return false, "", "", ""
 }
 
 // ParseOtnsStatusPush parses a OT Posix NCP log line for OTNS status push events, coming from

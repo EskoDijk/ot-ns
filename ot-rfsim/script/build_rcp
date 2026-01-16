@@ -45,6 +45,7 @@ OT_BASE_OPTIONS=(
     "-DOT_SERVICE=ON"
     "-DOT_MLE_MAX_CHILDREN=10"
     "-DOT_OTNS=ON"
+    "-DOT_LOG_OUTPUT=APP"
 )
 readonly OT_BASE_OPTIONS
 
@@ -84,9 +85,9 @@ main()
     local options=()
     options+=("${OT_OPTIONS[@]}" "${OT_RCP_OPTIONS[@]}" "$@")
 
-    #OTNS_NODE_TYPE="latest" OT_CMAKE_NINJA_TARGET="ot-rcp" ./script/build "${options[@]}"
+    OTNS_NODE_TYPE="latest" OT_CMAKE_NINJA_TARGET="ot-rcp" ./script/build "${options[@]}"
 
-    #cp ./build/latest/bin/ot-rcp ./ot-versions/
+    cp ./build/latest/bin/ot-rcp ./ot-versions/
 
     (
         local options=()
