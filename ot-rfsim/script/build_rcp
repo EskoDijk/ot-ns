@@ -29,74 +29,21 @@
 
 set -euxo pipefail
 
-# Base OT options for the Posix platform build of the NCP.
-OT_BASE_OPTIONS=(
-    "-DCMAKE_BUILD_TYPE=Debug"
-    "-DOT_FULL_LOGS=ON"
-    "-DOT_VENDOR_NAME=OpenThread.io"
-    "-DOT_VENDOR_SW_VERSION=2.0.0"
-    "-DOT_JOINER=ON"
-    "-DOT_COAP=ON"
-    "-DOT_COAPS=ON"
-    "-DOT_COMMISSIONER=ON"
-    "-DOT_ECDSA=ON"
-    "-DOT_NETDIAG_CLIENT=ON"
-    "-DOT_MESH_DIAG=ON"
-    "-DOT_SERVICE=ON"
-    "-DOT_MLE_MAX_CHILDREN=10"
-    "-DOT_OTNS=ON"
-    "-DOT_LOG_OUTPUT=APP"
-)
-readonly OT_BASE_OPTIONS
-
-# OT build options for both Posix NCP and RCP.
-OT_OPTIONS=(
+OT_OPTIONS_RCP=(
     "-DOT_THREAD_VERSION=1.4"
-    "-DOT_VENDOR_MODEL=RFSIM-RCP-Node-v1.4.0"
-    "-DOT_BACKBONE_ROUTER=OFF"
-    "-DOT_BACKBONE_ROUTER_MULTICAST_ROUTING=OFF"
-    "-DOT_BORDER_ROUTER=ON"
-    "-DOT_BORDER_ROUTING=OFF"
-    "-DOT_BORDER_ROUTING_DHCP6_PD=OFF"
-    "-DOT_BORDER_ROUTING_COUNTERS=OFF"
-    "-DOT_NAT64_BORDER_ROUTING=OFF"
-    "-DOT_MLR=ON"
-    "-DOT_COAP_BLOCK=OFF"
-    "-DOT_DNSSD_SERVER=OFF"
-    "-DOT_NETDATA_PUBLISHER=ON"
-    "-DOT_SRP_SERVER=OFF"
-    "-DOT_TREL=OFF"
-    "-DOT_TCP=ON"
-    "-DOT_POWER_SUPPLY=EXTERNAL"
-    "-DOT_DEVICE_PROP_LEADER_WEIGHT=ON"
-    "-DOT_HISTORY_TRACKER=OFF"
-    "-DOT_BLE_TCAT=ON"
-)
-readonly OT_OPTIONS
-
-# For the RCP, the real-time UART is used to communicate HDLC/SPINEL to the host process.
-OT_RCP_OPTIONS=(
+    "-DOT_VENDOR_MODEL=RFSIM-RCP-v1.4"
     "-DOT_SIMULATION_VIRTUAL_TIME_UART=OFF"
+    "-DOT_POWER_SUPPLY=EXTERNAL"
 )
-readonly OT_RCP_OPTIONS
+readonly OT_OPTIONS_RCP
 
 main()
 {
     local options=()
-    options+=("${OT_OPTIONS[@]}" "${OT_RCP_OPTIONS[@]}" "$@")
+    options+=("${OT_OPTIONS_RCP[@]}" "$@")
 
-    OTNS_NODE_TYPE="latest" OT_CMAKE_NINJA_TARGET="ot-rcp" ./script/build "${options[@]}"
-
-    cp ./build/latest/bin/ot-rcp ./ot-versions/
-
-    (
-        local options=()
-        options+=("${OT_BASE_OPTIONS[@]}" "${OT_OPTIONS[@]}" "$@")
-
-        cd ../openthread
-        OT_CMAKE_NINJA_TARGET="ot-cli" ./script/cmake-build posix "${options[@]}"
-        cp ./build/posix/src/posix/ot-cli ../ot-rfsim/ot-versions
-    )
+    OTNS_NODE_TYPE="rcp" OT_CMAKE_NINJA_TARGET="ot-rcp" ./script/build "${options[@]}"
+    cp ./build/rcp/bin/ot-rcp ./ot-versions/
 }
 
 main "$@"
