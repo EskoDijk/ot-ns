@@ -128,6 +128,10 @@ func (s *Simulation) AddNode(cfg *NodeConfig) (*Node, error) {
 		return nil, errors.Errorf("node %d already exists", nodeid)
 	}
 
+	if cfg.IsRcp && !s.networkInfo.Real {
+		return nil, fmt.Errorf("RCP/NCP based nodes can only be added in real-time simulations (use -realtime flag)")
+	}
+
 	// node position may use the nodePlacer
 	if cfg.IsAutoPlaced {
 		cfg.X, cfg.Y, cfg.Z = s.nodePlacer.NextNodePosition(cfg.IsMtd || !cfg.IsRouter)
