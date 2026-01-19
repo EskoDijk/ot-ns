@@ -53,7 +53,7 @@
 
 #define VERIFY_EVENT_SIZE(X) OT_ASSERT((payloadLen >= sizeof(X)) && "received event payload too small");
 
-static const otIp6Address kUnspecifiedIp6Address = { .mFields = { .m32 = { 0, 0, 0, 0 } } };
+static const otIp6Address kUnspecifiedIp6Address = {.mFields = {.m32 = {0, 0, 0, 0}}};
 
 extern int gSockFd;
 

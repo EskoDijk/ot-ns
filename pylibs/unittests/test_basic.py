@@ -861,7 +861,7 @@ class BasicTests(OTNSTestCase):
             t = ns.time
             go_output = ns.go(100)
             self.assertTrue(ns.time >= t)
-            self.assertTrue(ns.time < t + 10.0) # 10 sec is a worst case assumption of CPU unavailability in a CI host
+            self.assertTrue(ns.time < t + 10.0)  # 10 sec is a worst case assumption of CPU unavailability in a CI host
             # Go does not raise errors as exception, but it will output the error line
             self.assertTrue(go_output[0].startswith('Error:'))
 
