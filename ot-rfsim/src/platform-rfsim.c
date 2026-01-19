@@ -45,6 +45,8 @@
 #include <openthread/udp.h>
 
 #include "common/debug.hpp"
+#include "common/logging.hpp"
+#include "utils/code_utils.h"
 #include "utils/uart.h"
 
 #include "event-sim.h"

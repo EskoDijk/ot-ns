@@ -154,7 +154,7 @@ void otSysProcessDrivers(otInstance *aInstance)
         platformRadioReportStateToSimulator(false);
         otSimSendSleepEvent();
 
-        // wake up by reception of socket event from OT-NS, or received real-UART data (for RCP only).
+        // wake up by reception of socket event from OT-NS, or received SPINEL UART data (for RCP only).
         rval = select(max_fd + 1, &read_fds, &write_fds, &error_fds, NULL);
 
         if ((rval < 0) && (errno != EINTR))

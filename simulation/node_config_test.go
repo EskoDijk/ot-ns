@@ -36,8 +36,9 @@ func TestDetermineExecutableBasedOnConfig(t *testing.T) {
 	cfg := ExecutableConfig{
 		Ftd:         "my-ftd-fail",
 		Mtd:         "ot-cli-mtd",
-		Br:          "br-script",
+		Br:          "br-script-404",
 		Rcp:         "ot-rcp",
+		RcpHost:     "ot-cli",
 		SearchPaths: []string{".", "./otrfsim/path/not/found", "../ot-rfsim/ot-versions"},
 	}
 
@@ -46,24 +47,27 @@ func TestDetermineExecutableBasedOnConfig(t *testing.T) {
 	exe := cfg.FindExecutableBasedOnConfig(&nodeCfg)
 	assert.Equal(t, "my-ftd-fail", exe)
 
-	// test assumes that ot-rfsim has been built.
+	// test assumes that ot-rfsim MTD has been built.
 	nodeCfg.IsMtd = true
 	nodeCfg.IsRouter = false
 	exe = cfg.FindExecutableBasedOnConfig(&nodeCfg)
 	assert.Equal(t, "../ot-rfsim/ot-versions/ot-cli-mtd", exe)
 
-	// test assumes that 'br-script' does not exist. In that case, Find returns the plain name
+	// test assumes that 'br-script-404' does not exist. In that case, Find returns the plain name
 	// and assumes the OS path will be used later on to locate the exe.
 	nodeCfg.IsBorderRouter = true
 	exe = cfg.FindExecutableBasedOnConfig(&nodeCfg)
-	assert.Equal(t, "br-script", exe)
+	assert.Equal(t, "br-script-404", exe)
 
-	// test assumes that ot-rfsim has been built.
+	// test assumes that ot-rfsim RCP has been built.
 	nodeCfg.IsRcp = true
 	nodeCfg.IsBorderRouter = false
-	cfg.Rcp = "ot-rcp"
 	exe = cfg.FindExecutableBasedOnConfig(&nodeCfg)
 	assert.Equal(t, "../ot-rfsim/ot-versions/ot-rcp", exe)
+
+	// test assumes that ot-rfsim NCP has been built.
+	exe = cfg.FindHostExecutableBasedOnConfig(&nodeCfg)
+	assert.Equal(t, "../ot-rfsim/ot-versions/ot-cli", exe)
 
 	// Also non-executable files could be supplied. The error comes only later when adding the node type.
 	// This test assumes the source file below exists.

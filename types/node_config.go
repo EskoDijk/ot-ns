@@ -40,14 +40,14 @@ type NodeConfig struct {
 	IsAutoPlaced   bool
 	IsRaw          bool // A raw node skips all initialization CLI commands, including any init-script.
 	IsMtd          bool
-	IsRcp          bool // An RCP node runs in real-time and is driven by a (non-simulated) host process.
+	IsRcp          bool // An RCP node runs in real-time and is driven by a (non-simulated) NCP host process.
 	IsRouter       bool
 	IsBorderRouter bool
 	RxOffWhenIdle  bool
 	NodeLogFile    bool
 	RadioRange     int
 	ExecutablePath string // executable full path or "" for auto-determined
-	HostExePath    string // for RCPs, the executable full path for the host process
+	HostExePath    string // for RCPs, the executable full path for the host process (NCP)
 	Restore        bool
 	InitScript     []string // a sequence of CLI commands executed at first startup of node
 	RandomSeed     int32
