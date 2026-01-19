@@ -331,6 +331,12 @@ func (rt *CmdRunner) execute(cmd *Command, output io.Writer) {
 }
 
 func (rt *CmdRunner) executeGo(cc *CommandContext, cmd *GoCmd) {
+	// verify that we're not in realtime mode.
+	if rt.sim.GetConfig().Realtime {
+		cc.errorf("cannot use 'go' commands in -realtime mode")
+		return
+	}
+
 	// determine duration and desired speed of the Go simulation period.
 	timeDurToGo, err := time.ParseDuration(cmd.Time)
 	if cmd.Ever == nil && err != nil {

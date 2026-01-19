@@ -857,6 +857,19 @@ class BasicTests(OTNSTestCase):
             ns.speed = 23
             self.assertEqual(1.0, ns.speed)
 
+            # Check that 'go' command fails and does not advance the time.
+            t = ns.time
+            go_output = ns.go(100)
+            self.assertTrue(ns.time >= t)
+            self.assertTrue(ns.time < t + 10.0) # 10 sec is a worst case assumption of CPU unavailability in a CI host
+            # Go does not raise errors as exception, but it will output the error line
+            self.assertTrue(go_output[0].startswith('Error:'))
+
+            # Check that advances with real clock time. Allow a small error margin.
+            t = ns.time
+            time.sleep(0.100)
+            self.assertTrue(ns.time >= t + 0.099)
+
     def testClockDriftSetting(self):
         ns: OTNS = self.ns
         ns.add('router')
