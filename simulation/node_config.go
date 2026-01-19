@@ -155,6 +155,7 @@ func DefaultNodeConfig() NodeConfig {
 		IsRaw:          false,
 		IsRouter:       true,
 		IsMtd:          false,
+		IsRcp:          false,
 		IsBorderRouter: false,
 		RxOffWhenIdle:  false,
 		NodeLogFile:    true,
