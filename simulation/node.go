@@ -95,6 +95,14 @@ func newNode(s *Simulation, nodeid NodeId, cfg *NodeConfig, dnode *dispatcher.No
 			logger.Errorf("Remove flash file %s failed: %+v", flashFile, err)
 			return nil, err
 		}
+		if cfg.IsRcp {
+			eui64 := GetDefaultRcpIeeeEui64(nodeid)
+			flashFile = fmt.Sprintf("%s/%d_%x.data", s.cfg.OutputDir, s.cfg.Id, eui64)
+			if err = os.RemoveAll(flashFile); err != nil {
+				logger.Errorf("Remove flash file %s failed: %+v", flashFile, err)
+				return nil, err
+			}
+		}
 	}
 
 	var args []string

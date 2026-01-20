@@ -47,6 +47,10 @@ const (
 	BroadcastRloc16 uint16 = 0xffff
 )
 
+const (
+	DefaultOtRcpStackVendorIeeeOui = 0x18b430
+)
+
 var (
 	OtCliPrompt    = []byte("> ")
 	OtCliPromptLen = len(OtCliPrompt)
@@ -123,4 +127,12 @@ func (s RadioStates) String() string {
 	default:
 		return "INVALID"
 	}
+}
+
+// GetDefaultRcpIeeeEui64 constructs the default (expected) IEEE EUI-64 address of a simulated RCP node.
+// This is used to guess/generate the address before an RCP node is created.
+// Note: in case stack vendor OUI is set differently using OPENTHREAD_CONFIG_STACK_VENDOR_OUI in
+// the RCP build, then the returned address here will be incorrect.
+func GetDefaultRcpIeeeEui64(nodeid NodeId) uint64 {
+	return (uint64(nodeid) & 0x000000FFFFFFFFFF) | (uint64(DefaultOtRcpStackVendorIeeeOui) << 40)
 }
