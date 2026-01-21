@@ -27,14 +27,14 @@
 #  POSSIBILITY OF SUCH DAMAGE.
 #
 
-# Script to build the OpenThread Posix NCP CLI app "ot-cli".
+# Script to build the OpenThread Posix CLI app "ot-cli" that interfaces with an RCP.
 # Note: it uses the 'posix' build dir in ../openthread/build for the build process.
 
 set -euxo pipefail
 
-OT_OPTIONS_NCP=(
+OT_OPTIONS_POSIX=(
     "-DOT_THREAD_VERSION=1.4"
-    "-DOT_VENDOR_MODEL=RFSIM-NCP-v1.4"
+    "-DOT_VENDOR_MODEL=RFSIM-Posix-v1.4"
     "-DOT_OTNS=ON"
     "-DOT_LOG_OUTPUT=APP"
     "-DOT_BACKBONE_ROUTER=OFF"
@@ -56,13 +56,13 @@ OT_OPTIONS_NCP=(
     "-DOT_HISTORY_TRACKER=OFF"
     "-DOT_BLE_TCAT=ON"
 )
-readonly OT_OPTIONS_NCP
+readonly OT_OPTIONS_POSIX
 
 main()
 {
     (
         local options=()
-        options+=("${OT_OPTIONS_NCP[@]}" "$@")
+        options+=("${OT_OPTIONS_POSIX[@]}" "$@")
 
         cd ../openthread
         OT_CMAKE_NINJA_TARGET="ot-cli" ./script/cmake-build posix "${options[@]}"

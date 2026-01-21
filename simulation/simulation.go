@@ -129,7 +129,7 @@ func (s *Simulation) AddNode(cfg *NodeConfig) (*Node, error) {
 	}
 
 	if cfg.IsRcp && !s.networkInfo.Real {
-		return nil, fmt.Errorf("RCP/NCP based nodes can only be added in real-time simulations (use -realtime flag)")
+		return nil, fmt.Errorf("RCP nodes can only be added in real-time simulation (use -realtime flag)")
 	}
 
 	// node position may use the nodePlacer

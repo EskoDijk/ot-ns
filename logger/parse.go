@@ -97,15 +97,15 @@ func ParseOtLogLine(line string) (bool, Level) {
 	return true, parseOtLevelChar(line[logIdx[2]])
 }
 
-// ParseOtnsStatusPush parses a OT Posix NCP log line for OTNS status push events, coming from
+// ParseOtnsStatusPush parses an OT Posix host log line for OTNS status push events, coming from
 // the OTNS module, and extracts the status message, if present.
 // Returns true and the extracted status if a match is found, else returns false and an empty string.
 func ParseOtnsStatusPush(line string) (bool, string) {
 	match := otnsStatusPushLogPattern.FindStringSubmatch(line)
-	if len(match) > 1 {
-		return true, match[1]
+	if len(match) < 2 {
+		return false, ""
 	}
-	return false, ""
+	return true, match[1]
 }
 
 func GetLevelString(level Level) string {

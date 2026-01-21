@@ -116,7 +116,7 @@ func newNode(s *Simulation, nodeid NodeId, cfg *NodeConfig, dnode *dispatcher.No
 			args = append(args, fmt.Sprintf("%d", cfg.RandomSeed))
 		}
 	} else {
-		// The executable and args formed here are for the Posix NCP that will fork an RCP.
+		// The executable and args formed here are for the Posix host process that will fork an RCP.
 		exePath = cfg.HostExePath
 		// Flag -v to send OT log messages also to stderr (and not only syslog)
 		// Flag -d 5 to enable all levels of log messages to be captured in the node's log file.
@@ -174,7 +174,7 @@ func newNode(s *Simulation, nodeid NodeId, cfg *NodeConfig, dnode *dispatcher.No
 
 	if cfg.IsRcp {
 		node.uartType = nodeUartTypeRealTime
-		go node.lineReaderStdOut(node.pipeOut) // reader for Posix NCP CLI output and logging
+		go node.lineReaderStdOut(node.pipeOut) // reader for Posix host CLI output and logging
 	} else {
 		node.uartType = nodeUartTypeVirtualTime
 		// for a regular CLI node (not RCP), stdout is not used: UART output is sent via events.
@@ -1122,11 +1122,10 @@ func (node *Node) lineReaderStdErr(reader io.Reader) {
 	}
 }
 
-// lineReaderStdOut is a goroutine to read lines from an OT CLI node process and turn these into
-// one of 1) UART-write event, 2) Log-write event, or 3) Status-push event, depending on format.
-// Only the NCP/RCP can generate status-push.
+// lineReaderStdOut is a goroutine to read stdout lines from a Posix host CLI process and turn these into
+// one of 1) UART-write event, 2) Log-write event, or 3) Status-push event, depending on line format.
 func (node *Node) lineReaderStdOut(reader io.Reader) {
-	isRcp := node.cfg.IsRcp
+	logger.AssertTrue(node.cfg.IsRcp)
 	scanner := bufio.NewScanner(reader)
 	scanner.Split(bufio.ScanLines)
 
@@ -1138,11 +1137,10 @@ func (node *Node) lineReaderStdOut(reader io.Reader) {
 		line := scanner.Text()
 		isStatusPush := false
 		isOtLogLine := false
-		if isRcp {
-			if isStatusPush, status = logger.ParseOtnsStatusPush(line); isStatusPush {
-				evType = event.EventTypeStatusPush
-				data = []byte(status)
-			}
+
+		if isStatusPush, status = logger.ParseOtnsStatusPush(line); isStatusPush {
+			evType = event.EventTypeStatusPush
+			data = []byte(status)
 		}
 		if !isStatusPush {
 			if isOtLogLine, _ = logger.ParseOtLogLine(line); isOtLogLine {
