@@ -37,10 +37,10 @@ const (
 	DefaultLevelString = "default"
 )
 
-// Example: ./ot-rfsim/ot-versions/ot-cli[333748]: 00:00:00.003 [D] P-OTNS--------: status_push ...
+// Example Posix ot-cli OTNS status push: 00:00:02.233 [-] Otns----------: transmit=11,d841,121,ffff
 var (
 	logPattern               = regexp.MustCompile(`\[(-|C|W|N|I|D|CRIT|WARN|NOTE|INFO|DEBG)]`)
-	otnsStatusPushLogPattern = regexp.MustCompile(` P-OTNS-+: status_push (.*)$`)
+	otnsStatusPushLogPattern = regexp.MustCompile(`\[-] Otns-+: (.*)$`)
 )
 
 func ParseLevelString(level string) (Level, error) {
