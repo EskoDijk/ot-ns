@@ -1123,7 +1123,8 @@ func (node *Node) lineReaderStdErr(reader io.Reader) {
 }
 
 // lineReaderStdOut is a goroutine to read stdout lines from a Posix host CLI process and turn these into
-// one of 1) UART-write event, 2) Log-write event, or 3) Status-push event, depending on line format.
+// one of 1) UART-write event, 2) Log-write event, or 3) Status-push event + log-write event, depending
+// on line format.
 func (node *Node) lineReaderStdOut(reader io.Reader) {
 	logger.AssertTrue(node.cfg.IsRcp)
 	scanner := bufio.NewScanner(reader)
@@ -1132,23 +1133,27 @@ func (node *Node) lineReaderStdOut(reader io.Reader) {
 	for scanner.Scan() {
 		var evType event.EventType
 		var data []byte
-		var status string
 
 		line := scanner.Text()
-		isStatusPush := false
 		isOtLogLine := false
 
-		if isStatusPush, status = logger.ParseOtnsStatusPush(line); isStatusPush {
+		if isStatusPush, status := logger.ParseOtnsStatusPush(line); isStatusPush {
 			evType = event.EventTypeStatusPush
 			data = []byte(status)
-		}
-		if !isStatusPush {
-			if isOtLogLine, _ = logger.ParseOtLogLine(line); isOtLogLine {
-				evType = event.EventTypeLogWrite
-				data = []byte(line)
+
+			ev := &event.Event{
+				Delay:  0,
+				Type:   evType,
+				Data:   data,
+				NodeId: node.Id,
 			}
+			node.S.Dispatcher().PostEventAsync(ev)
 		}
-		if !isOtLogLine && !isStatusPush {
+
+		if isOtLogLine, _ = logger.ParseOtLogLine(line); isOtLogLine {
+			evType = event.EventTypeLogWrite
+			data = []byte(line)
+		} else {
 			evType = event.EventTypeUartWrite
 			data = []byte(line + "\n")
 		}

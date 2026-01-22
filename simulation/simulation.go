@@ -27,6 +27,7 @@
 package simulation
 
 import (
+	"bytes"
 	"fmt"
 	"io/fs"
 	"os"
@@ -383,7 +384,13 @@ func (s *Simulation) OnUartWrite(nodeid NodeId, data []byte) {
 func (s *Simulation) OnLogWrite(nodeid NodeId, data []byte) {
 	node := s.nodes[nodeid]
 	logger.AssertNotNil(node)
-	node.Logger.LogOt(string(data))
+	var str string
+	if bytes.HasPrefix(data, OtCliPrompt) { // remove any OT CLI prompt before log message
+		str = string(data[OtCliPromptLen:])
+	} else {
+		str = string(data)
+	}
+	node.Logger.LogOt(str)
 }
 
 // OnNextEventTime implements the dispatcher.CallbackHandler interface.
