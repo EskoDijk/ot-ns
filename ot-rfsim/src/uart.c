@@ -50,6 +50,13 @@
 #include <termios.h>
 #include <unistd.h>
 
+// On Apple/MacOS, IOSSIOSPEED is used with the actual baud rate number, while termios.h does not define B460800.
+#ifdef __APPLE__
+#ifndef B460800
+#define B460800 460800
+#endif
+#endif
+
 /**
  * @def OPENTHREAD_SIMULATION_UART_BAUDRATE
  *
