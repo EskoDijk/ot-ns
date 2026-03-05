@@ -447,7 +447,7 @@ func (s *Simulation) OnMsgToHost(nodeid NodeId, evt *event.Event) {
 	}
 }
 
-func (s *Simulation) OnNewNodeDetected(nodeid NodeId) bool {
+func (s *Simulation) OnNewNodeDetected(nodeid NodeId, uartType NodeUartType) bool {
 	node := s.nodes[nodeid]
 	logger.AssertNil(node)
 
@@ -455,14 +455,24 @@ func (s *Simulation) OnNewNodeDetected(nodeid NodeId) bool {
 	cfg.ID = nodeid
 	cfg.Type = EXT
 	cfg.ExecutablePath = "(external-node)"
+	cfg.UartType = uartType
 	s.NodeConfigFinalize(&cfg)
-	_, err := s.AddNode(&cfg)
+	node, err := s.AddNode(&cfg)
 	if err == nil {
 		logger.Infof("Added new external node %d to the simulation.", nodeid)
 		return true
 	}
 	logger.Errorf("Failed to add external node %d to the simulation: %v", nodeid, err)
 	return false
+}
+
+func (s *Simulation) OnNodeConnected(nodeid NodeId, uartType NodeUartType) {
+	node := s.nodes[nodeid]
+	if node == nil {
+		logger.Warnf("Unknown node %d process connected to dispatcher.", nodeid)
+		return
+	}
+	node.uartType = uartType
 }
 
 func (s *Simulation) OnNodeDisconnected(nodeid NodeId) {

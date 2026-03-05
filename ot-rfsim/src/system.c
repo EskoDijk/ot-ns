@@ -102,7 +102,11 @@ void otSysInit(int argc, char *argv[])
     platformRadioInit();
     platformRfsimInit();
 
-    otSimSendNodeInfoEvent(gNodeId);
+#if OPENTHREAD_SIMULATION_VIRTUAL_TIME_UART == 1
+    otSimSendNodeInfoEvent(gNodeId, OT_SIM_UART_TYPE_VIRTUAL_TIME);
+#else
+    otSimSendNodeInfoEvent(gNodeId, OT_SIM_UART_TYPE_REAL_TIME);
+#endif
 }
 
 bool otSysPseudoResetWasRequested(void) { return gPlatformPseudoResetWasRequested; }

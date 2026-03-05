@@ -35,26 +35,12 @@ import (
 	. "github.com/openthread/ot-ns/types"
 )
 
-// Define the boundaries for 'catchup' and 'slow-down' simulation speeds for realtime simulation mode.
-const (
-	realtimeMaxSpeed = 1.5
-	realtimeMinSpeed = 0.5
-)
-
 var (
 	CommandInterruptedError = fmt.Errorf("command interrupted due to simulation exit")
 )
 
 var (
 	doneOrErrorRegexp = regexp.MustCompile(`^\s*(Done|Error \d+: .*)`)
-)
-
-type NodeUartType int
-
-const (
-	nodeUartTypeUndefined   NodeUartType = iota
-	nodeUartTypeRealTime    NodeUartType = iota
-	nodeUartTypeVirtualTime NodeUartType = iota
 )
 
 // CmdRunner will point to an external package that can run a user's CLI commands.

@@ -76,7 +76,11 @@ type CallbackHandler interface {
 	// The callback handler must return true if the new node was accepted and created in the simulation (and then
 	// the connection to it can remain) or false otherwise, for example if the simulation does not accept externally
 	// started nodes currently (and then the connection to it will be closed by Dispatcher).
-	OnNewNodeDetected(nodeid NodeId) bool
+	OnNewNodeDetected(nodeid NodeId, uartType NodeUartType) bool
+
+	// OnNodeConnected Notifies that the Dispatcher detected the connection of a node process, for which a
+	// dispatcher-node was already created.
+	OnNodeConnected(nodeid NodeId, uartType NodeUartType)
 
 	// OnNodeDisconnected Notifies that the Dispatcher detected disconnection of a node process.
 	OnNodeDisconnected(nodeid NodeId)
@@ -315,6 +319,8 @@ loop:
 				_ = d.pcap.Sync()
 			}
 			close(duration.done)
+		case evt := <-d.eventChan:
+			d.handleRecvEvent(evt)
 		}
 	}
 
@@ -446,13 +452,15 @@ func (d *Dispatcher) goSimulateForDuration(duration goDuration) {
 // It may only process events immediately that are to be executed at time d.CurTime. Future events
 // are queued (scheduled).
 func (d *Dispatcher) handleRecvEvent(evt *Event) {
+	logger.Tracef("E: %v", evt) // FIXME
+
 	nodeid := evt.NodeId
 	node := d.nodes[nodeid]
 	if node == nil {
 		// event from an unknown node: if it's an init event, try create a new node on the fly.
 		isAccepted := false
 		if evt.Type == EventTypeNodeInfo {
-			isAccepted = d.cbHandler.OnNewNodeDetected(nodeid)
+			isAccepted = d.cbHandler.OnNewNodeDetected(nodeid, evt.NodeInfoData.UartType)
 			if !isAccepted {
 				_ = evt.Conn.Close()
 				return
@@ -465,8 +473,14 @@ func (d *Dispatcher) handleRecvEvent(evt *Event) {
 		}
 	}
 
-	if node.conn == nil {
-		node.conn = evt.Conn // store socket connection for this node.
+	if node.conn == nil { // store socket connection for this node and report first-time connection.
+		node.conn = evt.Conn
+		uartType := NodeUartTypeUndefined
+		if evt.Type == EventTypeNodeInfo {
+			uartType = evt.NodeInfoData.UartType
+		}
+		logger.Debugf("Node %d connected to Dispatcher, setting UART type %v", nodeid, uartType)
+		d.cbHandler.OnNodeConnected(nodeid, uartType)
 	} else if node.conn != evt.Conn && evt.Conn != nil {
 		// close Conn for externally started nodes that want to claim an already-used nodeId.
 		err := evt.Conn.Close()

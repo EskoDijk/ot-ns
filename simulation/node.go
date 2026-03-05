@@ -153,7 +153,7 @@ func newNode(s *Simulation, nodeid NodeId, cfg *NodeConfig, dnode *dispatcher.No
 		isExiting:     false,
 		pendingLines:  make(chan string, 10000),
 		pendingEvents: make(chan *event.Event, 100),
-		uartType:      nodeUartTypeUndefined,
+		uartType:      cfg.UartType,
 		uartLine:      bytes.Buffer{},
 		uartHasEcho:   false,
 		version:       "",
@@ -184,11 +184,7 @@ func newNode(s *Simulation, nodeid NodeId, cfg *NodeConfig, dnode *dispatcher.No
 		}
 
 		if cfg.IsRcp {
-			node.uartType = nodeUartTypeRealTime
 			go node.lineReaderStdOut(node.pipeOut) // reader for Posix host CLI output and logging
-		} else {
-			node.uartType = nodeUartTypeVirtualTime
-			// for a regular CLI node (not RCP), stdout is not used: UART output is sent via events.
 		}
 
 		go node.lineReaderStdErr(node.pipeErr) // reader for OT node process errors/failures written to stderr
@@ -301,10 +297,10 @@ func (node *Node) inputCommand(cmd string) error {
 	cmdBytes := []byte(cmd + "\n")
 
 	switch node.uartType {
-	case nodeUartTypeRealTime:
+	case NodeUartTypeRealTime:
 		_, err = node.pipeIn.Write(cmdBytes)
 		node.S.Dispatcher().NotifyCommand(node.Id, false)
-	case nodeUartTypeVirtualTime:
+	case NodeUartTypeVirtualTime:
 		err = node.DNode.SendToVirtualUART(cmdBytes)
 	default:
 		err = fmt.Errorf("invalid node.uartType: %d", node.uartType)

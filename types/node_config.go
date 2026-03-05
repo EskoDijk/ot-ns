@@ -49,6 +49,7 @@ type NodeConfig struct {
 	RadioRange     int
 	ExecutablePath string // executable full path or "" for auto-determined
 	HostExePath    string // for RCP nodes, the executable full path for the host process
+	UartType       NodeUartType
 	Restore        bool
 	InitScript     []string // a sequence of CLI commands executed at first startup of node
 	RandomSeed     int32

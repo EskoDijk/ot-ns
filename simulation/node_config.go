@@ -170,6 +170,7 @@ func DefaultNodeConfig() NodeConfig {
 		RadioRange:     defaultRadioRange,
 		ExecutablePath: "",
 		HostExePath:    "",
+		UartType:       NodeUartTypeUndefined,
 		Restore:        false,
 		InitScript:     []string{},
 		RandomSeed:     0, // 0 means not specified, i.e. truly unpredictable.

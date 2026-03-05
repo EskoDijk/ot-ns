@@ -65,6 +65,15 @@ const (
 	HOST   = "host" // Host process of the RCP
 )
 
+type NodeUartType uint8
+
+const (
+	NodeUartTypeUndefined   NodeUartType = 0
+	NodeUartTypeRealTime    NodeUartType = 1
+	NodeUartTypeVirtualTime NodeUartType = 2
+	NodeUartTypeNone        NodeUartType = 3
+)
+
 func GetNodeName(id NodeId) string {
 	spacing := "  "
 	if id >= 100 {

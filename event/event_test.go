@@ -173,21 +173,23 @@ func TestSerializeRadioRxDoneEvent(t *testing.T) {
 }
 
 func TestDeserializeNodeInfoEvent(t *testing.T) {
-	data, _ := hex.DecodeString("00000000000000000c00000000000000fe040020000000")
+	data, _ := hex.DecodeString("00000000000000000c00000000000000fe05002000000001")
 	var ev Event
 	n := ev.Deserialize(data)
 	assert.True(t, ev.Delay == 0)
 	assert.Equal(t, EventTypeNodeInfo, ev.Type)
 	assert.Equal(t, uint64(18302628885633695744), ev.MsgId)
 	assert.Equal(t, 32, ev.NodeInfoData.NodeId)
+	assert.Equal(t, types.NodeUartTypeRealTime, ev.NodeInfoData.UartType)
 	assert.Equal(t, len(data), n)
 
-	data, _ = hex.DecodeString("00000000000000000cfe00000000000000040081800a00")
+	data, _ = hex.DecodeString("00000000000000000cfe00000000000000050081800a0002")
 	n = ev.Deserialize(data)
 	assert.True(t, ev.Delay == 0)
 	assert.Equal(t, EventTypeNodeInfo, ev.Type)
 	assert.Equal(t, uint64(254), ev.MsgId)
 	assert.Equal(t, 688257, ev.NodeInfoData.NodeId)
+	assert.Equal(t, types.NodeUartTypeVirtualTime, ev.NodeInfoData.UartType)
 	assert.Equal(t, len(data), n)
 }
 
