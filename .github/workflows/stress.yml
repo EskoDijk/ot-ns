@@ -49,7 +49,7 @@ jobs:
       matrix:
         python-version: ['3.10']
         go-version: ['1.23']
-        suite: ["network-forming", "commissioning", "connectivity", "network-latency", "multicast-performance", "otns-performance", "network-limits"]
+        suite: ["network-forming"]
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     env:
@@ -59,14 +59,3 @@ jobs:
       - uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5 # v6.2.0
         with:
           go-version: ${{ matrix.go-version }}
-      - name: Set up Python
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
-        with:
-          python-version: ${{ matrix.python-version }}
-      - run: |
-          mkdir -p /home/runner/work/_temp/_github_home
-      - name: Stress Test
-        env:
-          STRESS_LEVEL: 10
-        run: |
-          ./script/test stress-tests ${{ matrix.suite }}

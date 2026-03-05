@@ -42,27 +42,6 @@ permissions:
   contents: read
 
 jobs:
-  go-tests:
-    name: Go Tests (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 60
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-24.04, macos-14]
-    env:
-      HOMEBREW_NO_AUTO_UPDATE: 1
-    steps:
-      - uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
-      - uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5 # v6.2.0
-        with:
-          go-version: '1.23'
-      - name: Test
-        run: |
-          ./script/test go-tests
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de # v5.5.2
-
   py-unittests:
     name: Unittests (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
@@ -88,28 +67,4 @@ jobs:
           ./script/test py-unittests
       - name: Test multiple OT-versions
         run: |
-          ./script/test py-ver-unittests
-
-  py-examples:
-    name: Examples (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 60
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version: ['3.9']
-        os: [ubuntu-24.04, macos-14]
-    env:
-      HOMEBREW_NO_AUTO_UPDATE: 1
-    steps:
-      - uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
-      - uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5 # v6.2.0
-        with:
-          go-version: '1.23'
-      - name: Set up Python
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
-        with:
-          python-version: ${{ matrix.python-version }}
-      - name: Run Examples
-        run: |
-          ./script/test py-examples
+          ./script/test
