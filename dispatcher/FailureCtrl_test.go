@@ -59,7 +59,7 @@ func (m mockDispatcherCallback) OnMsgToHost(nodeid NodeId, evt *event.Event) {
 func (m mockDispatcherCallback) OnNodeDisconnected(nodeid NodeId) {
 }
 
-func (m mockDispatcherCallback) OnNewNodeDetected(nodeid NodeId) bool {
+func (m mockDispatcherCallback) OnNewNodeDetected(nodeid NodeId, uartType NodeUartType) bool {
 	return false
 }
 

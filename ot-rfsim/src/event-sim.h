@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2020-2024, The OpenThread Authors.
+ *  Copyright (c) 2020-2026, The OpenThread Authors.
  *  All rights reserved.
  *
  *  Redistribution and use in source and binary forms, with or without
@@ -70,6 +70,17 @@ enum
     OT_SIM_EVENT_IP6_TO_HOST        = 21,
     OT_SIM_EVENT_UDP_FROM_HOST      = 22,
     OT_SIM_EVENT_IP6_FROM_HOST      = 23,
+};
+
+/**
+ * The UART types the node can use for CLI/UART communication with the simulator.
+ */
+enum
+{
+    OT_SIM_UART_TYPE_UNDEFINED    = 0,
+    OT_SIM_UART_TYPE_REAL_TIME    = 1,
+    OT_SIM_UART_TYPE_VIRTUAL_TIME = 2,
+    OT_SIM_UART_TYPE_NONE         = 3,
 };
 
 #define OT_EVENT_DATA_MAX_SIZE 2048
@@ -217,8 +228,9 @@ void otSimSendExtAddrEvent(const otExtAddress *aExtAddress);
  * to identify a new socket connection made by the node.
  *
  * @param nodeId  id of the sending OT node
+ * @param uartType  uart type of the sending OT node, from enum OT_SIM_UART_TYPE_*
  */
-void otSimSendNodeInfoEvent(uint32_t nodeId);
+void otSimSendNodeInfoEvent(uint32_t nodeId, uint8_t uartType);
 
 // TODO
 void otSimSendRfSimParamRespEvent(uint8_t param, int32_t value);

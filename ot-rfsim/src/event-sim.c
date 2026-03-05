@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2022-2024, The OpenThread Authors.
+ *  Copyright (c) 2022-2026, The OpenThread Authors.
  *  All rights reserved.
  *
  *  Redistribution and use in source and binary forms, with or without
@@ -44,11 +44,12 @@ struct Event gLastSentEvent;
 
 void otSimSendSleepEvent(void)
 {
-    OT_ASSERT(platformAlarmGetNext() > 0);
     struct Event event;
+    uint64_t nextAlarmTime = platformAlarmGetNext();
+    OT_ASSERT(nextAlarmTime > 0);
 
-    event.mDelay      = platformAlarmGetNext();
     event.mEvent      = OT_SIM_EVENT_ALARM_FIRED;
+    event.mDelay      = nextAlarmTime;
     event.mDataLength = 0;
 
     otSimSendEvent(&event);
@@ -119,8 +120,8 @@ void otSimSendUartWriteEvent(const uint8_t *aData, uint16_t aLength)
 void otSimSendLogWriteEvent(const uint8_t *aData, uint16_t aLength)
 {
     OT_ASSERT(aLength <= OT_EVENT_DATA_MAX_SIZE);
-
     struct Event event;
+
     event.mEvent      = OT_SIM_EVENT_LOG_WRITE;
     event.mDelay      = 0;
     event.mDataLength = aLength;
@@ -134,9 +135,9 @@ void otSimSendOtnsStatusPushEvent(const char *aStatus, uint16_t aLength)
     OT_ASSERT(aLength <= OT_EVENT_DATA_MAX_SIZE);
     struct Event event;
 
-    memcpy(event.mData, aStatus, aLength);
     event.mEvent      = OT_SIM_EVENT_OTNS_STATUS_PUSH;
     event.mDelay      = 0;
+    memcpy(event.mData, aStatus, aLength);
     event.mDataLength = aLength;
 
     otSimSendEvent(&event);
@@ -147,23 +148,25 @@ void otSimSendExtAddrEvent(const otExtAddress *aExtAddress)
     OT_ASSERT(aExtAddress != NULL);
     struct Event event;
 
-    memcpy(event.mData, aExtAddress, sizeof(otExtAddress));
     event.mEvent      = OT_SIM_EVENT_EXT_ADDR;
     event.mDelay      = 0;
+    memcpy(event.mData, aExtAddress, sizeof(otExtAddress));
     event.mDataLength = sizeof(otExtAddress);
 
     otSimSendEvent(&event);
 }
 
-void otSimSendNodeInfoEvent(uint32_t nodeId)
+void otSimSendNodeInfoEvent(uint32_t nodeId, uint8_t uartType)
 {
-    struct Event event;
     OT_ASSERT(nodeId > 0);
+    OT_ASSERT(uartType != OT_SIM_UART_TYPE_UNDEFINED);
+    struct Event event;
 
-    memcpy(event.mData, &nodeId, sizeof(uint32_t));
     event.mEvent      = OT_SIM_EVENT_NODE_INFO;
     event.mDelay      = 0;
-    event.mDataLength = sizeof(uint32_t);
+    memcpy(event.mData, &nodeId, sizeof(uint32_t));
+    event.mData[sizeof(uint32_t)] = uartType;
+    event.mDataLength = sizeof(uint32_t) + sizeof(uint8_t);
 
     otSimSendEvent(&event);
 }
@@ -172,10 +175,10 @@ void otSimSendRfSimParamRespEvent(uint8_t param, int32_t value)
 {
     struct Event event;
 
-    event.mData[0] = param;
-    memcpy(event.mData + 1, &value, sizeof(int32_t));
     event.mEvent      = OT_SIM_EVENT_RFSIM_PARAM_RSP;
     event.mDelay      = 0;
+    event.mData[0] = param;
+    memcpy(event.mData + 1, &value, sizeof(int32_t));
     event.mDataLength = sizeof(uint8_t) + sizeof(int32_t);
 
     otSimSendEvent(&event);

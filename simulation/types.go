@@ -40,15 +40,7 @@ var (
 )
 
 var (
-	doneOrErrorRegexp = regexp.MustCompile(`(Done|Error \d+: .*)`)
-)
-
-type NodeUartType int
-
-const (
-	nodeUartTypeUndefined   NodeUartType = iota
-	nodeUartTypeRealTime    NodeUartType = iota
-	nodeUartTypeVirtualTime NodeUartType = iota
+	doneOrErrorRegexp = regexp.MustCompile(`^\s*(Done|Error \d+: .*)`)
 )
 
 // CmdRunner will point to an external package that can run a user's CLI commands.

@@ -31,9 +31,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"math"
 	"net"
 	"os"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -58,7 +60,7 @@ type CallbackHandler interface {
 	// OnUartWrite Notifies that the node's UART was written with data.
 	OnUartWrite(nodeid NodeId, data []byte)
 
-	// OnLogWrite Notifies that a log item wsa written to the node's log.
+	// OnLogWrite Notifies that a log item was written to the node's log.
 	OnLogWrite(nodeid NodeId, data []byte)
 
 	// OnNextEventTime Notifies that the Dispatcher simulated-time will move to the next event time.
@@ -74,7 +76,11 @@ type CallbackHandler interface {
 	// The callback handler must return true if the new node was accepted and created in the simulation (and then
 	// the connection to it can remain) or false otherwise, for example if the simulation does not accept externally
 	// started nodes currently (and then the connection to it will be closed by Dispatcher).
-	OnNewNodeDetected(nodeid NodeId) bool
+	OnNewNodeDetected(nodeid NodeId, uartType NodeUartType) bool
+
+	// OnNodeConnected Notifies that the Dispatcher detected the connection of a node process, for which a
+	// dispatcher-node was already created.
+	OnNodeConnected(nodeid NodeId, uartType NodeUartType)
 
 	// OnNodeDisconnected Notifies that the Dispatcher detected disconnection of a node process.
 	OnNodeDisconnected(nodeid NodeId)
@@ -85,7 +91,7 @@ type goDuration struct {
 	duration time.Duration
 	done     chan error // signals end of the simulation duration and success (nil) or some error.
 	speed    float64    // a speedup value, or DefaultDispatcherSpeed.
-	cancel   bool       // if set to true, the simulation duration will be cancelled early.
+	cancel   bool       // if set to true, the simulation duration will be canceled early.
 }
 
 type Dispatcher struct {
@@ -125,6 +131,7 @@ type Dispatcher struct {
 	nodesArray            []*Node
 	deletedNodes          map[NodeId]struct{}
 	aliveNodes            map[NodeId]struct{}
+	isFirstNodeAdded      bool
 	pcap                  pcap.File
 	pcapFrameChan         chan pcap.Frame
 	vis                   visualize.Visualizer
@@ -148,12 +155,13 @@ type Dispatcher struct {
 }
 
 func NewDispatcher(ctx *progctx.ProgCtx, cfg *Config, cbHandler CallbackHandler) *Dispatcher {
-	logger.AssertTrue(!cfg.Realtime || cfg.Speed == 1)
+	logger.AssertTrue(!cfg.Realtime || cfg.Speed == 1.0)
 	var err error
 	ln, unixSocketFile := newUnixSocket(cfg.SimulationId)
 	vis := visualize.NewNopVisualizer()
 
 	d := &Dispatcher{
+		CurTime:            0,
 		ctx:                ctx,
 		cfg:                *cfg,
 		cbHandler:          cbHandler,
@@ -164,6 +172,7 @@ func NewDispatcher(ctx *progctx.ProgCtx, cfg *Config, cbHandler CallbackHandler)
 		alarmMgr:           newAlarmMgr(),
 		nodes:              make(map[NodeId]*Node),
 		nodesArray:         make([]*Node, 0),
+		isFirstNodeAdded:   false,
 		deletedNodes:       map[NodeId]struct{}{},
 		aliveNodes:         make(map[NodeId]struct{}),
 		extaddrMap:         map[uint64]*Node{},
@@ -171,6 +180,7 @@ func NewDispatcher(ctx *progctx.ProgCtx, cfg *Config, cbHandler CallbackHandler)
 		pcapFrameChan:      make(chan pcap.Frame, 100000),
 		speed:              cfg.Speed,
 		speedStartRealTime: time.Now(),
+		speedStartTime:     0,
 		vis:                vis,
 		taskChan:           make(chan func(), 10000),
 		watchingNodes:      map[NodeId]struct{}{},
@@ -268,19 +278,10 @@ func (d *Dispatcher) reconstructNodesArray() {
 	}
 }
 
-func (d *Dispatcher) Go(duration time.Duration) <-chan error {
-	logger.AssertTrue(duration >= 0)
-	done := make(chan error, 1)
-	d.goDurationChan <- goDuration{
-		duration: duration,
-		done:     done,
-		speed:    DefaultDispatcherSpeed,
-	}
-	return done
-}
-
+// GoAtSpeed triggers the Dispatcher to execute ('go') for the given duration, with speedup 'speed', which may be
+// DefaultDispatcherSpeed to use the current default dispatcher's speed.
 func (d *Dispatcher) GoAtSpeed(duration time.Duration, speed float64) <-chan error {
-	logger.AssertTrue(speed >= 0.0 && duration >= 0)
+	logger.AssertTrue((speed >= 0.0 || speed == DefaultDispatcherSpeed) && duration >= 0)
 	done := make(chan error, 1)
 	d.goDurationChan <- goDuration{
 		duration: duration,
@@ -303,31 +304,27 @@ func (d *Dispatcher) Run() {
 loop:
 	for {
 		select {
+		case <-done:
+			break loop
 		case t := <-d.taskChan:
 			t()
 		case duration := <-d.goDurationChan:
 			d.currentGoDuration = duration
-			if len(d.nodes) == 0 || duration.duration < 0 {
-				// no nodes or no sim progress, sleep for a small duration to avoid high cpu
-				d.RecvEvents()
-				time.Sleep(time.Millisecond * 10)
-			} else {
-				logger.AssertTrue(d.CurTime == d.pauseTime)
-				d.goSimulateForDuration(duration)
-				logger.AssertTrue(d.CurTime == d.pauseTime)
+			logger.AssertTrue(d.CurTime == d.pauseTime)
+			d.goSimulateForDuration(duration)
+			logger.AssertTrue(d.CurTime == d.pauseTime)
 
-				d.syncAllNodes()
-				if d.pcap != nil {
-					_ = d.pcap.Sync()
-				}
+			d.syncAllNodes()
+			if d.pcap != nil {
+				_ = d.pcap.Sync()
 			}
 			close(duration.done)
-		case <-done:
-			break loop
+		case evt := <-d.eventChan:
+			d.handleRecvEvent(evt)
 		}
 	}
 
-	// handle all remaining tasks - other goroutines may be blocking on task completion.
+	// Upon exit: handle all remaining tasks - other goroutines may be blocking on task completion.
 	// handle all remaining go-duration requests.
 loop2:
 	for {
@@ -336,6 +333,64 @@ loop2:
 			t()
 		case duration := <-d.goDurationChan:
 			close(duration.done)
+		default:
+			break loop2
+		}
+	}
+}
+
+func (d *Dispatcher) RunRealtime() {
+	defer d.ctx.WaitDone("dispatcher")
+
+	done := d.ctx.Done()
+	timer := time.NewTimer(time.Nanosecond)
+	defer timer.Stop()
+	sleepThresholdUs := uint64(5)
+	maxVizInterval := uint64(200000)
+
+loop:
+	for {
+		var simTime uint64
+		if !d.isFirstNodeAdded {
+			simTime = 0
+		} else {
+			simTime = uint64(time.Since(d.speedStartRealTime) / time.Microsecond)
+			if simTime < d.CurTime {
+				simTime = d.CurTime
+			}
+		}
+		nextEventTime := d.processNextEventsRealtime(simTime)
+
+		// Update the max-sleep timer based on nextEventTime
+		var sleepDuration time.Duration
+		if nextEventTime > simTime+maxVizInterval {
+			sleepDuration = time.Duration(maxVizInterval) * time.Microsecond
+		} else if nextEventTime > simTime+sleepThresholdUs {
+			sleepDuration = time.Duration(nextEventTime-simTime) * time.Microsecond
+		} else {
+			sleepDuration = 0
+		}
+		timer.Reset(sleepDuration)
+
+		select {
+		case <-done:
+			break loop
+		case evt := <-d.eventChan:
+			d.handleRecvEvent(evt)
+		case t := <-d.taskChan:
+			t()
+		case <-timer.C:
+			// continue the loop
+		}
+	}
+
+	// Upon exit: handle all remaining tasks - other goroutines may be blocking on task completion.
+	// handle all remaining go-duration requests.
+loop2:
+	for {
+		select {
+		case t := <-d.taskChan:
+			t()
 		default:
 			break loop2
 		}
@@ -374,13 +429,11 @@ func (d *Dispatcher) goSimulateForDuration(duration goDuration) {
 		d.syncAliveNodes() // normally there should not be any alive nodes anymore.
 
 		if len(d.aliveNodes) == 0 {
-			// all are asleep now - process the next Events in queue, either alarm or other type, for a single time.
-			goon := d.processNextEvent(d.speed)
+			// all are asleep now - process the next Events in queue, for a single simulated time value.
+			goon := d.processNextEvents(d.speed)
 			logger.AssertTrue(d.CurTime <= d.pauseTime)
 
 			if !goon && len(d.aliveNodes) == 0 {
-				d.cbHandler.OnNextEventTime(d.pauseTime)
-				d.radioModel.OnNextEventTime(d.pauseTime)
 				d.advanceTime(d.pauseTime) // if nothing more to do before d.pauseTime.
 				break
 			}
@@ -390,22 +443,24 @@ func (d *Dispatcher) goSimulateForDuration(duration goDuration) {
 	if duration.speed != DefaultDispatcherSpeed { // restore original speed after period with custom speed set.
 		d.SetSpeed(postSpeed)
 	}
-	if d.pauseTime > d.CurTime { // if we e.g. cancelled period simulation early, and pauseTime not reached.
+	if d.pauseTime > d.CurTime { // if we e.g. canceled simulation period early, and pauseTime is not reached.
 		d.pauseTime = d.CurTime
 	}
 }
 
 // handleRecvEvent is the central handler for all events externally received from nodes/entities.
 // It may only process events immediately that are to be executed at time d.CurTime. Future events
-// will need to be queued (scheduled).
+// are queued (scheduled).
 func (d *Dispatcher) handleRecvEvent(evt *Event) {
+	logger.Tracef("E: %v", evt) // FIXME
+
 	nodeid := evt.NodeId
 	node := d.nodes[nodeid]
 	if node == nil {
 		// event from an unknown node: if it's an init event, try create a new node on the fly.
 		isAccepted := false
 		if evt.Type == EventTypeNodeInfo {
-			isAccepted = d.cbHandler.OnNewNodeDetected(nodeid)
+			isAccepted = d.cbHandler.OnNewNodeDetected(nodeid, evt.NodeInfoData.UartType)
 			if !isAccepted {
 				_ = evt.Conn.Close()
 				return
@@ -418,8 +473,14 @@ func (d *Dispatcher) handleRecvEvent(evt *Event) {
 		}
 	}
 
-	if node.conn == nil {
-		node.conn = evt.Conn // store socket connection for this node.
+	if node.conn == nil { // store socket connection for this node and report first-time connection.
+		node.conn = evt.Conn
+		uartType := NodeUartTypeUndefined
+		if evt.Type == EventTypeNodeInfo {
+			uartType = evt.NodeInfoData.UartType
+		}
+		logger.Debugf("Node %d connected to Dispatcher, setting UART type %v", nodeid, uartType)
+		d.cbHandler.OnNodeConnected(nodeid, uartType)
 	} else if node.conn != evt.Conn && evt.Conn != nil {
 		// close Conn for externally started nodes that want to claim an already-used nodeId.
 		err := evt.Conn.Close()
@@ -431,17 +492,15 @@ func (d *Dispatcher) handleRecvEvent(evt *Event) {
 
 	evt.Timestamp = d.CurTime // timestamp the incoming event
 
-	// TODO document this use (for alarm messages)
-	delay := evt.Delay
-	if delay >= 2147483647 {
-		delay = Ever
-	}
-
 	switch evt.Type {
 	case EventTypeAlarmFired:
 		d.Counters.AlarmEvents += 1
 		if evt.MsgId == node.msgId { // if OT-node has seen my last sent event (so it is done processing)
 			d.setSleeping(node.Id)
+		}
+		delay := evt.Delay
+		if delay >= math.MaxInt32 { // if OT Alarm delay is INT32_MAX ("infinity"), convert to "Ever".
+			delay = Ever
 		}
 		d.alarmMgr.SetTimestamp(nodeid, d.CurTime+delay) // schedule future wake-up of node
 	case EventTypeRadioCommStart,
@@ -464,6 +523,7 @@ func (d *Dispatcher) handleRecvEvent(evt *Event) {
 		node.onStatusPushExtAddr(extaddr)
 	case EventTypeNodeInfo:
 		d.Counters.OtherEvents += 1
+		// No further handling is needed; the node info was already used at this point.
 	case EventTypeNodeDisconnected:
 		d.Counters.OtherEvents += 1
 		d.setDisconnected(node.Id)
@@ -471,7 +531,7 @@ func (d *Dispatcher) handleRecvEvent(evt *Event) {
 	case EventTypeUdpToHost,
 		EventTypeIp6ToHost:
 		d.Counters.HostEvents += 1
-		d.sendMsgToHost(node, evt)
+		d.onMsgToHost(node, evt)
 		d.cbHandler.OnMsgToHost(node.Id, evt)
 	case EventTypeUdpFromHost,
 		EventTypeIp6FromHost:
@@ -490,24 +550,27 @@ func (d *Dispatcher) RecvEvents() int {
 	done := d.ctx.Done()
 	count := 0
 	isExiting := false
-	blockTimeout := time.After(DefaultReadTimeout)
+	deadline := time.After(DefaultReadTimeout)
 
 loop:
 	for {
 		shouldBlock := len(d.aliveNodes) > 0
 		if shouldBlock {
 			select {
-			case evt := <-d.eventChan: // get new event
+			case evt := <-d.eventChan: // get new event from (any) node
 				count += 1
 				d.handleRecvEvent(evt)
-			case <-blockTimeout: // timeout
+			case <-deadline:
+				if !isExiting {
+					logger.Errorf("RecvEvents timeout: alive nodes are %v", slices.Collect(maps.Keys(d.aliveNodes)))
+				}
 				break loop
 			case <-done:
 				if !isExiting {
-					blockTimeout = time.After(time.Millisecond * 250)
+					deadline = time.After(time.Millisecond * 250) // shorten timeout when exiting
 					isExiting = true
 				}
-				time.Sleep(time.Millisecond * 10)
+				time.Sleep(time.Millisecond * 10) // avoid high CPU usage while we stay in the for loop
 				break
 			}
 		} else {
@@ -523,9 +586,9 @@ loop:
 	return count
 }
 
-// processNextEvent processes all next events from the eventQueue for the next time instant.
+// processNextEvents processes all next events from the eventQueue for the next time instant.
 // Returns true if the simulation needs to continue, or false if not (e.g. it's time to pause).
-func (d *Dispatcher) processNextEvent(simSpeed float64) bool {
+func (d *Dispatcher) processNextEvents(simSpeed float64) bool {
 	logger.AssertTrue(d.CurTime <= d.pauseTime)
 	logger.AssertTrue(simSpeed >= 0)
 
@@ -553,29 +616,32 @@ func (d *Dispatcher) processNextEvent(simSpeed float64) bool {
 		now := time.Now()
 		sleepTime := sleepUntilRealTime.Sub(now)
 
-		if sleepTime > 0 {
-			if sleepTime > time.Millisecond*10 {
-				sleepTime = time.Millisecond * 10 // max cap to keep program responsive
+		// move simulation time ahead at speed, even during periods without sim events.
+		// Only call time.Sleep() if the sleep duration is long enough to be performed reasonably accurate by the OS.
+		if sleepTime >= MinReliableSleepTime {
+			if sleepTime > MaxConsecutiveSleepTime {
+				sleepTime = MaxConsecutiveSleepTime // max cap to keep program responsive
 			}
 			time.Sleep(sleepTime)
 
-			// move simulation time ahead at speed, even during periods without sim events.
+			// after sleep, reassess what the target time for the simulation is.
 			curTime := d.speedStartTime + uint64(float64(time.Since(d.speedStartRealTime)/time.Microsecond)*simSpeed)
 			if curTime > d.pauseTime {
 				curTime = d.pauseTime
 			}
-			if curTime < nextEventTime {
+			if curTime < nextEventTime { // we slept, but haven't reached the time yet for next event
 				d.advanceTime(curTime)
+				if nextEventTime <= d.pauseTime {
+					return true // say there are more events pending before the pause.
+				}
+				return false // say there are no more events pending before the pause.
 			}
-			return true
 		}
 	}
 
 	if nextEventTime > d.pauseTime {
-		return false
+		return false // say there are no more events pending before the pause.
 	}
-	d.cbHandler.OnNextEventTime(nextEventTime)
-	d.radioModel.OnNextEventTime(nextEventTime)
 	d.advanceTime(nextEventTime)
 
 	// process (if any) all queued events, that happen at exactly procUntilTime
@@ -594,54 +660,101 @@ func (d *Dispatcher) processNextEvent(simSpeed float64) bool {
 			evt := d.eventQueue.PopNext()
 			logger.AssertTrue(evt.Timestamp == nextEventTime)
 			logger.AssertTrue(nextAlarmTime == d.CurTime || nextSendTime == d.CurTime)
-			node := d.nodes[evt.NodeId]
-			if node != nil {
-				// execute event - either a msg to be dispatched, or handled internally.
-				if !evt.MustDispatch {
-					switch evt.Type {
-					case EventTypeAlarmFired:
-						d.advanceNodeTime(node, evt.Timestamp, false)
-					case EventTypeRadioLog:
-						node.logger.Tracef("%s", string(evt.Data))
-					case EventTypeRadioCommStart:
-						if evt.RadioCommData.Error == OT_TX_TYPE_INTF {
-							// for interference transmissions, visualized here.
-							d.visSendInterference(evt.NodeId, BroadcastNodeId, evt.RadioCommData)
-						}
-						d.radioModel.HandleEvent(node.RadioNode, d.eventQueue, evt)
-					case EventTypeRadioState:
-						d.handleRadioState(node, evt)
-						d.radioModel.HandleEvent(node.RadioNode, d.eventQueue, evt)
-					default:
-						d.radioModel.HandleEvent(node.RadioNode, d.eventQueue, evt)
-					}
-				} else {
-					switch evt.Type {
-					case EventTypeRadioCommStart:
-						d.sendRadioCommRxStartEvents(node, evt)
-					case EventTypeRadioRxDone:
-						d.sendRadioCommRxDoneEvents(node, evt)
-					case EventTypeUdpFromHost,
-						EventTypeIp6FromHost:
-						node.sendEvent(evt) // TODO no loss on external network is simulated currently.
-					default:
-						if d.radioModel.OnEventDispatch(node.RadioNode, node.RadioNode, evt) {
-							node.sendEvent(evt)
-						}
-					}
-				}
-			} else if evt.NodeId > 0 {
-				logger.Warnf("processNextEvent() with deleted/unknown node %v: %v", evt.NodeId, evt)
-			}
+			d.processEvent(evt)
 		}
 		nextAlarmTime = d.alarmMgr.NextTimestamp()
 		nextSendTime = d.eventQueue.NextTimestamp()
 		nextEventTime = min(nextAlarmTime, nextSendTime)
 	}
 
-	return len(d.nodes) > 0
+	// simulation needs to continue if there are events in queue, and/or nodes are still present
+	return nextEventTime <= d.pauseTime || len(d.nodes) > 0
 }
 
+// processNextEventsRealtime processes all next events from the eventQueue for the next time instant
+// when it's time to process these events. Only used in the realtime mode of the Dispatcher.
+// Returns the time of the next queued event to be processed in the future.
+func (d *Dispatcher) processNextEventsRealtime(simTime uint64) uint64 {
+	marginUs := uint64(5)
+
+	// fetch time of next event
+	nextAlarmTime := d.alarmMgr.NextTimestamp()
+	nextSendTime := d.eventQueue.NextTimestamp()
+	nextEventTime := min(nextAlarmTime, nextSendTime)
+	logger.AssertTrue(nextEventTime >= d.CurTime)
+
+	if nextEventTime > simTime+marginUs {
+		d.advanceTime(simTime)
+		return nextEventTime // don't process events further: too distant in the future.
+	} else if nextEventTime > d.CurTime {
+		d.advanceTime(nextEventTime)
+	}
+
+	// process (if any) all queued events, that happen at exactly procUntilTime
+	procUntilTime := nextEventTime
+	for nextEventTime <= procUntilTime {
+		if nextAlarmTime <= nextSendTime {
+			// process next alarm
+			nextAlarm := d.alarmMgr.NextAlarm()
+			logger.AssertNotNil(nextAlarm)
+			if node := d.nodes[nextAlarm.NodeId]; node != nil {
+				d.advanceNodeTime(node, nextAlarmTime, false)
+			}
+		} else {
+			// process next event from the queue
+			evt := d.eventQueue.PopNext()
+			logger.AssertTrue(evt.Timestamp == nextEventTime)
+			logger.AssertTrue(nextAlarmTime <= d.CurTime+marginUs || nextSendTime <= d.CurTime+marginUs)
+			d.processEvent(evt)
+		}
+		nextAlarmTime = d.alarmMgr.NextTimestamp()
+		nextSendTime = d.eventQueue.NextTimestamp()
+		nextEventTime = min(nextAlarmTime, nextSendTime)
+	}
+
+	return nextEventTime
+}
+
+func (d *Dispatcher) processEvent(evt *Event) {
+	if node := d.nodes[evt.NodeId]; node != nil {
+		// execute event - either a msg to be dispatched, or handled internally.
+		if !evt.MustDispatch {
+			switch evt.Type {
+			case EventTypeAlarmFired:
+				d.advanceNodeTime(node, d.CurTime, false)
+			case EventTypeRadioLog:
+				node.logger.Tracef("%s", string(evt.Data))
+			case EventTypeRadioCommStart:
+				if evt.RadioCommData.Error == OT_TX_TYPE_INTF {
+					// for interference transmissions, visualized here.
+					d.visSendInterference(evt.NodeId, BroadcastNodeId, evt.RadioCommData)
+				}
+				d.radioModel.HandleEvent(node.RadioNode, d.eventQueue, evt)
+			case EventTypeRadioState:
+				d.handleRadioState(node, evt)
+				d.radioModel.HandleEvent(node.RadioNode, d.eventQueue, evt)
+			default:
+				d.radioModel.HandleEvent(node.RadioNode, d.eventQueue, evt)
+			}
+		} else {
+			switch evt.Type {
+			case EventTypeRadioCommStart:
+				d.sendRadioCommRxStartEvents(node, evt)
+			case EventTypeRadioRxDone:
+				d.sendRadioCommRxDoneEvents(node, evt)
+			case EventTypeUdpFromHost,
+				EventTypeIp6FromHost:
+				node.sendEvent(evt) // TODO no packet-loss on external network is simulated currently.
+			default:
+				if d.radioModel.OnEventDispatch(node.RadioNode, node.RadioNode, evt) {
+					node.sendEvent(evt)
+				}
+			}
+		}
+	} else if evt.NodeId != InvalidNodeId {
+		logger.Warnf("processEvent() with deleted/unknown node %v: %v", evt.NodeId, evt)
+	}
+}
 func (d *Dispatcher) eventsReader() {
 	defer d.waitGroup.Done()
 	defer logger.Tracef("dispatcher node socket threads stopped.")
@@ -910,18 +1023,18 @@ func (d *Dispatcher) sendOneRadioFrame(evt *Event, srcnode *Node, dstnode *Node)
 	}
 }
 
-func (d *Dispatcher) sendMsgToHost(node *Node, evt *Event) {
-	if d.cfg.PcapEnabled {
-		/** TODO write IPv6 packet to a separate pcap file
-		d.pcapFrameChan <- pcap.Frame{
-			Timestamp: evt.Timestamp,
-			Data:      evt.Data,
-			Channel:   0,
-			Rssi:      RssiInvalid,
-		}
-		*/
-		node.logger.Debugf("sendMsgToHost: %v", evt)
+func (d *Dispatcher) onMsgToHost(node *Node, evt *Event) {
+	//if d.cfg.PcapEnabled {
+	/** TODO write IPv6 packet to a separate pcap file
+	d.pcapFrameChan <- pcap.Frame{
+		Timestamp: evt.Timestamp,
+		Data:      evt.Data,
+		Channel:   0,
+		Rssi:      RssiInvalid,
 	}
+	*/
+	//}
+	node.logger.Debugf("onMsgToHost: %v", evt)
 }
 
 func (d *Dispatcher) setAlive(nodeid NodeId) {
@@ -972,6 +1085,7 @@ func (d *Dispatcher) syncAliveNodes() {
 	for nodeid := range d.aliveNodes {
 		d.advanceNodeTime(d.nodes[nodeid], d.CurTime, true)
 	}
+	d.RecvEvents() // blocks until all nodes asleep again.
 }
 
 // syncAllNodes advances all the node's time to current dispatcher time.
@@ -1145,6 +1259,12 @@ func (d *Dispatcher) AddNode(nodeid NodeId, cfg *NodeConfig) *Node {
 			logger.Error(err)
 		}
 	}
+
+	if !d.isFirstNodeAdded {
+		d.speedStartRealTime = time.Now()
+		d.isFirstNodeAdded = true
+		logger.Debugf("Dispatcher simulation time t=0 marked at real time: %v", d.speedStartRealTime)
+	}
 	return node
 }
 
@@ -1216,8 +1336,14 @@ func (d *Dispatcher) visSend(srcid NodeId, dstid NodeId, visInfo *visualize.MsgV
 
 func (d *Dispatcher) advanceTime(ts uint64) {
 	logger.AssertTrue(d.CurTime <= ts, "%v > %v", d.CurTime, ts)
-	d.CurTime = ts
 
+	// notify relevant listeners prior to the time advance
+	d.radioModel.OnNextEventTime(ts)
+	d.cbHandler.OnNextEventTime(ts)
+
+	d.CurTime = ts // advance the Dispatcher's time
+
+	// notify relevant listeners after the time advance
 	elapsedTime := int64(d.CurTime - d.speedStartTime)
 	elapsedRealTime := time.Since(d.speedStartRealTime) / time.Microsecond
 	if elapsedRealTime > 0 {
@@ -1367,7 +1493,9 @@ func (d *Dispatcher) SetSpeed(f float64) {
 	d.speedStartRealTime = time.Now()
 	d.speedStartTime = d.CurTime
 	d.speed = ns
-	d.vis.SetSpeed(ns)
+	if !d.cfg.Realtime {
+		d.vis.SetSpeed(ns) // adapts the target speed in the GUI (i.e. speed button)
+	}
 }
 
 func (d *Dispatcher) normalizeSpeed(f float64) float64 {
@@ -1431,9 +1559,21 @@ func (d *Dispatcher) SetVisualizationOptions(opts VisualizationOptions) {
 	d.visOptions = opts
 }
 
-func (d *Dispatcher) NotifyCommand(nodeid NodeId) {
-	if !d.hasDisconnected(nodeid) {
+// NotifyCommand notifies the Dispatcher that the node is now processing a command which was
+// delivered to the node with other means than Event(s), such as writing to the realtime UART
+// of the node or sending a signal to the node's process.
+func (d *Dispatcher) NotifyCommand(nodeid NodeId, isNodeProcessEnding bool) {
+	if node := d.nodes[nodeid]; node != nil && !d.hasDisconnected(nodeid) {
 		d.setAlive(nodeid)
+		if !isNodeProcessEnding {
+			// Due to the externally received command, the virtual time of the node may now be
+			// running behind. We need to forcibly update the node's virtual time to the current
+			// simulation time. Even for cases where the node's virtual time is already up to date,
+			// this will in any case trigger reading further events from the node that may be caused
+			// by the execution of the command. After sending these resulting events to the simulator,
+			// the node process can go back to sleep.
+			d.advanceNodeTime(node, d.CurTime, true)
+		}
 	}
 }
 

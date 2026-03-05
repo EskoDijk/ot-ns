@@ -360,7 +360,7 @@ otError otPlatRadioSleep(otInstance *aInstance)
     if (sSubState == RFSIM_RADIO_SUBSTATE_RX_FRAME_ONGOING || sSubState == RFSIM_RADIO_SUBSTATE_RX_ACK_TX_ONGOING ||
         sSubState == RFSIM_RADIO_SUBSTATE_RX_AIFS_WAIT)
     {
-        error       = OT_ERROR_BUSY;
+        error       = OT_ERROR_NONE;
         sDelaySleep = true;
     }
     else if (sState == OT_RADIO_STATE_SLEEP || sState == OT_RADIO_STATE_RECEIVE)
@@ -368,6 +368,10 @@ otError otPlatRadioSleep(otInstance *aInstance)
         error       = OT_ERROR_NONE;
         sDelaySleep = false;
         setRadioState(OT_RADIO_STATE_SLEEP);
+    }
+    else if (sState == OT_RADIO_STATE_TRANSMIT)
+    {
+        error = OT_ERROR_BUSY;
     }
 
     return error;

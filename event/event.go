@@ -115,9 +115,10 @@ type RadioStateEventData struct {
 	RadioTime   uint64
 }
 
-const nodeInfoEventDataHeaderLen = 4 // from OT-RFSIM platform, otSimSendNodeInfoEvent()
+const nodeInfoEventDataHeaderLen = 5 // from OT-RFSIM platform, otSimSendNodeInfoEvent()
 type NodeInfoEventData struct {
-	NodeId types.NodeId
+	NodeId   types.NodeId
+	UartType types.NodeUartType
 }
 
 const rfSimParamEventDataHeaderLen = 5 // from OT-RFSIM platform
@@ -275,7 +276,8 @@ func deserializeRadioStateData(data []byte) RadioStateEventData {
 func deserializeNodeInfoData(data []byte) NodeInfoEventData {
 	logger.AssertTrue(len(data) >= nodeInfoEventDataHeaderLen)
 	s := NodeInfoEventData{
-		NodeId: types.NodeId(binary.LittleEndian.Uint32(data[0:4])),
+		NodeId:   types.NodeId(binary.LittleEndian.Uint32(data[0:4])),
+		UartType: types.NodeUartType(data[4]),
 	}
 	return s
 }

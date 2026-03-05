@@ -1,4 +1,4 @@
-// Copyright (c) 2020-2024, The OTNS Authors.
+// Copyright (c) 2020-2026, The OTNS Authors.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -35,10 +35,12 @@ import (
 
 const (
 	// DefaultDispatcherSpeed is used in a speed parameter, to indicate Dispatcher's current default speed.
-	DefaultDispatcherSpeed float64 = -1.0
-	Ever                   uint64  = math.MaxUint64 / 2
-	MaxSimulateSpeed               = 1000000
-	DefaultReadTimeout             = time.Second * 5
+	DefaultDispatcherSpeed  float64 = -1.0
+	Ever                    uint64  = math.MaxUint64 / 2
+	MaxSimulateSpeed                = 1000000
+	DefaultReadTimeout              = time.Second * 10
+	MinReliableSleepTime            = time.Millisecond
+	MaxConsecutiveSleepTime         = time.Millisecond * 10
 )
 
 type TimeWindowStats struct {
@@ -56,11 +58,4 @@ func defaultTimeWindowStats() TimeWindowStats {
 		PhyStats:      make(map[NodeId]PhyStats),
 		statsWinStart: make(map[NodeId]PhyStats),
 	}
-}
-
-func min(t1 uint64, t2 uint64) uint64 {
-	if t1 <= t2 {
-		return t1
-	}
-	return t2
 }
