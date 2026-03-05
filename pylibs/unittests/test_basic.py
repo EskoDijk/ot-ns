@@ -941,7 +941,7 @@ class BasicTests(OTNSTestCase):
 
         n1 = ns.add('router')
         n2 = ns.add('router')
-        ns.go(10)
+        ns.go(20)
         n1_ipaddr = ns.get_ipaddrs(n1, 'mleid')[0]
 
         ns.node_cmd(n1, 'udp open')
@@ -1086,8 +1086,8 @@ class BasicTests(OTNSTestCase):
             ns2.add('router')
             ns2.add('router')
             self.assertEqual(3, len(ns2.nodes()))
-            ns2.go(20)
-            self.assertEqual(20.0, ns2.time)
+            ns2.go(30)
+            self.assertEqual(30.0, ns2.time)
             self.assertEqual(3, len(ns2.nodes()))
 
             # check number of partitions
