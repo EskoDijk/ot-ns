@@ -26,6 +26,8 @@
 
 package types
 
+import "net"
+
 // NodeConfig is a generic config for a new simulated node (used in dispatcher, simulation, radiomodel,
 // ... packages).
 type NodeConfig struct {
@@ -43,6 +45,7 @@ type NodeConfig struct {
 	NodeLogFile    bool
 	RadioRange     int
 	ExecutablePath string // executable full path or "" for auto-determined
+	SocketConn     net.Conn
 	Restore        bool
 	InitScript     []string // a sequence of CLI commands executed at first startup of node
 	RandomSeed     int32

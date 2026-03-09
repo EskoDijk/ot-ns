@@ -128,12 +128,12 @@ func (s *Simulation) AddNode(cfg *NodeConfig) (*Node, error) {
 
 	// node position may use the nodePlacer
 	if cfg.IsAutoPlaced {
-		cfg.X, cfg.Y, cfg.Z = s.nodePlacer.NextNodePosition(cfg.IsMtd || !cfg.IsRouter)
+		cfg.X, cfg.Y, cfg.Z = s.nodePlacer.NextNodePosition((cfg.IsMtd || !cfg.IsRouter) && !cfg.IsExternal)
 	} else {
 		s.nodePlacer.UpdateReference(cfg.X, cfg.Y, cfg.Z)
 	}
 
-	// exit code for when an error occurrs - cleanup state
+	// exit code for when an error occurs - cleanup state
 	defer func() {
 		if err != nil {
 			logger.Errorf("simulation add node %d failed: %v", nodeid, err)
@@ -158,8 +158,11 @@ func (s *Simulation) AddNode(cfg *NodeConfig) (*Node, error) {
 
 	// init of the sim/dispatcher nodes
 	node.uartType = nodeUartTypeVirtualTime
-	logger.AssertTrue(s.d.IsAlive(nodeid))
-	evtCnt := s.d.RecvEvents() // allow new node to connect, and to receive its startup events.
+	evtCnt := 0
+	if !cfg.IsExternal {
+		logger.AssertTrue(s.d.IsAlive(nodeid))
+		evtCnt = s.d.RecvEvents() // allow new node to connect, and to receive its startup events.
+	}
 
 	if s.IsStopping() { // stop early when exiting the simulation.
 		err = CommandInterruptedError
@@ -421,7 +424,7 @@ func (s *Simulation) OnMsgToHost(nodeid NodeId, evt *event.Event) {
 	}
 }
 
-func (s *Simulation) OnNewNodeDetected(nodeid NodeId) bool {
+func (s *Simulation) OnNewNodeDetected(nodeid NodeId, initEvent *event.Event) {
 	node := s.nodes[nodeid]
 	logger.AssertNil(node)
 
@@ -429,14 +432,15 @@ func (s *Simulation) OnNewNodeDetected(nodeid NodeId) bool {
 	cfg.ID = nodeid
 	cfg.Type = EXT
 	cfg.ExecutablePath = "(external-node)"
+	cfg.SocketConn = initEvent.Conn
 	s.NodeConfigFinalize(&cfg)
-	_, err := s.AddNode(&cfg)
+	node, err := s.AddNode(&cfg)
 	if err == nil {
-		logger.Infof("Added new external node %d to the simulation.", nodeid)
-		return true
+		logger.Infof("Added new external node %d to the simulation.", node.Id)
+	} else {
+		logger.Errorf("Failed to add external node %d to the simulation: %v", nodeid, err)
+		_ = initEvent.Conn.Close()
 	}
-	logger.Errorf("Failed to add external node %d to the simulation: %v", nodeid, err)
-	return false
 }
 
 func (s *Simulation) OnNodeDisconnected(nodeid NodeId) {
@@ -445,11 +449,11 @@ func (s *Simulation) OnNodeDisconnected(nodeid NodeId) {
 		return
 	}
 	node.Logger.Warnf("Node %d process has disconnected.", nodeid)
-	node.S.PostAsync(func() {
-		_, nodeExists := node.S.nodes[node.Id]
-		if node.S.ctx.Err() == nil && nodeExists {
+	s.PostAsync(func() {
+		_, nodeExists := s.nodes[node.Id]
+		if s.ctx.Err() == nil && nodeExists {
 			logger.Warnf("Deleting node %v due to process disconnection.", node.Id)
-			_ = node.S.DeleteNode(node.Id)
+			_ = s.DeleteNode(node.Id)
 		}
 	})
 }

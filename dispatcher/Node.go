@@ -118,7 +118,7 @@ func newNode(d *Dispatcher, nodeid NodeId, cfg *NodeConfig) *Node {
 		Mode:            DefaultNodeMode(),
 		Role:            OtDeviceRoleDisabled,
 		Type:            cfg.Type,
-		conn:            nil, // connection will be set when first event is received from node.
+		conn:            cfg.SocketConn, // if nil, it's set when first event is received from node.
 		hasDisconnected: false,
 		err:             nil, // keep track of connection errors.
 		RadioNode:       radiomodel.NewRadioNode(nodeid, radioCfg),

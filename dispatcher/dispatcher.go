@@ -31,9 +31,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"math"
 	"net"
 	"os"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -71,10 +73,9 @@ type CallbackHandler interface {
 	OnMsgToHost(nodeid NodeId, event *Event)
 
 	// OnNewNodeDetected Notifies that the Dispatcher detected a new node process has been started (externally).
-	// The callback handler must return true if the new node was accepted and created in the simulation (and then
-	// the connection to it can remain) or false otherwise, for example if the simulation does not accept externally
-	// started nodes currently (and then the connection to it will be closed by Dispatcher).
-	OnNewNodeDetected(nodeid NodeId) bool
+	// The callback handler can create a new Dispatcher node in response, or reject the new node.
+	// In case of rejection the handler must close the new node's socket initEvent.Conn.
+	OnNewNodeDetected(nodeid NodeId, initEvent *Event)
 
 	// OnNodeDisconnected Notifies that the Dispatcher detected disconnection of a node process.
 	OnNodeDisconnected(nodeid NodeId)
@@ -303,6 +304,8 @@ func (d *Dispatcher) Run() {
 loop:
 	for {
 		select {
+		case <-done:
+			break loop
 		case t := <-d.taskChan:
 			t()
 		case duration := <-d.goDurationChan:
@@ -322,8 +325,8 @@ loop:
 				}
 			}
 			close(duration.done)
-		case <-done:
-			break loop
+		case evt := <-d.eventChan:
+			d.handleRecvEvent(evt)
 		}
 	}
 
@@ -375,7 +378,7 @@ func (d *Dispatcher) goSimulateForDuration(duration goDuration) {
 
 		if len(d.aliveNodes) == 0 {
 			// all are asleep now - process the next Events in queue, either alarm or other type, for a single time.
-			goon := d.processNextEvent(d.speed)
+			goon := d.processNextEvents(d.speed)
 			logger.AssertTrue(d.CurTime <= d.pauseTime)
 
 			if !goon && len(d.aliveNodes) == 0 {
@@ -401,32 +404,29 @@ func (d *Dispatcher) goSimulateForDuration(duration goDuration) {
 func (d *Dispatcher) handleRecvEvent(evt *Event) {
 	nodeid := evt.NodeId
 	node := d.nodes[nodeid]
+
 	if node == nil {
-		// event from an unknown node: if it's an init event, try create a new node on the fly.
-		isAccepted := false
-		if evt.Type == EventTypeNodeInfo {
-			isAccepted = d.cbHandler.OnNewNodeDetected(nodeid)
-			if !isAccepted {
-				_ = evt.Conn.Close()
-				return
+		// event from an unknown node: if it's not an init event, reject the connection that sent the event.
+		logger.AssertNotNil(evt.Conn)
+		if evt.Type != EventTypeNodeInfo {
+			err := evt.Conn.Close()
+			if !errors.Is(err, net.ErrClosed) { // ensure warn message is not printed if connection was already closed
+				logger.Warnf("Event (type %v) received from unknown node %d, discarding event and closing connection.", evt.Type, evt.NodeId)
 			}
-			node = d.nodes[nodeid]
-			logger.AssertNotNil(node) // by OnNewNodeDetected() contract, simulation MUST have created the node.
-		} else {
-			logger.Warnf("Event (type %v) received from unknown Node %d, discarding.", evt.Type, evt.NodeId)
 			return
 		}
-	}
-
-	if node.conn == nil {
-		node.conn = evt.Conn // store socket connection for this node.
-	} else if node.conn != evt.Conn && evt.Conn != nil {
-		// close Conn for externally started nodes that want to claim an already-used nodeId.
-		err := evt.Conn.Close()
-		if err == nil { // ensure warn message only printed once
-			logger.Warnf("Event (type %v) received from apparent duplicate Node %d, discarding event and closing its connection.", evt.Type, evt.NodeId)
+	} else {
+		// event from a known node
+		if node.conn == nil {
+			node.conn = evt.Conn // store socket connection for this node.
+		} else if node.conn != evt.Conn && evt.Conn != nil {
+			// close Conn for externally started node that wants to claim an already-used nodeId.
+			err := evt.Conn.Close()
+			if !errors.Is(err, net.ErrClosed) { // ensure warn message is not printed if connection was already closed
+				logger.Warnf("Event (type %v) received from apparent duplicate node %d, discarding event and closing connection.", evt.Type, evt.NodeId)
+			}
+			return
 		}
-		return
 	}
 
 	evt.Timestamp = d.CurTime // timestamp the incoming event
@@ -464,6 +464,9 @@ func (d *Dispatcher) handleRecvEvent(evt *Event) {
 		node.onStatusPushExtAddr(extaddr)
 	case EventTypeNodeInfo:
 		d.Counters.OtherEvents += 1
+		if node == nil {
+			d.cbHandler.OnNewNodeDetected(nodeid, evt)
+		}
 	case EventTypeNodeDisconnected:
 		d.Counters.OtherEvents += 1
 		d.setDisconnected(node.Id)
@@ -485,12 +488,12 @@ func (d *Dispatcher) handleRecvEvent(evt *Event) {
 	}
 }
 
-// RecvEvents receives events from nodes, and handles these, until there is no more alive node.
+// RecvEvents receives events from any nodes, and handles these, until there is no more alive node.
 func (d *Dispatcher) RecvEvents() int {
 	done := d.ctx.Done()
 	count := 0
 	isExiting := false
-	blockTimeout := time.After(DefaultReadTimeout)
+	deadline := time.After(DefaultReadTimeout)
 
 loop:
 	for {
@@ -500,14 +503,17 @@ loop:
 			case evt := <-d.eventChan: // get new event
 				count += 1
 				d.handleRecvEvent(evt)
-			case <-blockTimeout: // timeout
+			case <-deadline: // timeout
+				if !isExiting {
+					logger.Errorf("RecvEvents timeout: alive nodes are %v", slices.Collect(maps.Keys(d.aliveNodes)))
+				}
 				break loop
 			case <-done:
 				if !isExiting {
-					blockTimeout = time.After(time.Millisecond * 250)
+					deadline = time.After(time.Millisecond * 250) // shorten timeout when exiting
 					isExiting = true
 				}
-				time.Sleep(time.Millisecond * 10)
+				time.Sleep(time.Millisecond * 10) // avoid high CPU usage while we stay in the for loop
 				break
 			}
 		} else {
@@ -523,9 +529,9 @@ loop:
 	return count
 }
 
-// processNextEvent processes all next events from the eventQueue for the next time instant.
+// processNextEvents processes all next events from the eventQueue for the next time instant.
 // Returns true if the simulation needs to continue, or false if not (e.g. it's time to pause).
-func (d *Dispatcher) processNextEvent(simSpeed float64) bool {
+func (d *Dispatcher) processNextEvents(simSpeed float64) bool {
 	logger.AssertTrue(d.CurTime <= d.pauseTime)
 	logger.AssertTrue(simSpeed >= 0)
 
@@ -631,7 +637,7 @@ func (d *Dispatcher) processNextEvent(simSpeed float64) bool {
 					}
 				}
 			} else if evt.NodeId > 0 {
-				logger.Warnf("processNextEvent() with deleted/unknown node %v: %v", evt.NodeId, evt)
+				logger.Warnf("processNextEvents() with deleted/unknown node %v: %v", evt.NodeId, evt)
 			}
 		}
 		nextAlarmTime = d.alarmMgr.NextTimestamp()
@@ -698,7 +704,7 @@ func (d *Dispatcher) eventsReader() {
 					// First event received should be NodeInfo type. From this, we learn nodeId for this GoRoutine.
 					if myNodeId == InvalidNodeId && evt.Type == EventTypeNodeInfo {
 						myNodeId = evt.NodeInfoData.NodeId
-						logger.Debugf("Init event received from new Node %d", myNodeId)
+						logger.Debugf("Init event received from new node %d.", myNodeId)
 					}
 					if myNodeId <= InvalidNodeId {
 						logger.Warnf("New node did not send a correct init event EventTypeNodeInfo, closing node connection.")
@@ -1134,7 +1140,9 @@ func (d *Dispatcher) AddNode(nodeid NodeId, cfg *NodeConfig) *Node {
 	d.energyAnalyser.AddNode(nodeid, d.CurTime)
 	d.vis.AddNode(nodeid, cfg)
 	d.radioModel.AddNode(node.RadioNode)
-	d.setAlive(nodeid)
+	if !cfg.IsExternal {
+		d.setAlive(nodeid)
+	}
 	d.updateNodeStats()
 
 	if d.cfg.DefaultWatchOn {
