@@ -85,11 +85,12 @@ func (sq *sendQueue) Add(evt *Event) {
 	heap.Push(sq, evt)
 }
 
-// DisableEventsForNode diables all events to/from a particular nodeid from the queue.
-// This is done by setting a NodeId of '0' for these events.
-func (sq *sendQueue) DisableEventsForNode(nodeid NodeId) {
+// DisableEventsForNode diables all events to/from a particular nodeid from the queue with a scheduled timestamp
+// of minTimestamp or higher.
+// This is done by setting a NodeId of 'InvalidNodeId' for these events.
+func (sq *sendQueue) DisableEventsForNode(nodeid NodeId, minTimestamp uint64) {
 	for _, evt := range sq.q {
-		if evt.NodeId == nodeid {
+		if evt.NodeId == nodeid && evt.Timestamp >= minTimestamp {
 			evt.NodeId = InvalidNodeId // make the event invalid.
 		}
 	}

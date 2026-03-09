@@ -45,7 +45,7 @@ const (
 	EventTypeAlarmFired         EventType = 0
 	EventTypeRadioReceived      EventType = 1
 	EventTypeUartWrite          EventType = 2
-	EventTypeRadioSpinelWrite   EventType = 3
+	EventTypeUartDisconnected   EventType = 3
 	EventTypePostCmd            EventType = 4
 	EventTypeStatusPush         EventType = 5
 	EventTypeRadioCommStart     EventType = 6
