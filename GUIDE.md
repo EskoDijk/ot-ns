@@ -52,10 +52,10 @@ Running this script will also set up a Python 3 virtual environment (venv) in `.
 #### Install OTNS
 
 ```bash
-./script/install
+./script/install-otns
 ```
 
-This installs `otns` in the Go binary directory of the user (typically `~/go/bin`) and makes the command available in the path. Also, it installs the pyOTNS library in the local Python virtual environment `.venv-otns`. The OT nodes required for running a simulation are not yet installed at this point: this is the next step.
+This installs `otns` in the Go binary directory of the user (typically `~/go/bin`) and makes the command available in the path. Also, it installs the pyOTNS library in the local Python virtual environment `.venv-otns`. The location of this repo's node directory `./ot-rfsim/ot-versions` is built into the `otns` executable, so that the OT nodes installed in the next step are found also when OTNS is run from another directory. Note that moving this repo to another location, after installation, requires running this script again: the built-in node directory is then gone and is silently dropped from the search paths, which the `exe` CLI command displays. The OT nodes required for running a simulation are not yet installed at this point: this is the next step.
 
 #### Install OT Nodes
 
@@ -63,20 +63,20 @@ This installs `otns` in the Go binary directory of the user (typically `~/go/bin
 ./script/install-nodes
 ```
 
-This checks for availability of prebuilt OT nodes, and builds any OT nodes not yet present. This includes a standard set of nodes like FTD, MTD, Border Router (BR) and different Thread versions (1.1, 1.2, 1.3, 1.4). This build can take a long time. During the build specific `openthread*` Git repo submodules will be checked out in order to access older/different OpenThread codebases. In case of a build error, the script is stopped and remaining node builds are not even attempted.
+This checks for availability of prebuilt OT nodes, and builds any OT nodes not yet present. This includes a standard set of nodes like FTD, MTD, Border Router (BR) and different Thread versions (1.1, 1.2, 1.3, 1.4). The nodes are placed in `./ot-rfsim/ot-versions` and are used from there: they are not copied to any other location. This build can take a long time. During the build specific `openthread*` Git repo submodules will be checked out in order to access older/different OpenThread codebases. In case of a build error, the script is stopped and remaining node builds are not even attempted.
 
 These nodes of specific versions can be added to a simulation using specific flags in the `add` command that adds a node. Type `help add` later on in the OTNS CLI to see the syntax.
 
 ## Run OTNS Interactively
 
-Preferably run OTNS from the working directory (i.e. the root of this repo):
+OTNS can be run from any directory:
 
 ```bash
-$ cd ~/otns
+$ cd ~/my-simulations
 $ otns
 ```
 
-Running from this directory ensures that OTNS can find the standard binaries (version latest, v11, v12, v13, etc - these are stored in `./ot-rfsim/ot-versions`). OTNS can be run also from any directory in which the node executable(s) such as `ot-cli-ftd` (and optionally `ot-cli-mtd`) are placed. In this case, it will use the executable from the current directory if it can find the right executable type/name there.
+The standard binaries (version latest, v11, v12, v13, etc) are found in the `ot-rfsim/ot-versions` directory of the repo that OTNS was installed from. Node executables in the current working directory, or in its `./ot-rfsim/ot-versions` subdirectory, always take preference over these: so when OTNS is run from another (e.g. newer) checkout of this repo, the nodes built in that checkout are used. Alternatively, the environment variable `OTNS_NODES_DIR` can be set to one or more directories (separated by `:`) that are searched for node executables before all other locations. The `exe` CLI command displays the search paths used, and which executables were found there.
 
 If started successfully, OTNS by default opens a web browser for network visualization and management. To see what command-line parameters are supported for OTNS, use `-h`:
 

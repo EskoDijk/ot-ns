@@ -27,6 +27,9 @@
 package simulation
 
 import (
+	"os"
+	"path/filepath"
+	"slices"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -71,4 +74,65 @@ func TestDetermineExecutableBasedOnConfig(t *testing.T) {
 	nodeCfg.IsBorderRouter = false
 	exe = cfg.FindExecutableBasedOnConfig(&nodeCfg)
 	assert.Equal(t, "../simulation/node_config.go", exe)
+}
+
+func TestDefaultSearchPaths(t *testing.T) {
+	// this test runs in the 'simulation' directory, where './ot-rfsim/ot-versions' does not exist.
+	t.Setenv(nodesDirEnvVar, "")
+	assert.Equal(t, []string{".", "./ot-rfsim/ot-versions"}, defaultSearchPaths())
+	assert.Contains(t, DefaultExecutableConfig.SearchPaths, "./ot-rfsim/ot-versions")
+
+	// an OTNS installed by './script/install-otns' searches the node dir of the installed-from repo,
+	// but only after the node dir of the repo that OTNS is run from.
+	nodesDir := t.TempDir()
+	origInstalledNodesDir := installedNodesDir
+	defer func() { installedNodesDir = origInstalledNodesDir }()
+	installedNodesDir = nodesDir
+	assert.Equal(t, []string{".", "./ot-rfsim/ot-versions", nodesDir}, defaultSearchPaths())
+
+	// a node dir that is gone - e.g. the installed-from repo was moved or removed - is not searched.
+	installedNodesDir = filepath.Join(nodesDir, "moved-away")
+	assert.Equal(t, []string{".", "./ot-rfsim/ot-versions"}, defaultSearchPaths())
+	installedNodesDir = nodesDir
+
+	// paths from the environment variable are searched before all default paths.
+	dir1, dir2 := t.TempDir(), t.TempDir()
+	sep := string(os.PathListSeparator)
+	t.Setenv(nodesDirEnvVar, dir1+sep+dir2)
+	assert.Equal(t, []string{dir1, dir2, ".", "./ot-rfsim/ot-versions", nodesDir}, defaultSearchPaths())
+
+	// empty entries, from a leading, trailing or doubled separator, and dirs that don't exist are skipped.
+	dir3 := filepath.Join(dir2, "not-there")
+	t.Setenv(nodesDirEnvVar, sep+dir1+sep+sep+dir3+sep+dir2+sep)
+	assert.Equal(t, []string{dir1, dir3, dir2, ".", "./ot-rfsim/ot-versions", nodesDir}, defaultSearchPaths())
+}
+
+func TestExecutableConfigClone(t *testing.T) {
+	orig := ExecutableConfig{Ftd: "ot-cli-ftd", SearchPaths: []string{".", "./ot-rfsim/ot-versions"}}
+	clone := orig.Clone()
+	assert.Equal(t, orig, clone)
+
+	// the clone can be modified, in place or by append, without affecting the original.
+	clone.Ftd = "my-ftd"
+	clone.SearchPaths[0] = "/other/dir"
+	clone.SearchPaths = append(clone.SearchPaths, "/added/dir")
+	assert.Equal(t, "ot-cli-ftd", orig.Ftd)
+	assert.Equal(t, []string{".", "./ot-rfsim/ot-versions"}, orig.SearchPaths)
+
+	// a plain struct assignment shares the SearchPaths backing array - which is why Clone exists.
+	shallow := orig
+	shallow.SearchPaths[0] = "/shared/dir"
+	assert.Equal(t, "/shared/dir", orig.SearchPaths[0])
+}
+
+func TestDefaultConfigExeConfigsAreIndependent(t *testing.T) {
+	cfg := DefaultConfig()
+	origDefaultPaths := slices.Clone(DefaultExecutableConfig.SearchPaths)
+
+	// ExeConfig is the one that gets modified by the user; ExeConfigDefault must stay pristine, and
+	// so must the package-level default that both were derived from.
+	cfg.ExeConfig.SearchPaths[0] = "/changed/dir"
+	cfg.ExeConfig.SearchPaths = append(cfg.ExeConfig.SearchPaths, "/added/dir")
+	assert.Equal(t, origDefaultPaths, cfg.ExeConfigDefault.SearchPaths)
+	assert.Equal(t, origDefaultPaths, DefaultExecutableConfig.SearchPaths)
 }

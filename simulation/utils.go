@@ -1,4 +1,4 @@
-// Copyright (c) 2020-2024, The OTNS Authors.
+// Copyright (c) 2020-2026, The OTNS Authors.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -48,6 +48,13 @@ func removeAllFiles(globPath string) error {
 		}
 	}
 	return nil
+}
+
+func isDir(dirPath string) bool {
+	if fileInfo, err := os.Stat(dirPath); err == nil {
+		return fileInfo.IsDir()
+	}
+	return false
 }
 
 func getCommitFromOtVersion(ver string) string {

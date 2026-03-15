@@ -247,17 +247,18 @@ List, or change, OT versions/executables used per node type.
 
 Use 'exe' without arguments to list the OpenThread (OT) executables, or shell scripts, that are preconfigured for each of the node types FTD (Full Thread Device), MTD (Minimal Thread Device) and BR (Thread Border Router). When a new node is created the executable currently in this list is used to start a node instance of that node type. The `br` (Border Router) node type is an FTD with some additional functions, and prefixes/routes, typical for a Thread 1.3 Border Router.
 
-The line `Executables search path` lists the paths where the executable of that given name will be searched first. Finally, the lines `Detected ... path` lists the final detected path where the executable has been found. This is provided as a sanity check that the right executable has been detected for to-be-created OT nodes. If no explicit path is listed as detected path, it means that OTNS will try to launch the executable using the OS \$PATH.
+The line `Executables search path` lists the paths where the executable of that given name will be searched first. It includes any directories set in the `OTNS_NODES_DIR` environment variable, the current directory and its `./ot-rfsim/ot-versions` subdirectory, and finally the `ot-rfsim/ot-versions` directory of the OTNS repo that OTNS was installed from. Of these, the configured directories - those from `OTNS_NODES_DIR` and from the OTNS installation - are only listed when they exist. Finally, the lines `Detected ... path` lists the final detected path where the executable has been found. This is provided as a sanity check that the right executable has been detected for to-be-created OT nodes. If no explicit path is listed as detected path, it means that OTNS will try to launch the executable using the OS \$PATH.
 
 ```bash
 > exe
 ftd: ot-cli-ftd
 mtd: ot-cli-mtd
 br : ot-cli-ftd_br
-Executables search path: [".", "./ot-rfsim/ot-versions", "./build/bin"]
+Executables search path: [".", "./ot-rfsim/ot-versions", "/home/user/otns/ot-rfsim/ot-versions"]
 Detected FTD path      : ./ot-rfsim/ot-versions/ot-cli-ftd
 Detected MTD path      : ./ot-rfsim/ot-versions/ot-cli-mtd
 Detected BR path       : ./ot-rfsim/ot-versions/ot-cli-ftd_br
+Detected Matter path   : ot-matter-node
 Done
 >
 ```
@@ -279,19 +280,21 @@ NOTE: the 'br' node type is currently not adapted to other versions.
 ftd: ot-cli-ftd_v11
 mtd: ot-cli-mtd_v11
 br : ot-cli-ftd_br
-Executables search path: [".", "./ot-rfsim/ot-versions", "./build/bin"]
+Executables search path: [".", "./ot-rfsim/ot-versions", "/home/user/otns/ot-rfsim/ot-versions"]
 Detected FTD path      : ./ot-rfsim/ot-versions/ot-cli-ftd_v11
 Detected MTD path      : ./ot-rfsim/ot-versions/ot-cli-mtd_v11
 Detected BR path       : ./ot-rfsim/ot-versions/ot-cli-ftd_br
+Detected Matter path   : ot-matter-node
 Done
 > exe default
 ftd: ot-cli-ftd
 mtd: ot-cli-mtd
 br : ot-cli-ftd_br
-Executables search path: [".", "./ot-rfsim/ot-versions", "./build/bin"]
+Executables search path: [".", "./ot-rfsim/ot-versions", "/home/user/otns/ot-rfsim/ot-versions"]
 Detected FTD path      : ./ot-rfsim/ot-versions/ot-cli-ftd
 Detected MTD path      : ./ot-rfsim/ot-versions/ot-cli-mtd
 Detected BR path       : ./ot-rfsim/ot-versions/ot-cli-ftd_br
+Detected Matter path   : ot-matter-node
 Done
 >
 ```
@@ -317,10 +320,11 @@ Done
 ftd: ./my-ot-cli-ftd
 mtd: ot-cli-mtd
 br : ./br-script.sh
-Executables search path: [".", "./ot-rfsim/ot-versions", "./build/bin"]
+Executables search path: [".", "./ot-rfsim/ot-versions", "/home/user/otns/ot-rfsim/ot-versions"]
 Detected FTD path      : ./my-ot-cli-ftd
 Detected MTD path      : ./ot-rfsim/ot-versions/ot-cli-mtd
 Detected BR path       : ./br-script.sh
+Detected Matter path   : ot-matter-node
 Done
 > exe mtd
 mtd: ot-cli-mtd

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (c) 2020-2025, The OTNS Authors.
+# Copyright (c) 2020-2026, The OTNS Authors.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -129,10 +129,10 @@ function check_minimum_python3_version()
 function repeat()
 {
     local n=$1
-    local cmd="${*:2}"
+    shift
 
     for _ in $(seq "$n"); do
-        $cmd && return 0
+        "$@" && return 0
     done
     return 1
 }
