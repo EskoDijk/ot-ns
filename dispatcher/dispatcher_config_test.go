@@ -1,4 +1,4 @@
-// Copyright (c) 2020-2026, The OTNS Authors.
+// Copyright (c) 2026, The OTNS Authors.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -27,35 +27,19 @@
 package dispatcher
 
 import (
-	"github.com/openthread/ot-ns/logger"
-	"github.com/openthread/ot-ns/pcap"
+	"path/filepath"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+
 	. "github.com/openthread/ot-ns/types"
 )
 
-type Config struct {
-	Speed             float64
-	Realtime          bool
-	DumpPackets       bool
-	PcapEnabled       bool
-	PcapFrameType     pcap.FrameType
-	DefaultWatchOn    bool
-	DefaultWatchLevel string
-	SimulationId      int
-	OutputDir         string
-	PhyTxStats        bool
-}
-
-func DefaultConfig() *Config {
-	return &Config{
-		Speed:             1,
-		Realtime:          false,
-		DumpPackets:       false,
-		PcapEnabled:       true,
-		PcapFrameType:     pcap.FrameTypeWpan,
-		DefaultWatchOn:    false,
-		DefaultWatchLevel: logger.OffLevelString,
-		SimulationId:      0,
-		OutputDir:         DefaultOutputDir,
-		PhyTxStats:        false,
-	}
+// Every output path is built as "<OutputDir>/<file>", so we need to ensure that
+// <OutputDir> is not empty.
+func TestDefaultConfigOutputDirIsUsable(t *testing.T) {
+	cfg := DefaultConfig()
+	assert.Equal(t, DefaultOutputDir, cfg.OutputDir)
+	assert.NotEmpty(t, cfg.OutputDir)
+	assert.False(t, filepath.IsAbs(cfg.OutputDir))
 }

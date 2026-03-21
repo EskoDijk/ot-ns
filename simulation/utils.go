@@ -31,24 +31,10 @@ import (
 	"math/rand"
 	"net/netip"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"golang.org/x/net/ipv6"
 )
-
-func removeAllFiles(globPath string) error {
-	files, err := filepath.Glob(globPath)
-	if err != nil {
-		return err
-	}
-	for _, f := range files {
-		if err := os.Remove(f); err != nil {
-			return err
-		}
-	}
-	return nil
-}
 
 func isDir(dirPath string) bool {
 	if fileInfo, err := os.Stat(dirPath); err == nil {

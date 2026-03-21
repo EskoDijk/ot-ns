@@ -1,4 +1,4 @@
-// Copyright (c) 2023-2024, The OTNS Authors.
+// Copyright (c) 2023-2026, The OTNS Authors.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -30,8 +30,15 @@ package types
 
 const (
 	OtMaxIp6DatagramLength = 1280
-	OtMaxUdpPayloadLength  = 1232          // this can be adapted - currently not a precise maximum.
-	OtSimulationIdEnv      = "PORT_OFFSET" // the environment var used by OT simulation platforms for simulation ID.
+	OtMaxUdpPayloadLength  = 1232 // this can be adapted - currently not a precise maximum.
+
+	OtSimulationIdEnv = "PORT_OFFSET"    // environment var used by all OT simulation platforms for simulation ID.
+	OtDataPathEnv     = "OTNS_DATA_PATH" // environment var used by the OT-RFSIM platform for flash file storage and retrieval.
+	// OtNodesDirEnv optionally provides extra OT node executable search paths, separated by the
+	// OS path-list separator. If paths are set, these are searched before all default search paths.
+	OtNodesDirEnv = "OTNS_NODES_DIR"
+
+	DefaultOutputDir = "tmp"
 )
 
 // OT_ERROR_* error codes from OpenThread that can be sent by OT-NS to the OT nodes.
