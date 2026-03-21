@@ -58,7 +58,8 @@ func ParseLevelString(level string) (Level, error) {
 	case "crit", "critical", "error", "err", "C", "E":
 		return ErrorLevel, nil
 	case "off", "none":
-		return OffLevel, nil
+		// Panic and Fatal errors are always processed, even if a user wants logging off
+		return PanicLevel, nil
 	case "default", "def":
 		return DefaultLevel, nil
 	default:
@@ -111,10 +112,10 @@ func GetLevelString(level Level) string {
 		return "warn"
 	case ErrorLevel:
 		return "crit"
-	case OffLevel:
+	case PanicLevel:
 		return "off"
 	default:
-		Panicf("Unknown Level: %d", level)
+		Panicf("Unknown or invalid log Level: %d", level)
 		return ""
 	}
 }

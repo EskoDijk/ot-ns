@@ -33,6 +33,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
+	. "github.com/openthread/ot-ns/types"
 )
 
 func TestDetermineExecutableBasedOnConfig(t *testing.T) {
@@ -78,7 +80,7 @@ func TestDetermineExecutableBasedOnConfig(t *testing.T) {
 
 func TestDefaultSearchPaths(t *testing.T) {
 	// this test runs in the 'simulation' directory, where './ot-rfsim/ot-versions' does not exist.
-	t.Setenv(nodesDirEnvVar, "")
+	t.Setenv(OtNodesDirEnv, "")
 	assert.Equal(t, []string{".", "./ot-rfsim/ot-versions"}, defaultSearchPaths())
 	assert.Contains(t, DefaultExecutableConfig.SearchPaths, "./ot-rfsim/ot-versions")
 
@@ -98,12 +100,12 @@ func TestDefaultSearchPaths(t *testing.T) {
 	// paths from the environment variable are searched before all default paths.
 	dir1, dir2 := t.TempDir(), t.TempDir()
 	sep := string(os.PathListSeparator)
-	t.Setenv(nodesDirEnvVar, dir1+sep+dir2)
+	t.Setenv(OtNodesDirEnv, dir1+sep+dir2)
 	assert.Equal(t, []string{dir1, dir2, ".", "./ot-rfsim/ot-versions", nodesDir}, defaultSearchPaths())
 
 	// empty entries, from a leading, trailing or doubled separator, and dirs that don't exist are skipped.
 	dir3 := filepath.Join(dir2, "not-there")
-	t.Setenv(nodesDirEnvVar, sep+dir1+sep+sep+dir3+sep+dir2+sep)
+	t.Setenv(OtNodesDirEnv, sep+dir1+sep+sep+dir3+sep+dir2+sep)
 	assert.Equal(t, []string{dir1, dir3, dir2, ".", "./ot-rfsim/ot-versions", nodesDir}, defaultSearchPaths())
 }
 
