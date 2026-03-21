@@ -54,8 +54,10 @@ enum
 
 void otPlatFlashInit(otInstance *aInstance)
 {
-    const char *path = OPENTHREAD_CONFIG_POSIX_SETTINGS_PATH;
-    char        fileName[sizeof(OPENTHREAD_CONFIG_POSIX_SETTINGS_PATH) + 32];
+    // An exported-but-empty OTNS_DATA_PATH falls back to the compiled-in default.
+    const char *envPath = getenv("OTNS_DATA_PATH");
+    const char *path    = (envPath != NULL && envPath[0] != '\0') ? envPath : OPENTHREAD_CONFIG_POSIX_SETTINGS_PATH;
+    char        fileName[4096];
     struct stat st;
     bool        create = false;
     const char *offset = getenv("PORT_OFFSET");

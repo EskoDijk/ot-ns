@@ -46,10 +46,6 @@ const (
 	wifiCcaThreshold                  = 20.0 // in dBm above the noise floor
 	defaultWiFiTxInterfererPercentage = 10
 	versionLatestTag                  = "v14"
-
-	// nodesDirEnvVar optionally provides extra node executable search paths, separated by the
-	// OS path-list separator. If set, these are searched before all default search paths.
-	nodesDirEnvVar = "OTNS_NODES_DIR"
 )
 
 // defaultFtdInitScript is an array of commands, sent to a new FTD node by default (unless changed).
@@ -163,11 +159,12 @@ var DefaultExecutableConfig ExecutableConfig = ExecutableConfig{
 // the repo that OTNS is run from, and finally the node directory of the OTNS installation if known
 // (see installedNodesDir).
 func defaultSearchPaths() []string {
-	// an empty path comes from a leading, trailing, or doubled separator in the environment variable.
-	sp := slices.DeleteFunc(filepath.SplitList(os.Getenv(nodesDirEnvVar)), func(p string) bool {
+	// an empty path comes from a leading, trailing, or doubled separator in the env variable.
+	sp := slices.DeleteFunc(filepath.SplitList(os.Getenv(OtNodesDirEnv)), func(p string) bool {
 		return len(p) == 0
 	})
 	sp = append(sp, ".", "./ot-rfsim/ot-versions")
+	// use the nodes dir linked into the executable, but only if it exists at startup time.
 	if len(installedNodesDir) > 0 && isDir(installedNodesDir) {
 		sp = append(sp, installedNodesDir)
 	}
