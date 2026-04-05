@@ -262,3 +262,24 @@ Done
 This shows the "ext" type for node 2, and also the string "(external-node)" instead of the actual node's executable name, which is unknown to OTNS.
 
 In case the externally running node process is interrupted (e.g. by pressing Ctrl+C) or killed, the corresponding node automatically gets removed from the simulation and a warning is logged by OTNS.
+
+## Adding an OpenThread Border Router (OTBR) interfacing to a real network (Optional, for Advanced Use Only)
+
+In OTNS real-time mode, a real OpenThread Border Router (OTBR) can be added to the simulation. The OTBR can route IPv6 between the simulated network and a real network.
+
+Running an OTBR requires the binaries `otbr-agent` (daemon) and `ot-ctl` (CLI interface) to be built, from the project `openthread/ot-br-posix`. To run these, OTNS needs root access (sudo) for these binaries. OTNS will try to execute both using the `sudo -n` non-interactive invocation. To make this work, both binaries need to be added to the `/etc/sudoers` list by using `sudo visudo` and then adding the below two lines at the end of the file:
+
+```bash
+myusername ALL=(ALL) NOPASSWD: /usr/local/sbin/otbr-agent
+myusername ALL=(ALL) NOPASSWD: /usr/local/bin/ot-ctl
+```
+
+Check that the binaries are installed in the given locations: if not, adjust the paths accordingly. If both binaries are available in the user's PATH, OTNS will find them automatically.
+
+Below is an example how OTNS should be run to add an OTBR to the simulation. Once OTNS is running, the CLI command to add an OTBR is `add otbr`.
+
+```bash
+otns -realtime -otbr-backbone-if wlp0s20f3
+```
+
+The parameter `otbr-backbone-if` specifies the network interface (AIL) that the OTBR should use to connect to the real network. It can be your local Ethernet or Wi-Fi interface, or a virtual network interface set up with Linux network namespaces. If the parameter is omitted, the OTBR will connect to the loopback interface (`lo`) by default. In this case, no external communication is possible.

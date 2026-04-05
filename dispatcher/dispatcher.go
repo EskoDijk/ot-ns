@@ -527,6 +527,10 @@ func (d *Dispatcher) HandleEvent(evt *Event) {
 	case EventTypeUartWrite:
 		d.Counters.UartWriteEvents += 1
 		d.cbHandler.OnUartWrite(node.Id, evt.Data)
+	case EventTypeUartDisconnected:
+		d.Counters.OtherEvents += 1
+		d.setSleeping(node.Id)
+		d.alarmMgr.SetTimestamp(node.Id, Ever)
 	case EventTypeLogWrite:
 		d.Counters.LogWriteEvents += 1
 		d.cbHandler.OnLogWrite(node.Id, evt.Data)
@@ -835,7 +839,6 @@ func (d *Dispatcher) eventsReader() {
 					Delay:  0,
 					Type:   EventTypeNodeDisconnected,
 					NodeId: myNodeId,
-					Conn:   myConn,
 				}
 			}
 		}(conn)
@@ -1042,7 +1045,9 @@ func (d *Dispatcher) onMsgToHost(node *Node, evt *Event) {
 }
 
 func (d *Dispatcher) setAlive(nodeid NodeId) {
-	logger.AssertFalse(d.isDeleted(nodeid))
+	node := d.nodes[nodeid]
+	logger.AssertNotNil(node)
+	logger.AssertFalse(node.hasDisconnected.Load())
 
 	d.aliveNodes[nodeid] = struct{}{}
 }
