@@ -37,10 +37,6 @@
 #include "event-sim.h"
 #include "platform-rfsim.h"
 
-// socket communication parameters for events
-extern int          gSockFd;
-extern struct Event gLastRecvEvent;
-
 struct Event gLastSentEvent;
 
 void otSimSendSleepEvent(void)

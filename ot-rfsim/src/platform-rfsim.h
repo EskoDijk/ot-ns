@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2016-2024, The OpenThread Authors.
+ *  Copyright (c) 2016-2026, The OpenThread Authors.
  *  All rights reserved.
  *
  *  Redistribution and use in source and binary forms, with or without
@@ -67,20 +67,28 @@
 
 /**
  * Unique node ID.
- *
  */
 extern uint32_t gNodeId;
 
 /**
- * MsgId of last received event from simulator, or 0 if no MsgId yet received.
+ * Last received event from simulator.
  */
-extern uint64_t gLastMsgId;
+extern struct Event gLastRecvEvent;
+
+/**
+ * Last (attempted and/or succeeded) sent event to simulator.
+ */
+extern struct Event gLastSentEvent;
 
 /**
  * State of requested termination of this node process.
- *
  */
 extern volatile bool gTerminate;
+
+/**
+ * Unix socket file descriptor for communication with simulator.
+ */
+extern int gSockFd;
 
 /**
  * initializes the alarm/time service used by OpenThread.

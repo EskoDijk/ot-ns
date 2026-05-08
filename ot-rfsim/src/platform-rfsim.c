@@ -57,11 +57,9 @@
 
 static const otIp6Address kUnspecifiedIp6Address = {.mFields = {.m32 = {0, 0, 0, 0}}};
 
-extern int gSockFd;
-
 void platformRfsimInit(void)
 {
-    // No actions currently.
+    // No actions currently. Global structs are automatically zero-initialized.
 }
 
 void platformExit(int exitCode)

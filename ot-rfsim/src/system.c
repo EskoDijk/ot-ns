@@ -156,6 +156,7 @@ void otSysProcessDrivers(otInstance *aInstance)
         is_new_event = true;
     }
 
+    // Sleep if nothing more to do
     if (!is_new_event && !otTaskletsArePending(aInstance) && platformAlarmGetNext() > 0 &&
         (!platformRadioIsTransmitPending() || platformRadioIsBusy()) && !platformUartHasPendingData())
     {

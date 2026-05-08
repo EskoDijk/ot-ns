@@ -89,7 +89,7 @@ func (rn *RadioNode) SetChannel(ch ChannelId) {
 }
 
 // SetTxDone moves the physical radio state, if currently Tx, to Rx. The RadioSubState is not altered, as
-// the expectation is that the node will report its state/substate soon after using an EventTypeRadioState
+// the expectation is that the node will report its state/substate soon after: with an EventTypeRadioState
 // event. Setting the RadioState to RadioRx here will enable frame dispatching to the node again, which is
 // not done while the radio is in RadioTx state. The RFSIM simulated radio further determines (based on its
 // substate) whether the node will be able to receive the frame dispatched to it.
