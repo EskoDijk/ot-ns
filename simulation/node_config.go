@@ -98,6 +98,10 @@ var defaultBrScript = []string{
 var defaultRcpScript = []string{
 	"log level 5",
 }
+
+// defaultOtBrScript is an array of additional commands, sent to a new OTBR by default (unless changed).
+var defaultOtBrScript = []string{}
+
 var defaultExtScript = defaultMtdInitScript
 
 // selfGenOmrBrScript is a script for a BR that detects no IPv6 infra and creates its own OMR prefix.
@@ -130,6 +134,7 @@ type ExecutableConfig struct {
 	Ftd         string
 	Mtd         string
 	Br          string
+	OtBr        string
 	Matter      string
 	Rcp         string
 	RcpHost     string
@@ -157,6 +162,7 @@ var DefaultExecutableConfig ExecutableConfig = ExecutableConfig{
 	Ftd:         "ot-cli-ftd",
 	Mtd:         "ot-cli-mtd",
 	Br:          "ot-cli-ftd_br",
+	OtBr:        "ot-br.sh",
 	Matter:      "ot-matter-node",
 	Rcp:         "ot-rcp",
 	RcpHost:     "ot-cli",
@@ -209,12 +215,13 @@ func DefaultNodeConfig() NodeConfig {
 
 func DefaultNodeScripts() *YamlScriptConfig {
 	return &YamlScriptConfig{
-		Mtd: strings.Join(defaultMtdInitScript, "\n"),
-		Ftd: strings.Join(defaultFtdInitScript, "\n"),
-		Br:  strings.Join(defaultBrScript, "\n"),
-		Rcp: strings.Join(defaultRcpScript, "\n"),
-		Ext: strings.Join(defaultExtScript, "\n"),
-		All: strings.Join(defaultAllInitScript, "\n"),
+		Mtd:  strings.Join(defaultMtdInitScript, "\n"),
+		Ftd:  strings.Join(defaultFtdInitScript, "\n"),
+		Br:   strings.Join(defaultBrScript, "\n"),
+		Rcp:  strings.Join(defaultRcpScript, "\n"),
+		OtBr: strings.Join(defaultOtBrScript, "\n"),
+		Ext:  strings.Join(defaultExtScript, "\n"),
+		All:  strings.Join(defaultAllInitScript, "\n"),
 	}
 }
 
@@ -251,6 +258,8 @@ func (s *Simulation) NodeConfigFinalize(nodeCfg *NodeConfig) {
 	if !nodeCfg.IsRaw {
 		if nodeCfg.IsExternal {
 			nodeCfg.InitScript = append(nodeCfg.InitScript, s.cfg.NewNodeScripts.BuildExtScript()...)
+		} else if nodeCfg.IsBorderRouter && nodeCfg.IsRcp {
+			nodeCfg.InitScript = append(nodeCfg.InitScript, s.cfg.NewNodeScripts.BuildOtBrScript()...)
 		} else if nodeCfg.IsBorderRouter { // for a BR, do extra init steps to set prefix/routes/etc.
 			nodeCfg.InitScript = append(nodeCfg.InitScript, s.cfg.NewNodeScripts.BuildBrScript()...)
 		} else if nodeCfg.IsMtd {
@@ -380,7 +389,11 @@ func (cfg *ExecutableConfig) FindHostExecutableBasedOnConfig(nodeCfg *NodeConfig
 	}
 	exeName := ""
 	if nodeCfg.IsRcp {
-		exeName = cfg.RcpHost
+		if !nodeCfg.IsBorderRouter {
+			exeName = cfg.RcpHost
+		} else {
+			exeName = cfg.OtBr
+		}
 	}
 
 	return cfg.FindExecutable(exeName)
