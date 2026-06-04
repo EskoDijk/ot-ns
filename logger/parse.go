@@ -43,6 +43,7 @@ const (
 var (
 	logPattern               = regexp.MustCompile(`\[(-|C|W|N|I|D|CRIT|WARN|NOTE|INFO|DEBG)]`)
 	otnsStatusPushLogPattern = regexp.MustCompile(`\[-] Otns-+: (.*)$`)
+	syslogPrefixPattern      = regexp.MustCompile(`^(\S+\[\d+\]: )`)
 )
 
 func ParseLevelString(level string) (Level, error) {
@@ -108,6 +109,16 @@ func ParseOtnsStatusPush(line string) (bool, string) {
 		return false, ""
 	}
 	return true, match[1]
+}
+
+// ParseSyslogPrefix checks if 'line' starts with a syslog-style prefix of the form "exename[pid]: ".
+// Returns the prefix string (including the trailing space) if found, else returns "".
+func ParseSyslogPrefix(line string) string {
+	m := syslogPrefixPattern.FindStringSubmatch(line)
+	if m == nil {
+		return ""
+	}
+	return m[1]
 }
 
 // ParseOtLogLineAndAdaptMarker checks like ParseOtLogLine and if it is a log line, and if so, it replaces

@@ -889,6 +889,7 @@ func (node *Node) onStart() {
 // lineReaderStdErr reads the StdErr of any OT nodes and turns each line into a log event.
 // For RCP/OTBR, OTNS status push lines will be detected, since these are routed as log entries.
 func (node *Node) lineReaderStdErr(reader io.Reader) {
+	syslogPrefix := ""
 	scanner := bufio.NewScanner(reader)
 	scanner.Split(bufio.ScanLines)
 
@@ -896,6 +897,18 @@ func (node *Node) lineReaderStdErr(reader io.Reader) {
 		line := scanner.Text()
 
 		if node.cfg.IsRcp {
+			if !node.cfg.IsBorderRouter {
+				// ot-cli RCPs have a syslog prefix that is removed here.
+				if syslogPrefix == "" {
+					if prefix := logger.ParseSyslogPrefix(line); prefix != "" {
+						syslogPrefix = prefix // prefix remains identical for node's lifetime
+					}
+				}
+				if syslogPrefix != "" && strings.HasPrefix(line, syslogPrefix) {
+					line = line[len(syslogPrefix):]
+				}
+			}
+
 			if isStatusPush, status := logger.ParseOtnsStatusPush(line); isStatusPush {
 				ev := &event.Event{
 					Delay:  0,

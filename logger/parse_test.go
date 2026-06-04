@@ -32,6 +32,23 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestParseSyslogPrefix(t *testing.T) {
+	// Typical RCP syslog prefix with relative path and pid.
+	line1 := "./ot-rfsim/ot-versions/ot-cli[119560]: Running OPENTHREAD/thread-reference"
+	assert.Equal(t, "./ot-rfsim/ot-versions/ot-cli[119560]: ", ParseSyslogPrefix(line1))
+
+	// Bare executable name.
+	line2 := "ot-cli[1]: Thread version: 5"
+	assert.Equal(t, "ot-cli[1]: ", ParseSyslogPrefix(line2))
+
+	// Normal OT log line — must not match.
+	line3 := "00:00:00.000 [D] Platform------: Clear ShortAddr entries"
+	assert.Equal(t, "", ParseSyslogPrefix(line3))
+
+	// Empty string — must not match.
+	assert.Equal(t, "", ParseSyslogPrefix(""))
+}
+
 func TestParseOtLogLineAndAdaptMarker(t *testing.T) {
 	const marker = "| "
 
