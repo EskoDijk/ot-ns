@@ -94,7 +94,10 @@ var defaultBrScript = []string{
 }
 
 // defaultOtBrScript is an array of additional commands, sent to a new OTBR by default (unless changed).
-var defaultOtBrScript = []string{
+var defaultOtBrScript = []string{}
+
+// defaultRcpScript is an array of additional commands, sent to any Posix+RCP based node (unless changed).
+var defaultRcpScript = []string{
 	"log level 5",
 }
 
@@ -192,6 +195,7 @@ func DefaultNodeScripts() *YamlScriptConfig {
 		Ftd:  strings.Join(defaultFtdInitScript, "\n"),
 		Br:   strings.Join(defaultBrScript, "\n"),
 		OtBr: strings.Join(defaultOtBrScript, "\n"),
+		Rcp:  strings.Join(defaultRcpScript, "\n"),
 		Ext:  strings.Join(defaultExtScript, "\n"),
 		All:  strings.Join(defaultAllInitScript, "\n"),
 	}
@@ -200,6 +204,9 @@ func DefaultNodeScripts() *YamlScriptConfig {
 // NodeConfigFinalize finalizes the configuration for a new Node before it's used to create it. This is not
 // mandatory to call, but a convenience method for the caller to avoid setting all details itself.
 func (s *Simulation) NodeConfigFinalize(nodeCfg *NodeConfig) {
+	// certain combinations are either not allowed, or not supported yet by OTNS
+	logger.AssertFalse((nodeCfg.IsRcp || nodeCfg.IsBorderRouter) && nodeCfg.IsMtd)
+
 	if nodeCfg.ID <= 0 {
 		nodeCfg.ID = s.genNodeId()
 	}
@@ -233,6 +240,8 @@ func (s *Simulation) NodeConfigFinalize(nodeCfg *NodeConfig) {
 			nodeCfg.InitScript = append(nodeCfg.InitScript, s.cfg.NewNodeScripts.BuildBrScript()...)
 		} else if nodeCfg.IsMtd {
 			nodeCfg.InitScript = append(nodeCfg.InitScript, s.cfg.NewNodeScripts.BuildMtdScript()...)
+		} else if nodeCfg.IsRcp {
+			nodeCfg.InitScript = append(nodeCfg.InitScript, s.cfg.NewNodeScripts.BuildRcpFtdScript()...)
 		} else {
 			nodeCfg.InitScript = append(nodeCfg.InitScript, s.cfg.NewNodeScripts.BuildFtdScript()...)
 		}

@@ -112,7 +112,8 @@ func newNode(s *Simulation, nodeid NodeId, cfg *NodeConfig, dnode *dispatcher.No
 
 		if !cfg.IsBorderRouter {
 			// Flag -d 5 to enable all levels of log messages to be captured in the node's log file.
-			args = append(args, "-d", "5")
+			// Flag -v to also send log messages to stderr, so OTNS can capture them.
+			args = append(args, "-d", "5", "-v")
 		} else {
 			args = append(args, strconv.Itoa(nodeid))
 			args = append(args, cfg.NetIfName)
@@ -886,7 +887,7 @@ func (node *Node) onStart() {
 }
 
 // lineReaderStdErr reads the StdErr of any OT nodes and turns each line into a log event.
-// For RCP/OTBR, OTNS status push lines will also be detected.
+// For RCP/OTBR, OTNS status push lines will be detected, since these are routed as log entries.
 func (node *Node) lineReaderStdErr(reader io.Reader) {
 	scanner := bufio.NewScanner(reader)
 	scanner.Split(bufio.ScanLines)
@@ -912,13 +913,12 @@ func (node *Node) lineReaderStdErr(reader io.Reader) {
 			Data:   []byte(line),
 			NodeId: node.Id,
 		}
-
 		node.S.Dispatcher().PostEventAsync(ev)
 	}
 
 	// For RCP nodes, wait for the stdout reader goroutine to post all its events before signaling
 	// disconnect. Since eventChan is FIFO, this guarantees the dispatcher gets all stdout log
-	// events (e.g. RCP exit messages) before EventTypeUartDisconnected is posted.
+	// events (e.g. RCP exit messages) in the event queue before EventTypeUartDisconnected is posted.
 	node.stdoutReaderDone.Wait()
 
 	// send an event to the queue to unblock waitForSimulation() in case it is waiting for new
@@ -932,8 +932,8 @@ func (node *Node) lineReaderStdErr(reader io.Reader) {
 }
 
 // lineReaderStdOut is a goroutine to read stdout lines from a Posix host CLI process (i.e. for RCP nodes
-// only) and turn these into one of 1) UART-write event, 2) Log-write event, or 3) Status-push event +
-// log-write event, depending on line format.
+// only) and turn these into one UART-write events. Any log lines are filtered out: these are already
+// handled by lineReaderStdErr, which is a faster path (pipe that is not kernel-buffered).
 func (node *Node) lineReaderStdOut(reader io.Reader) {
 	logger.AssertTrue(node.cfg.IsRcp)
 	scanner := bufio.NewScanner(reader)
@@ -942,30 +942,15 @@ func (node *Node) lineReaderStdOut(reader io.Reader) {
 	for scanner.Scan() {
 		line := scanner.Text()
 
-		if isStatusPush, status := logger.ParseOtnsStatusPush(line); isStatusPush {
+		if isOtLogLine, _ := logger.ParseOtLogLine(line); !isOtLogLine {
 			ev := &event.Event{
 				Delay:  0,
-				Type:   event.EventTypeStatusPush,
-				Data:   []byte(status),
+				Type:   event.EventTypeUartWrite,
 				NodeId: node.Id,
+				Data:   []byte(line + "\n"),
 			}
 			node.S.Dispatcher().PostEventAsync(ev)
 		}
-
-		ev := &event.Event{
-			Delay:  0,
-			NodeId: node.Id,
-		}
-
-		if isOtLogLine, _ := logger.ParseOtLogLine(line); isOtLogLine {
-			ev.Type = event.EventTypeLogWriteHost
-			ev.Data = []byte(line)
-		} else {
-			ev.Type = event.EventTypeUartWrite
-			ev.Data = []byte(line + "\n")
-		}
-
-		node.S.Dispatcher().PostEventAsync(ev)
 	}
 }
 

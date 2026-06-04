@@ -89,6 +89,7 @@ type YamlScriptConfig struct {
 	Br   string `yaml:"br"`
 	OtBr string `yaml:"otbr"`
 	Ext  string `yaml:"ext"`
+	Rcp  string `yaml:"rcp"`
 	All  string `yaml:"all"`
 }
 
@@ -123,6 +124,11 @@ func (ys *YamlScriptConfig) BuildMtdScript() []string {
 	return strings.Split(script, "\n")
 }
 
+func (ys *YamlScriptConfig) BuildRcpFtdScript() []string {
+	script := ys.Rcp + "\n" + ys.Ftd + "\n" + ys.All
+	return strings.Split(script, "\n")
+}
+
 func (ys *YamlScriptConfig) BuildFtdScript() []string {
 	script := ys.Ftd + "\n" + ys.All
 	return strings.Split(script, "\n")
@@ -134,7 +140,7 @@ func (ys *YamlScriptConfig) BuildBrScript() []string {
 }
 
 func (ys *YamlScriptConfig) BuildOtBrScript() []string {
-	script := ys.OtBr + "\n" + ys.Ftd + "\n" + ys.All
+	script := ys.OtBr + "\n" + ys.Rcp + "\n" + ys.Ftd + "\n" + ys.All
 	return strings.Split(script, "\n")
 }
 
