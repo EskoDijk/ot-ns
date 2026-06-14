@@ -146,6 +146,15 @@ void otSimSendEvent(struct Event *aEvent);
 void otSimSendSleepEvent(void);
 
 /**
+ * Send a time-synchronization request to the simulator. This is an alarm-fired event with a delay
+ * of 0: it makes the simulator schedule this node's wake-up at the current simulation time and send
+ * back an alarm event that advances this node's virtual clock accordingly. Used by nodes with a
+ * real (non virtual-time) UART - e.g. the RCP of an OTBR - to refresh their virtual clock before
+ * processing host-originated UART/Spinel data. See platformTimeSyncWithSimulator() in system.c.
+ */
+void otSimSendTimeSyncEvent(void);
+
+/**
  * Sends a RadioComm (Tx) simulation event to the simulator.
  *
  * @param[in]       aEventData A pointer to specific data for RadioComm event.

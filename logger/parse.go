@@ -29,6 +29,7 @@ package logger
 import (
 	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -44,6 +45,7 @@ var (
 	logPattern               = regexp.MustCompile(`\[(-|C|W|N|I|D|CRIT|WARN|NOTE|INFO|DEBG)]`)
 	otnsStatusPushLogPattern = regexp.MustCompile(`\[-] Otns-+: (.*)$`)
 	syslogPrefixPattern      = regexp.MustCompile(`^(\S+\[\d+\]: )`)
+	otLogUptimePattern       = regexp.MustCompile(`^(\d{2}):(\d{2}):(\d{2})\.(\d{3}) `)
 )
 
 func ParseLevelString(level string) (Level, error) {
@@ -98,6 +100,22 @@ func ParseOtLogLine(line string) (bool, Level) {
 		return false, 0
 	}
 	return true, parseOtLevelChar(line[logIdx[2]])
+}
+
+// ParseOtLogUptimeUs parses the leading uptime timestamp (HH:MM:SS.mmm) that an OT log line carries
+// when OPENTHREAD_CONFIG_LOG_PREPEND_UPTIME is enabled, and returns it in microseconds. Returns false
+// if the line does not start with such a timestamp (e.g. a pre-init banner / stderr line that has no
+// node uptime yet).
+func ParseOtLogUptimeUs(line string) (uint64, bool) {
+	m := otLogUptimePattern.FindStringSubmatch(line)
+	if m == nil {
+		return 0, false
+	}
+	h, _ := strconv.Atoi(m[1])
+	min, _ := strconv.Atoi(m[2])
+	s, _ := strconv.Atoi(m[3])
+	ms, _ := strconv.Atoi(m[4])
+	return uint64(((h*60+min)*60+s)*1000+ms) * 1000, true
 }
 
 // ParseOtnsStatusPush parses an OT Posix host log line for OTNS status push events, coming from

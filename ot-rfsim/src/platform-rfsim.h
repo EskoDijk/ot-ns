@@ -66,6 +66,23 @@
 #define UNDEFINED_TIME_US 0 // an undefined period of time (us) that is > 0
 
 /**
+ * Time-sync threshold (in us of real, wall-clock time). When this node uses a real (non
+ * virtual-time) UART - e.g. the RCP of an OTBR - and its virtual clock has not been updated by
+ * the simulator for at least this long, then any newly-arrived host (UART/Spinel) data triggers
+ * a time-sync request to the simulator before the data is processed. This keeps log timestamps
+ * (and the virtual clock used while handling the host request) up to date with simulation time.
+ * See platformTimeSyncWithSimulator() in system.c.
+ */
+#define OT_RFSIM_TIME_SYNC_THRESHOLD_US 200
+
+/**
+ * Maximum real time (in us) to wait for the simulator's response to a time-sync request, before
+ * giving up and proceeding with a possibly-stale clock. This is a safety net to avoid blocking
+ * the node indefinitely; under normal operation the response arrives in well under this time.
+ */
+#define OT_RFSIM_TIME_SYNC_TIMEOUT_US 10000
+
+/**
  * Unique node ID.
  */
 extern uint32_t gNodeId;
@@ -136,6 +153,16 @@ uint64_t platformAlarmGetNow(void);
  *
  */
 void platformAlarmAdvanceNow(uint64_t aDelta);
+
+/**
+ * returns the real (wall-clock) time elapsed, in us, since the node's virtual clock was last
+ * updated by the simulator (i.e. since the last platformAlarmAdvanceNow() call). Used to detect
+ * a stale virtual clock for nodes using a real UART. Only meaningful when the node is built with
+ * a real (non virtual-time) UART.
+ *
+ * @returns The elapsed real time (us) since the last virtual-time update.
+ */
+uint64_t platformAlarmGetRealUsSinceLastUpdate(void);
 
 /**
  * set the clock drift for the node's simulated clock.

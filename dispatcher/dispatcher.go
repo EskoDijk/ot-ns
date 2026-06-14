@@ -133,6 +133,7 @@ type Dispatcher struct {
 	deletedNodes          map[NodeId]struct{}
 	aliveNodes            map[NodeId]struct{}
 	isFirstNodeAdded      bool
+	isFirstHostEventSeen  bool
 	pcap                  pcap.File
 	pcapFrameChan         chan pcap.Frame
 	vis                   visualize.Visualizer
@@ -162,34 +163,35 @@ func NewDispatcher(ctx *progctx.ProgCtx, cfg *Config, cbHandler CallbackHandler)
 	vis := visualize.NewNopVisualizer()
 
 	d := &Dispatcher{
-		CurTime:            0,
-		ctx:                ctx,
-		cfg:                *cfg,
-		cbHandler:          cbHandler,
-		udpln:              ln,
-		socketName:         unixSocketFile,
-		eventChan:          make(chan *Event, 10000),
-		eventQueue:         newSendQueue(),
-		alarmMgr:           newAlarmMgr(),
-		nodes:              make(map[NodeId]*Node),
-		nodesArray:         make([]*Node, 0),
-		isFirstNodeAdded:   false,
-		deletedNodes:       make(map[NodeId]struct{}),
-		aliveNodes:         make(map[NodeId]struct{}),
-		extaddrMap:         map[uint64]*Node{},
-		rloc16Map:          rloc16Map{},
-		pcapFrameChan:      make(chan pcap.Frame, 100000),
-		speed:              cfg.Speed,
-		speedStartRealTime: time.Now(),
-		speedStartTime:     0,
-		vis:                vis,
-		taskChan:           make(chan func(), 10000),
-		watchingNodes:      map[NodeId]struct{}{},
-		goDurationChan:     make(chan goDuration, 1),
-		visOptions:         defaultVisualizationOptions(),
-		stopped:            false,
-		oldStats:           NodeStats{},
-		timeWinStats:       defaultTimeWindowStats(),
+		CurTime:              0,
+		ctx:                  ctx,
+		cfg:                  *cfg,
+		cbHandler:            cbHandler,
+		udpln:                ln,
+		socketName:           unixSocketFile,
+		eventChan:            make(chan *Event, 10000),
+		eventQueue:           newSendQueue(),
+		alarmMgr:             newAlarmMgr(),
+		nodes:                make(map[NodeId]*Node),
+		nodesArray:           make([]*Node, 0),
+		isFirstNodeAdded:     false,
+		isFirstHostEventSeen: false,
+		deletedNodes:         make(map[NodeId]struct{}),
+		aliveNodes:           make(map[NodeId]struct{}),
+		extaddrMap:           map[uint64]*Node{},
+		rloc16Map:            rloc16Map{},
+		pcapFrameChan:        make(chan pcap.Frame, 100000),
+		speed:                cfg.Speed,
+		speedStartRealTime:   time.Now(),
+		speedStartTime:       0,
+		vis:                  vis,
+		taskChan:             make(chan func(), 10000),
+		watchingNodes:        map[NodeId]struct{}{},
+		goDurationChan:       make(chan goDuration, 1),
+		visOptions:           defaultVisualizationOptions(),
+		stopped:              false,
+		oldStats:             NodeStats{},
+		timeWinStats:         defaultTimeWindowStats(),
 	}
 	d.speed = d.normalizeSpeed(d.speed)
 	if d.cfg.PcapEnabled {
@@ -340,6 +342,31 @@ loop2:
 	}
 }
 
+// catchUpRealtime advances d.CurTime to the current real sim time (-realtime mode only) before an
+// externally-arriving event is handled and timestamped, so that events arriving while the
+// dispatcher was idle-sleeping are stamped at the correct sim time. During an idle sleep d.CurTime
+// is frozen for up to RealtimeMaxVizIntervalUs; this method lets it catch up again.
+//
+// It acts only on a pure idle gap: no node is mid-processing (aliveNodes empty) and the next
+// scheduled event is still beyond the wall-clock target, so no event ordering is skipped. Outside of
+// realtime idle it is a no-op. Note: advanceTime() still updates the visualization, so viz smoothness
+// (the reason for the RealtimeMaxVizIntervalUs wake-up cadence) is unaffected.
+func (d *Dispatcher) catchUpRealtime() {
+	if !d.isFirstNodeAdded || len(d.aliveNodes) > 0 {
+		return
+	}
+	simTimeTarget := uint64(time.Since(d.speedStartRealTime) / time.Microsecond)
+	if simTimeTarget <= d.CurTime {
+		return
+	}
+	// Don't bridge across a scheduled event: if an alarm or queued event is due at/before the
+	// target, leave it to processNextEventsRealtime() so event ordering is preserved.
+	if min(d.alarmMgr.NextTimestamp(), d.eventQueue.NextTimestamp()) <= simTimeTarget {
+		return
+	}
+	d.advanceTime(simTimeTarget)
+}
+
 func (d *Dispatcher) RunRealtime() {
 	defer d.ctx.WaitDone("dispatcher")
 
@@ -357,6 +384,7 @@ loop:
 			case <-done:
 				break loop
 			case evt := <-d.eventChan:
+				d.catchUpRealtime()
 				d.HandleEvent(evt)
 			default:
 				break loopEvents
@@ -372,6 +400,7 @@ loop:
 			case t := <-d.taskChan:
 				t()
 			case evt := <-d.eventChan:
+				d.catchUpRealtime()
 				d.HandleEvent(evt)
 			default:
 				break loopTasks
@@ -420,6 +449,7 @@ loop:
 			case <-done:
 				break loop
 			case evt := <-d.eventChan:
+				d.catchUpRealtime()
 				d.HandleEvent(evt)
 			case t := <-d.taskChan:
 				t()
@@ -551,6 +581,22 @@ func (d *Dispatcher) HandleEvent(evt *Event) {
 		d.cbHandler.OnLogWrite(node.Id, evt.Data, false)
 	case EventTypeLogWriteHost:
 		d.Counters.LogWriteEvents += 1
+		// Re-anchor the realtime epoch to this host (Posix) node's clock so its NodeTime matches sim
+		// time. We do this on the first OT-core host log line received AFTER boot (d.CurTime > 0),
+		// when line delivery is prompt - anchoring during boot is biased by the host's stderr
+		// buffering (and the dispatcher being busy in AddNode), which delays early lines by tens of ms
+		// and leaves a constant offset. We subtract the line's embedded uptime so sim-t=0 lands on the
+		// host's clock epoch; the next catch-up advances sim time in-order up to that clock. Safe to
+		// re-anchor (and let sim time step) because this is still the first/only node, so nothing else
+		// is disturbed. Non-RCP nodes never get here; they keep the AddNode epoch.
+		if !d.isFirstHostEventSeen && d.CurTime > 0 {
+			if uptimeUs, ok := logger.ParseOtLogUptimeUs(string(evt.Data)); ok {
+				d.isFirstHostEventSeen = true
+				d.speedStartRealTime = time.Now().Add(-time.Duration(uptimeUs) * time.Microsecond)
+				d.speedStartTime = 0
+				node.logger.Debugf("Dispatcher realtime sim-t=0 re-aligned to host clock (uptime %d us) at real time: %v", uptimeUs, d.speedStartRealTime)
+			}
+		}
 		d.cbHandler.OnLogWrite(node.Id, evt.Data, true)
 	case EventTypeExtAddr:
 		d.Counters.OtherEvents += 1
@@ -722,8 +768,19 @@ func (d *Dispatcher) processNextEventsRealtime(simTime uint64) uint64 {
 			nextAlarm := d.alarmMgr.NextAlarm()
 			logger.AssertNotNil(nextAlarm)
 			if node := d.nodes[nextAlarm.NodeId]; node != nil {
-				d.advanceNodeTime(node, nextAlarmTime, false)
+				// force=true so that an alarm scheduled at exactly d.CurTime for a node that is
+				// already at d.CurTime (e.g. a delay-0 time-sync request from an RCP) still sends a
+				// wake and, crucially, clears the alarm via SetNotified. Without forcing,
+				// advanceNodeTime() would early-return without clearing it, and since such an alarm
+				// does not advance d.CurTime either, this loop would spin forever.
+				d.advanceNodeTime(node, nextAlarmTime, true)
 			} else {
+				d.alarmMgr.SetNotified(nextAlarm.NodeId)
+			}
+			// Defensive: guarantee loop progress by ensuring this alarm is no longer the next one at
+			// the same timestamp (covers the case where advanceNodeTime() did not clear it, e.g. a
+			// disconnected node).
+			if d.alarmMgr.GetTimestamp(nextAlarm.NodeId) == nextAlarmTime {
 				d.alarmMgr.SetNotified(nextAlarm.NodeId)
 			}
 		} else {

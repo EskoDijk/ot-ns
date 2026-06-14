@@ -47,11 +47,27 @@ static uint32_t sMsAlarm     = 0;
 static bool     sIsUsRunning = false;
 static uint32_t sUsAlarm     = 0;
 
+#if OPENTHREAD_SIMULATION_VIRTUAL_TIME_UART == 0
+static uint64_t sLastUpdateRealUs = 0; // real (wall-clock) time, us, of last virtual-time update
+
+static uint64_t getRealMonotonicUs(void)
+{
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return (uint64_t)ts.tv_sec * US_PER_S + (uint64_t)ts.tv_nsec / 1000;
+}
+
+uint64_t platformAlarmGetRealUsSinceLastUpdate(void) { return getRealMonotonicUs() - sLastUpdateRealUs; }
+#endif
+
 void platformAlarmInit()
 {
     sNow           = 0;
     sDriftPicoSec  = 0;
     sClockDriftPpm = 0;
+#if OPENTHREAD_SIMULATION_VIRTUAL_TIME_UART == 0
+    sLastUpdateRealUs = getRealMonotonicUs();
+#endif
 }
 
 uint64_t platformAlarmGetNow(void) { return sNow; }
@@ -70,6 +86,11 @@ void platformAlarmAdvanceNow(uint64_t aDelta)
         sNow += adjust;
         sDriftPicoSec -= adjust * PS_PER_US;
     }
+
+#if OPENTHREAD_SIMULATION_VIRTUAL_TIME_UART == 0
+    // record real time of this virtual-time update, to detect a stale clock later (see system.c).
+    sLastUpdateRealUs = getRealMonotonicUs();
+#endif
 }
 
 int16_t platformAlarmGetClockDrift() { return sClockDriftPpm; }

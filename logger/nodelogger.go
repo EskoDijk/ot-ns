@@ -218,7 +218,7 @@ func (nl *NodeLogger) Panicf(format string, args ...interface{}) {
 }
 
 func (nl *NodeLogger) writeToLogFile(line string) error {
-	_, err := nl.logFile.WriteString(line + "\n")
+	_, err := nl.logFile.WriteString(time.Now().Format("15:04:05.000000") + " " + line + "\n")
 	if err != nil {
 		nl.Close()
 		nl.isFileEnabled = false

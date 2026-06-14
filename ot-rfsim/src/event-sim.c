@@ -51,6 +51,20 @@ void otSimSendSleepEvent(void)
     otSimSendEvent(&event);
 }
 
+void otSimSendTimeSyncEvent(void)
+{
+    struct Event event;
+
+    // An alarm-fired event with delay 0 makes the simulator schedule this node's wake-up at the
+    // current simulation time and send back an alarm event with the appropriate time delta. Unlike
+    // otSimSendSleepEvent(), this does not report the node's next alarm and has no >0 constraint.
+    event.mDelay      = 0;
+    event.mEvent      = OT_SIM_EVENT_ALARM_FIRED;
+    event.mDataLength = 0;
+
+    otSimSendEvent(&event);
+}
+
 void otSimSendRadioCommEvent(struct RadioCommEventData *aEventData, const uint8_t *aPayload, size_t aLenPayload)
 {
     OT_ASSERT(aLenPayload <= OT_EVENT_DATA_MAX_SIZE);

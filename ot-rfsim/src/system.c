@@ -132,6 +132,64 @@ static void platformInstanceInit(otInstance *aInstance)
     }
 }
 
+#if OPENTHREAD_SIMULATION_VIRTUAL_TIME_UART == 0
+// Request a time sync from the simulator and wait (briefly) until our virtual clock has been
+// advanced to the current simulation time. This is used for nodes with a real UART (e.g. the RCP
+// of an OTBR), before processing host-originated UART/Spinel data: when the host wakes us over the
+// real UART (not via a simulator event), our virtual clock would otherwise be stale, causing wrong
+// timestamps on any log lines emitted while handling the host request.
+//
+// The request reuses the alarm-fired event with delay 0 (see otSimSendTimeSyncEvent()); the
+// simulator answers with an alarm event that advances our clock. While waiting we only read the
+// simulator socket; any further real-UART data is left pending and handled afterwards.
+static void platformTimeSyncWithSimulator(otInstance *aInstance)
+{
+    otSimSendTimeSyncEvent();
+
+    while (true)
+    {
+        fd_set         read_fds;
+        struct timeval timeout = {0, OT_RFSIM_TIME_SYNC_TIMEOUT_US};
+        int            rval;
+
+        FD_ZERO(&read_fds);
+        FD_SET(gSockFd, &read_fds);
+
+        rval = select(gSockFd + 1, &read_fds, NULL, NULL, &timeout);
+
+        if (rval < 0)
+        {
+            if (errno == EINTR)
+            {
+                continue;
+            }
+            perror("select");
+            platformExit(EXIT_FAILURE);
+        }
+        if (rval == 0)
+        {
+            // timed out without a response: proceed with a possibly-stale clock (safety net).
+            break;
+        }
+        if (FD_ISSET(gSockFd, &read_fds))
+        {
+            platformReceiveEvent(&gLastRecvEvent);
+            platformAlarmAdvanceNow(gLastRecvEvent.mDelay);
+            platformRadioProcess(aInstance); // move radio to an up-to-date (sub)state, before handling event
+            platformHandleEvent(aInstance, &gLastRecvEvent);
+
+            // The simulator answers our request with an alarm-fired event that brings us up to the
+            // current simulation time; once received, we are synced and can continue. (Any earlier
+            // queued events received first also advance our clock and are handled above.)
+            if (gLastRecvEvent.mEvent == OT_SIM_EVENT_ALARM_FIRED)
+            {
+                break;
+            }
+        }
+    }
+}
+#endif // OPENTHREAD_SIMULATION_VIRTUAL_TIME_UART == 0
+
 void otSysProcessDrivers(otInstance *aInstance)
 {
     fd_set read_fds;
@@ -193,6 +251,14 @@ void otSysProcessDrivers(otInstance *aInstance)
         platformRadioProcess(aInstance); // move radio to an up-to-date (sub)state, before handling event
         platformHandleEvent(aInstance, &gLastRecvEvent);
     }
+
+#if OPENTHREAD_SIMULATION_VIRTUAL_TIME_UART == 0
+    // If host data arrived over the real UART while our virtual clock is stale, sync time first.
+    if (platformUartHasPendingData() && platformAlarmGetRealUsSinceLastUpdate() >= OT_RFSIM_TIME_SYNC_THRESHOLD_US)
+    {
+        platformTimeSyncWithSimulator(aInstance);
+    }
+#endif
 
     platformAlarmProcess(aInstance);
     platformRadioProcess(aInstance);
@@ -302,6 +368,14 @@ void otSysProcessEvents(otInstance   *aInstance,
         platformRadioProcess(aInstance); // move radio to an up-to-date (sub)state, before handling event
         platformHandleEvent(aInstance, &gLastRecvEvent);
     }
+
+#if OPENTHREAD_SIMULATION_VIRTUAL_TIME_UART == 0
+    // If host data arrived over the real UART while our virtual clock is stale, sync time first.
+    if (platformUartHasPendingData() && platformAlarmGetRealUsSinceLastUpdate() >= OT_RFSIM_TIME_SYNC_THRESHOLD_US)
+    {
+        platformTimeSyncWithSimulator(aInstance);
+    }
+#endif
 
     platformAlarmProcess(aInstance);
     platformRadioProcess(aInstance);
