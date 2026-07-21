@@ -1,0 +1,29 @@
+# OpenSSL extension file for generating simulated-node Pledge (IDevID) certificates
+# and their MASA CA certificate. Used by script/create-pledge-certs.sh.
+#
+# Adapted from the Thread Commercial (cBRSKI) reference:
+#   tce-security/ccm-brski/x509v3_idevid_joiners.ext
+# For testing/simulation only.
+
+# The extensions for a Pledge (IDevID / Joiner) certificate.
+[ ext ]
+basicConstraints = critical, CA:FALSE
+keyUsage = digitalSignature, nonRepudiation, keyEncipherment, dataEncipherment
+authorityKeyIdentifier = keyid
+subjectAltName = @idevidAlts
+# MASA URI in IA5String format (RFC 8995 id-pe-masa-url), pointing to the MASA server.
+# The host must match the simulated MASA host used in the test (e.g. 'host add ...').
+# create-pledge-certs.sh rewrites the value after the ':' when its -u option is given.
+1.3.6.1.5.5.7.1.32 = ASN1:IA5STRING:masa.example.com
+
+# The Subject Alternative Name section for a Pledge.
+[ idevidAlts ]
+# Supported Thread stack version, encoded per Thread spec 1.2.1 or later.
+otherName = 1.3.6.1.4.1.44970.2;INTEGER:3
+
+# The extensions for the (self-signed) MASA CA certificate.
+[ masaCAext ]
+basicConstraints = critical, CA:TRUE
+keyUsage = digitalSignature, keyCertSign
+subjectKeyIdentifier = hash
+authorityKeyIdentifier = keyid
