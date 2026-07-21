@@ -125,6 +125,7 @@ static uint8_t *readCredentialsFile(const char *aDirName, const char *aFileName,
     {
         buffer[size] = '\0';
         *aLength     = (uint16_t)(size + 1);
+        otLogDebgPlat("Loaded credentials file %s - len=%u (incl. NUL terminator)", fileName, (unsigned)*aLength);
     }
     else
     {
@@ -155,6 +156,8 @@ void platformCredentialsInit(otInstance *aInstance)
 
     otEXPECT_ACTION(getCredentialsDirName(dirName, sizeof(dirName)),
                     otLogWarnPlat("Credentials directory name too long - keeping built-in IDevID"));
+
+    otLogDebgPlat("Looking for credentials in %s", dirName);
 
     // A node without a credentials directory keeps the IDevID that is built into the firmware
     // image. That is the normal case, so it is not reported as an error.
