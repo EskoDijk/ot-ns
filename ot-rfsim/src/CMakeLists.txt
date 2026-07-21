@@ -31,6 +31,7 @@ add_library(openthread-rfsim-config INTERFACE)
 add_library(openthread-rfsim
     alarm.c
     ble.c
+    credentials.c
     crypto.c
     diag.c
     dso_transport.c

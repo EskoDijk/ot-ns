@@ -235,6 +235,20 @@ bool platformUartHasPendingData(void);
  */
 void platformRfsimInit(void);
 
+#if OPENTHREAD_CONFIG_CCM_ENABLE
+/**
+ * loads this node's CCM credentials from its credentials directory, if it has one, and provides
+ * them to the OpenThread instance. Keeps the IDevID built into the firmware image if the node has
+ * no credentials directory.
+ *
+ * The directory is "<base>/<simulation-id>_<node-id>_cred", where <base> is taken from the
+ * OTNS_CRED_PATH environment variable.
+ *
+ * @param aInstance  The OpenThread instance to provide the credentials to.
+ */
+void platformCredentialsInit(otInstance *aInstance);
+#endif
+
 /**
  * exits the simulated-node's process with the specific exit code.
  *

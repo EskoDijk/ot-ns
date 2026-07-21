@@ -128,6 +128,9 @@ static void platformInstanceInit(otInstance *aInstance)
         otUdpForwardSetForwarder(aInstance, handleUdpForwarding, aInstance);
 #endif
         platformNetifSetUp(aInstance);
+#if OPENTHREAD_CONFIG_CCM_ENABLE
+        platformCredentialsInit(aInstance);
+#endif
         sIsInstanceInitDone = true;
     }
 }
