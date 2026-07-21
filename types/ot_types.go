@@ -32,6 +32,9 @@ const (
 	OtMaxIp6DatagramLength = 1280
 	OtMaxUdpPayloadLength  = 1232          // this can be adapted - currently not a precise maximum.
 	OtSimulationIdEnv      = "PORT_OFFSET" // the environment var used by OT simulation platforms for simulation ID.
+	// OtnsCredPathEnv is the environment var with the base directory in which a node looks for its
+	// credentials. A node uses the subdirectory "<simulation-id>_<node-id>_cred" of this directory.
+	OtnsCredPathEnv = "OTNS_CRED_PATH"
 )
 
 // OT_ERROR_* error codes from OpenThread that can be sent by OT-NS to the OT nodes.

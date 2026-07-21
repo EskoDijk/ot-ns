@@ -166,7 +166,9 @@ func newNode(s *Simulation, nodeid NodeId, cfg *NodeConfig, dnode *dispatcher.No
 	}
 
 	cmd := exec.CommandContext(context.Background(), exePath, args...)
-	cmd.Env = append(os.Environ(), fmt.Sprintf("%s=%d", OtSimulationIdEnv, s.cfg.Id))
+	cmd.Env = append(os.Environ(),
+		fmt.Sprintf("%s=%d", OtSimulationIdEnv, s.cfg.Id),
+		fmt.Sprintf("%s=%s", OtnsCredPathEnv, s.cfg.CredPath))
 
 	node := &Node{
 		S:             s,

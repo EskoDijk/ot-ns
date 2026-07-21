@@ -88,6 +88,7 @@ SOCKET_PATH="/run/openthread-${THREAD_IF_NAME}.sock"
 DATA_PATH="/var/lib/thread"
 
 debug "  PORT_OFFSET     =${PORT_OFFSET}"
+debug "  OTNS_CRED_PATH  =${OTNS_CRED_PATH}"
 debug "  NODE_ID         =${NODE_ID}"
 debug "  BACKBONE_IF_NAME=${BACKBONE_IF_NAME}"
 debug "  THREAD_IF_NAME  =${THREAD_IF_NAME}"
@@ -113,7 +114,9 @@ fi
 
 info "starting otbr-agent"
 # All otbr-agent output redirected to stderr, so that ot-ctl CLI interactions are not garbled.
-sudo -n PORT_OFFSET="${PORT_OFFSET}" otbr-agent --data-path "${DATA_PATH}" -s -d 7 -I "${THREAD_IF_NAME}" \
+# Env vars must be restated here: sudo does not pass on the environment (needs SETENV in sudoers).
+sudo -n PORT_OFFSET="${PORT_OFFSET}" OTNS_CRED_PATH="${OTNS_CRED_PATH}" \
+    otbr-agent --data-path "${DATA_PATH}" -s -d 7 -I "${THREAD_IF_NAME}" \
     -B "${BACKBONE_IF_NAME}" --rest-listen-port "${REST_PORT}" "${AGENT_PARAM}" "${RADIO_URL}" 1>&2 &
 SUDO_OTBR_PID=$!
 

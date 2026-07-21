@@ -62,6 +62,7 @@ type Config struct {
 	LogFileLevel     logger.Level
 	RandomSeed       prng.RandomSeed
 	OutputDir        string
+	CredPath         string
 }
 
 func DefaultConfig() *Config {
@@ -84,5 +85,6 @@ func DefaultConfig() *Config {
 		LogFileLevel:     logger.DebugLevel,
 		RandomSeed:       0,
 		OutputDir:        "tmp",
+		CredPath:         "tmp",
 	}
 }

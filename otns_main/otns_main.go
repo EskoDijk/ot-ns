@@ -31,6 +31,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
@@ -73,6 +74,7 @@ type MainArgs struct {
 	RandomSeed         int64
 	PhyTxStats         bool
 	OtBrBackboneIfName string
+	CredPath           string
 }
 
 var (
@@ -109,6 +111,7 @@ func parseArgs() {
 	flag.Int64Var(&args.RandomSeed, "seed", 0, "set specific random-seed value (for reproducability)")
 	flag.BoolVar(&args.PhyTxStats, "phy-tx-stats", false, "generate PHY Tx statistics CSV file")
 	flag.StringVar(&args.OtBrBackboneIfName, "otbr-if", "lo", "specify default backbone interface name for OTBRs")
+	flag.StringVar(&args.CredPath, "cred-path", "tmp", "specify base directory in which nodes look for their credentials. A node uses the subdirectory \"<sim-id>_<node-id>_cred\" of this directory.")
 	flag.Parse()
 }
 
@@ -298,6 +301,13 @@ func createSimulation(simId int, ctx *progctx.ProgCtx) (*simulation.Simulation, 
 	}
 	simcfg.RandomSeed = prng.GetRootSeed()
 	simcfg.NewNodeConfig.NetIfName = args.OtBrBackboneIfName
+
+	// Made absolute because an OTBR's otbr-agent is started via sudo, which does not inherit the
+	// working directory of OT-NS.
+	simcfg.CredPath, err = filepath.Abs(args.CredPath)
+	if err != nil {
+		return nil, err
+	}
 
 	dispatcherCfg := dispatcher.DefaultConfig()
 	dispatcherCfg.SimulationId = simcfg.Id
