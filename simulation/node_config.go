@@ -31,6 +31,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/openthread/ot-ns/logger"
@@ -45,6 +46,10 @@ const (
 	wifiCcaThreshold                  = 20.0 // in dBm above the noise floor
 	defaultWiFiTxInterfererPercentage = 10
 	versionLatestTag                  = "v14"
+
+	// nodesDirEnvVar optionally provides extra node executable search paths, separated by the
+	// OS path-list separator. If set, these are searched before all default search paths.
+	nodesDirEnvVar = "OTNS_NODES_DIR"
 )
 
 // defaultFtdInitScript is an array of commands, sent to a new FTD node by default (unless changed).
@@ -138,13 +143,35 @@ type NodeAutoPlacer struct {
 	isReset         bool
 }
 
+// installedNodesDir is set at build time by the './script/install-otns' script, using the Go linker
+// flag '-X'. It points to the 'ot-rfsim/ot-versions' directory of the OTNS repo that OTNS was
+// installed from, so that the node executables built there are found when OTNS is run from any other
+// directory. It is empty for an OTNS that was built without the install script.
+var installedNodesDir string
+
 var DefaultExecutableConfig ExecutableConfig = ExecutableConfig{
 	Version:     "",
 	Ftd:         "ot-cli-ftd",
 	Mtd:         "ot-cli-mtd",
 	Br:          "ot-cli-ftd_br",
 	Matter:      "ot-matter-node",
-	SearchPaths: []string{".", "./ot-rfsim/ot-versions", "./build/bin"},
+	SearchPaths: defaultSearchPaths(),
+}
+
+// defaultSearchPaths returns the default search paths for node executables: first paths from the
+// environment variable if set, then the current directory, then the node directory of
+// the repo that OTNS is run from, and finally the node directory of the OTNS installation if known
+// (see installedNodesDir).
+func defaultSearchPaths() []string {
+	// an empty path comes from a leading, trailing, or doubled separator in the environment variable.
+	sp := slices.DeleteFunc(filepath.SplitList(os.Getenv(nodesDirEnvVar)), func(p string) bool {
+		return len(p) == 0
+	})
+	sp = append(sp, ".", "./ot-rfsim/ot-versions")
+	if len(installedNodesDir) > 0 && isDir(installedNodesDir) {
+		sp = append(sp, installedNodesDir)
+	}
+	return sp
 }
 
 func DefaultNodeConfig() NodeConfig {
@@ -232,9 +259,19 @@ func (s *Simulation) NodeConfigFinalize(nodeCfg *NodeConfig) {
 	}
 }
 
+// Clone returns a copy of cfg that can be modified independently of cfg. A plain struct assignment
+// is not enough: it copies the SearchPaths slice header only, leaving both configs sharing one
+// backing array.
+func (cfg ExecutableConfig) Clone() ExecutableConfig {
+	cfg.SearchPaths = slices.Clone(cfg.SearchPaths)
+	return cfg
+}
+
 func (cfg *ExecutableConfig) SearchPathsString() string {
+	if len(cfg.SearchPaths) == 0 {
+		return "[]"
+	}
 	s := "["
-	logger.AssertTrue(len(cfg.SearchPaths) >= 1)
 	for _, sp := range cfg.SearchPaths {
 		s += "\"" + sp + "\", "
 	}
@@ -280,7 +317,7 @@ func (cfg *ExecutableConfig) FindExecutable(exeName string) string {
 			return "./" + exePath
 		}
 	}
-	// if not found, try to relay on OS $PATH to find the executables.
+	// if not found, try to rely on OS $PATH to find the executables.
 	return exeName
 }
 

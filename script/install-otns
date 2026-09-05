@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (c) 2024-2026, The OTNS Authors.
+# Copyright (c) 2020-2026, The OTNS Authors.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -25,16 +25,38 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-# Installs the full set of OT node executables used by OTNS. This includes
-# different Thread protocol version nodes and special node types (BR).
+# Installs OTNS (without any OT node executables) and pyOTNS.
 
 # shellcheck source=script/common.sh
 . "$(dirname "$0")"/common.sh
 
+install_otns()
+{
+    # The location of this repo's node executables is built into the OTNS executable, so that the
+    # nodes built by './script/install-nodes' are found when OTNS is run from any other directory.
+    # Note: 'go' splits the -ldflags value on whitespace, honoring a quote only at the start of a
+    # field. So the -X value is given as its own double-quoted field, to allow a repo path that
+    # contains spaces. (Double quotes, not single: a repo path may contain an apostrophe.)
+    local ldflags="-X \"github.com/openthread/ot-ns/simulation.installedNodesDir=${OTNSDIR}/ot-rfsim/ot-versions\""
+
+    go mod tidy
+    repeat 3 go_install "-ldflags=${ldflags}" ./cmd/...
+    echo "otns installed: $(command -v otns)"
+}
+
+install_pyotns()
+{
+    activate_python_venv
+    cd pylibs || die "required directory 'pylibs' not found"
+    python3 -m pip install .
+    # python3 setup.py install --user --prefix= 2>/dev/null  #  alternative - fails on macos-14
+    cd - || die "cd failed"
+}
+
 main()
 {
-    build_openthread_versions
-    echo "nodes installed: ${OTNSDIR}/ot-rfsim/ot-versions"
+    install_pyotns
+    install_otns
 }
 
 main

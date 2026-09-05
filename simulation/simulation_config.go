@@ -66,8 +66,8 @@ type Config struct {
 
 func DefaultConfig() *Config {
 	return &Config{
-		ExeConfig:        DefaultExecutableConfig,
-		ExeConfigDefault: DefaultExecutableConfig,
+		ExeConfig:        DefaultExecutableConfig.Clone(),
+		ExeConfigDefault: DefaultExecutableConfig.Clone(),
 		NewNodeConfig:    DefaultNodeConfig(),
 		NewNodeScripts:   DefaultNodeScripts(),
 		Speed:            1.0,

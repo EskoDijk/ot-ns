@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (c) 2020-2025, The OTNS Authors.
+# Copyright (c) 2020-2026, The OTNS Authors.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -49,7 +49,7 @@ declare -rx SCRIPTDIR
 OTNSDIR=$(realpathf "${SCRIPTDIR}"/..)
 declare -rx OTNSDIR
 
-OT_DIR=${OT_DIR:-./openthread}
+OT_DIR=${OT_DIR:-${OTNSDIR}/openthread}
 OT_DIR=$(realpathf "${OT_DIR}")
 declare -rx OT_DIR
 
@@ -71,14 +71,14 @@ declare -rx OTNS_EXCLUDE_DIRS
 
 go_install()
 {
-    local pkg="$1"
-    go install "${pkg}" || go get "${pkg}"
+    local pkg="${*: -1}" # the package is the last argument; any preceding arguments are build flags.
+    go install "$@" || go get "${pkg}"
 }
 
 get_openthread()
 {
-    if [[ ! -f ./openthread/README.md ]]; then
-        git submodule update --init --recursive openthread
+    if [[ ! -f "${OTNSDIR}"/openthread/README.md ]]; then
+        git -C "${OTNSDIR}" submodule update --init --recursive openthread
     fi
 }
 
@@ -97,7 +97,7 @@ build_openthread()
 {
     get_openthread
     (
-        cd ot-rfsim
+        cd "${OTNSDIR}"/ot-rfsim
         ./script/build_latest "$(get_build_options)"
     )
 }
@@ -106,7 +106,7 @@ build_openthread_br()
 {
     get_openthread
     (
-        cd ot-rfsim
+        cd "${OTNSDIR}"/ot-rfsim
         ./script/build_br "$(get_build_options)"
     )
 }
@@ -116,7 +116,7 @@ build_openthread_versions()
 {
     get_openthread
     (
-        cd ot-rfsim
+        cd "${OTNSDIR}"/ot-rfsim
         ./script/build_all "$(get_build_options)"
     )
 }
