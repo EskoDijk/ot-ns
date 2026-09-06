@@ -35,14 +35,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-var (
-	tmpDir string
-)
-
-func init() {
-	tmpDir = filepath.Join(os.TempDir(), "otns-logger-test-424387")
-}
-
 func cleanupLogger() {
 	if logFileHandle != nil {
 		_ = logFileHandle.Close()
@@ -62,20 +54,17 @@ func cleanupLogger() {
 func TestClearExistingLogFile(t *testing.T) {
 	t.Cleanup(cleanupLogger)
 
-	// Create temporary directory for the test
-	err := os.Mkdir(tmpDir, 0755)
-	assert.NoError(t, err)
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 
 	// Create the initial log file
 	logFile := filepath.Join(tmpDir, "test.log")
-	err = os.WriteFile(logFile, []byte("initial content\n"), 0644)
+	err := os.WriteFile(logFile, []byte("initial content\n"), 0644)
 	assert.NoError(t, err)
 
-	// Make the directory non-writable, which should prevent removing the file on Linux
-	err = os.Chmod(tmpDir, 0555)
-	assert.NoError(t, err)
-	defer func() { _ = os.Chmod(tmpDir, 0755) }() // Ensure we can clean up
+	// Make the directory non-writable, so the file cannot be removed and re-created: Init has to
+	// clear it by truncating instead. Restored below, before t.TempDir() cleans the directory up.
+	assert.NoError(t, os.Chmod(tmpDir, 0555))
+	defer func() { _ = os.Chmod(tmpDir, 0755) }()
 
 	// Call Init. It should be able to open it and clear file contents.
 	Init(true, true, logFile, 0)
@@ -95,43 +84,44 @@ func TestClearExistingLogFile(t *testing.T) {
 	assert.NotContains(t, string(content), "initial content")
 }
 
-func TestInitReadOnlyFile(t *testing.T) {
-	t.Cleanup(cleanupLogger)
+// Init must survive a log file it cannot open: no file handle is kept, and logging carries on to
+// the console. The failure is provoked with EISDIR/ENOENT rather than with file permissions,
+// because root bypasses permission checks - and this repo's Docker images run as root.
+func TestInitWithUnopenableLogFile(t *testing.T) {
+	tmpDir := t.TempDir()
 
-	// Create temporary directory for the test
-	err := os.Mkdir(tmpDir, 0755)
-	assert.NoError(t, err)
-	defer os.RemoveAll(tmpDir)
+	cases := []struct {
+		name    string
+		logFile string
+	}{
+		{"path is a directory", tmpDir},
+		{"parent does not exist", filepath.Join(tmpDir, "no-such-dir", "test.log")},
+	}
 
-	// Create the initial log file and make it read-only
-	logFile := filepath.Join(tmpDir, "test.log")
-	err = os.WriteFile(logFile, []byte("initial content\n"), 0444)
-	assert.NoError(t, err)
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			t.Cleanup(cleanupLogger)
 
-	// Call Init. It should attempt to remove the file.
-	// Removing a read-only file in a writable directory works on Linux.
-	// So let's make the directory non-writable too, to ensure remove fails,
-	// AND the file is read-only, so opening it for WRONLY also fails.
-	err = os.Chmod(tmpDir, 0555)
-	assert.NoError(t, err)
-	defer func() { _ = os.Chmod(tmpDir, 0755) }()
+			_, stderr := captureStd(t, func() {
+				isStdoutToTerminal = false
+				// Init reports the open failure before it rebuilds the logger, so bind the
+				// current core to the swapped stderr first to capture that report.
+				rebuildLoggerFromCfg()
+				Init(true, true, c.logFile, 0)
+				Infof("Test log message 4567")
+			})
 
-	Init(true, true, logFile, 0)
-
-	// Verify that the file handle is nil because file-open should have failed.
-	assert.Nil(t, logFileHandle)
-
-	// Verify we can log
-	Infof("Test log message 4567")
+			assert.Nil(t, logFileHandle, "no log file handle when the file cannot be opened")
+			assert.Contains(t, stderr, "failed to open log file", "the failure must be reported")
+			assert.Contains(t, stderr, "Test log message 4567", "logging must continue to stderr")
+		})
+	}
 }
 
 func TestPrintln(t *testing.T) {
 	t.Cleanup(cleanupLogger)
 
-	// Create temporary directory for the test
-	err := os.Mkdir(tmpDir, 0755)
-	assert.NoError(t, err)
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 
 	// Initialize logger (including file)
 	logFile := filepath.Join(tmpDir, "test-levels.log")
@@ -171,11 +161,7 @@ func TestGetLogWriter(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Case 2: logFileHandle is open
-	err = os.Mkdir(tmpDir, 0755)
-	assert.NoError(t, err)
-	defer os.RemoveAll(tmpDir)
-
-	logFile := filepath.Join(tmpDir, "test-writer.log")
+	logFile := filepath.Join(t.TempDir(), "test-writer.log")
 	Init(false, true, logFile, 0)
 
 	writer = GetLogWriter()
