@@ -330,8 +330,6 @@ func createSimulation(simId int, ctx *progctx.ProgCtx) (*simulation.Simulation, 
 	simcfg.RandomSeed = prng.GetRootSeed()
 
 	dispatcherCfg := dispatcher.DefaultConfig()
-	dispatcherCfg.SimulationId = simcfg.Id
-	dispatcherCfg.OutputDir = args.OutputDir
 	dispatcherCfg.PcapEnabled = args.PcapType != pcap.FrameTypeOffStr
 	dispatcherCfg.PcapFrameType = pcap.ParseFrameTypeStr(args.PcapType)
 	if dispatcherCfg.PcapFrameType == pcap.FrameTypeUnknown {
