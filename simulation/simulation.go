@@ -63,6 +63,21 @@ type Simulation struct {
 	simHosts       *SimHosts
 }
 
+// syncDispatcherConfig returns the dispatcher configuration to use for a simulation with config
+// cfg.
+func syncDispatcherConfig(cfg *Config, dispatcherCfg *dispatcher.Config) *dispatcher.Config {
+	if cfg.Realtime {
+		dispatcherCfg.Speed = 1.0
+	} else {
+		dispatcherCfg.Speed = cfg.Speed
+	}
+	dispatcherCfg.Realtime = cfg.Realtime
+	dispatcherCfg.DumpPackets = cfg.DumpPackets
+	dispatcherCfg.SimulationId = cfg.Id
+	dispatcherCfg.OutputDir = cfg.OutputDir
+	return dispatcherCfg
+}
+
 func NewSimulation(ctx *progctx.ProgCtx, cfg *Config, dispatcherCfg *dispatcher.Config) (*Simulation, error) {
 	s := &Simulation{
 		Started:      make(chan struct{}),
@@ -80,15 +95,8 @@ func NewSimulation(ctx *progctx.ProgCtx, cfg *Config, dispatcherCfg *dispatcher.
 	s.SetLogLevel(cfg.LogLevel)
 	s.networkInfo.Real = cfg.Realtime
 
-	// start the dispatcher for virtual time
-	if cfg.Realtime {
-		dispatcherCfg.Speed = 1.0
-	} else {
-		dispatcherCfg.Speed = cfg.Speed
-	}
-	dispatcherCfg.Realtime = cfg.Realtime
-	dispatcherCfg.DumpPackets = cfg.DumpPackets
-
+	// start the dispatcher
+	dispatcherCfg = syncDispatcherConfig(cfg, dispatcherCfg)
 	s.d = dispatcher.NewDispatcher(s.ctx, dispatcherCfg, s)
 	s.d.SetRadioModel(radiomodel.NewRadioModel(cfg.RadioModel))
 	s.vis = s.d.GetVisualizer()
