@@ -50,6 +50,7 @@ class OTNS(object):
     DEFAULT_SIMULATE_SPEED = MAX_SIMULATE_SPEED
     PAUSE_SIMULATE_SPEED = 0
     MAX_PING_DELAY = 10000  # Max delay assigned to a failed ping
+    DEFAULT_OUTPUT_DIR = 'tmp'  # must match DefaultOutputDir in the Go code (types/ot_types.go)
     NO_CHANGE = -9223372036854775807
 
     CLI_PROMPT = '> '
@@ -67,24 +68,57 @@ class OTNS(object):
 
         self._otns_path = otns_path or self._detect_otns_path()
         self._sim_id = sim_id
-        self._sim_output_path = './tmp'
         listen_port = str(9000 + sim_id * 10)
-        # Check if a custom output directory is specified in otns_args
-        if otns_args:
-            for i, arg in enumerate(otns_args):
-                if arg == '-output' and i + 1 < len(otns_args):
-                    self._sim_output_path = otns_args[i + 1]
-                elif arg.startswith('-output='):
-                    self._sim_output_path = arg.split('=', 1)[1]
         default_args = [
             '-autogo=false', '-web=false', '-speed',
             str(OTNS.DEFAULT_SIMULATE_SPEED), '-listen', f'localhost:{listen_port}'
         ]
         # Note: given otns_args may override i.e. revert the default_args
         self._otns_args = default_args + list(otns_args or [])
+        # Track the output directory that otns itself will use, so that save_pcap(), kpi_save()
+        # and get_otns_socket() look in the right place.
+        self._sim_output_path = self._output_dir_from_args(self._otns_args)
         logging.info("otns found: %s", self._otns_path)
 
         self._launch_otns()
+
+    @classmethod
+    def _output_dir_from_args(cls, args: List[str]) -> str:
+        """
+        Get the output directory that otns will use, given its commandline arguments.
+        """
+        output_dir = cls._get_flag_value(args, 'output')
+        return output_dir if output_dir else cls.DEFAULT_OUTPUT_DIR
+
+    @staticmethod
+    def _get_flag_value(args: List[str], name: str) -> Optional[str]:
+        """
+        Get the value of Go commandline flag `name` in `args`, or None if not present.
+
+        This mirrors Go's flag package: both '-flag' and '--flag' are accepted, the value may
+        follow as the next argument or after an '=', a lone '--' ends flag parsing, and a
+        repeated flag takes its last value.
+        """
+        value = None
+        i = 0
+        while i < len(args):
+            arg = args[i]
+            i += 1
+            if arg == '--':  # end of flags; the rest are positional arguments
+                break
+            if len(arg) < 2 or not arg.startswith('-'):
+                continue
+            flag = arg[2:] if arg.startswith('--') else arg[1:]
+            if flag.startswith('-') or flag.startswith('='):
+                continue  # bad flag syntax - otns itself will report it
+            if '=' in flag:
+                key, _, val = flag.partition('=')
+                if key == name:
+                    value = val
+            elif flag == name and i < len(args):
+                value = args[i]
+                i += 1
+        return value
 
     def _launch_otns(self) -> None:
         logging.info("launching otns: %s %s", self._otns_path, ' '.join(self._otns_args))
@@ -1271,7 +1305,7 @@ class OTNS(object):
         """
         uptime_str = self._expect_str(self.node_cmd(nodeid, 'uptime'))
         # example 'uptime' command OT node output: 1d.00:33:20.020
-        m = re.search('((\d+)d\.)?(\d\d):(\d\d):(\d\d)\.(\d\d\d)', uptime_str)
+        m = re.search(r'((\d+)d\.)?(\d\d):(\d\d):(\d\d)\.(\d\d\d)', uptime_str)
         assert m is not None, uptime_str
         g = m.groups()
         time_sec = int(g[2]) * 3600 + int(g[3]) * 60 + int(g[4]) + int(g[5]) / 1000.0
