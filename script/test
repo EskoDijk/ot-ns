@@ -92,6 +92,7 @@ py_unittests()
     build_openthread
     build_openthread_br
 
+    python3 "$OTNSDIR"/pylibs/unittests/test_cli_args.py
     python3 "$OTNSDIR"/pylibs/unittests/test_basic.py
     python3 "$OTNSDIR"/pylibs/unittests/test_ping.py
     python3 "$OTNSDIR"/pylibs/unittests/test_commissioning.py
