@@ -32,6 +32,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/openthread/ot-ns/dispatcher"
 	. "github.com/openthread/ot-ns/types"
 )
 
@@ -42,4 +43,41 @@ func TestDefaultConfigOutputDirIsUsable(t *testing.T) {
 	assert.Equal(t, DefaultOutputDir, cfg.OutputDir)
 	assert.NotEmpty(t, cfg.OutputDir)
 	assert.False(t, filepath.IsAbs(cfg.OutputDir))
+}
+
+// The dispatcher writes output files of its own (pcap, node logs, the unix socket) and names
+// them after the simulation id, so these settings must always be taken from the simulation
+// config - a caller-supplied value that disagrees is corrected, not trusted.
+func TestSyncDispatcherConfigTakesSettingsFromSimulation(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.Id = 7
+	cfg.OutputDir = "results"
+	cfg.Speed = 42
+	cfg.DumpPackets = true
+
+	given := dispatcher.DefaultConfig()
+	given.SimulationId = 999
+	given.OutputDir = "somewhere-else"
+
+	dcfg := syncDispatcherConfig(cfg, given)
+
+	assert.Equal(t, 7, dcfg.SimulationId)
+	assert.Equal(t, "results", dcfg.OutputDir)
+	assert.Equal(t, float64(42), dcfg.Speed)
+	assert.True(t, dcfg.DumpPackets)
+	assert.False(t, dcfg.Realtime)
+
+	// settings the simulation does not own are left as the caller set them
+	assert.Equal(t, dispatcher.DefaultConfig().PcapEnabled, dcfg.PcapEnabled)
+}
+
+// A realtime simulation always runs the dispatcher at speed 1, whatever cfg.Speed says.
+func TestSyncDispatcherConfigRealtimeForcesSpeed(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.Realtime = true
+	cfg.Speed = 42
+
+	dcfg := syncDispatcherConfig(cfg, dispatcher.DefaultConfig())
+	assert.True(t, dcfg.Realtime)
+	assert.Equal(t, float64(1), dcfg.Speed)
 }
