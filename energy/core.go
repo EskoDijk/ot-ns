@@ -40,6 +40,8 @@ type EnergyAnalyser struct {
 	networkHistory       []NetworkConsumption
 	energyHistoryByNodes [][]*NodeEnergy
 	title                string
+	outputDir            string
+	simulationId         int
 }
 
 func (e *EnergyAnalyser) AddNode(nodeID int, timestamp uint64) {
@@ -116,23 +118,8 @@ func (e *EnergyAnalyser) SaveEnergyDataToFile(name string, timestamp uint64) {
 		return
 	}
 
-	//Get current directory and add name to the path
-	dir, err := os.Getwd()
-	if err != nil {
-		logger.Errorf("Failed to get current working directory: %v", err)
-		return
-	}
-
-	//create "energy_results" directory if it does not exist
-	if _, err := os.Stat(dir + "/energy_results"); os.IsNotExist(err) {
-		err := os.Mkdir(dir+"/energy_results", 0777)
-		if err != nil {
-			logger.Error("Failed to create energy_results directory")
-			return
-		}
-	}
-
-	path := fmt.Sprintf("%s/energy_results/%s", dir, name)
+	//Energy results go into the simulation output directory, named like all other artifacts.
+	path := fmt.Sprintf("%s/%d_%s", e.outputDir, e.simulationId, name)
 	fileNodes, err := os.Create(path + "_nodes.txt")
 	if err != nil {
 		logger.Errorf("Error creating file: %v", err)
@@ -200,11 +187,13 @@ func (e *EnergyAnalyser) SetTitle(title string) {
 	e.title = title
 }
 
-func NewEnergyAnalyser() *EnergyAnalyser {
+func NewEnergyAnalyser(outputDir string, simulationId int) *EnergyAnalyser {
 	ea := &EnergyAnalyser{
 		nodes:                make(map[int]*NodeEnergy),
 		networkHistory:       make([]NetworkConsumption, 0, 3600), //Start with space for 1 sample every 30s for 1 hour = 1*60*60/30 = 3600 samples
 		energyHistoryByNodes: make([][]*NodeEnergy, 0, 3600),
+		outputDir:            outputDir,
+		simulationId:         simulationId,
 	}
 	return ea
 }
