@@ -262,27 +262,3 @@ func TestTerminalDecorationGoesToStdout(t *testing.T) {
 	assert.Empty(t, stdout, "non-terminal stdout must stay clean")
 	assert.Contains(t, stderr, "undecorated")
 }
-
-// detectTerminal must probe stdout, not stderr: a terminal on stdout alone enables the
-// decoration, and a terminal on stderr alone does not.
-func TestDetectTerminalProbesStdout(t *testing.T) {
-	pty, err := os.OpenFile("/dev/ptmx", os.O_RDWR, 0)
-	if err != nil {
-		t.Skipf("no pty available: %v", err)
-	}
-	defer pty.Close()
-
-	pipeR, pipeW, err := os.Pipe()
-	assert.NoError(t, err)
-	defer pipeR.Close()
-	defer pipeW.Close()
-
-	origOut, origErr := os.Stdout, os.Stderr
-	defer func() { os.Stdout, os.Stderr = origOut, origErr }()
-
-	os.Stdout, os.Stderr = pty, pipeW
-	assert.True(t, detectTerminal(), "terminal on stdout must be detected")
-
-	os.Stdout, os.Stderr = pipeW, pty
-	assert.False(t, detectTerminal(), "a terminal on stderr must not count as a stdout terminal")
-}

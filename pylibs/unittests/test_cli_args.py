@@ -85,8 +85,7 @@ class OutputDirTests(unittest.TestCase):
         self.assertEqual('tmp', OTNS._output_dir_from_args(['-autogo=false', '-web=false']))
 
     def test_override_in_every_form(self):
-        for args in (['-output', 'results'], ['--output', 'results'], ['-output=results'],
-                     ['--output=results']):
+        for args in (['-output', 'results'], ['--output', 'results'], ['-output=results'], ['--output=results']):
             self.assertEqual('results', OTNS._output_dir_from_args(args), args)
 
     def test_empty_value_falls_back_to_default(self):
