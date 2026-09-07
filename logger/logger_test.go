@@ -46,8 +46,6 @@ func cleanupLogger() {
 	isLogToStderr = true
 	cbStdout = nil
 	logFileHandle = nil
-	logPath = ""
-	cfg.OutputPaths = []string{"stderr"}
 	rebuildLoggerFromCfg()
 }
 

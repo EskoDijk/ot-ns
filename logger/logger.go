@@ -27,7 +27,6 @@
 package logger
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -78,12 +77,13 @@ const (
 )
 
 var (
-	cfg               zap.Config
+	// encoderCfg is the layout of a single log line. The sinks and the level are not configured
+	// here: sinks are chosen in rebuildLoggerFromCfg() and the level is gated in Logf().
+	encoderCfg        zapcore.EncoderConfig
 	zaplogger         *zap.Logger
 	currentLevel      Level          = DefaultLevel
 	cbStdout          StdoutCallback = nil
 	logFileHandle     *os.File       = nil
-	logPath                          = ""
 	logFileWriterInst                = &logFileWriter{}
 	zapLevels                        = []zapcore.Level{zapcore.FatalLevel, zapcore.PanicLevel,
 		zapcore.ErrorLevel, zapcore.WarnLevel, zapcore.InfoLevel, zapcore.InfoLevel, zapcore.DebugLevel,
@@ -97,26 +97,14 @@ var (
 )
 
 func init() {
-	cfgJson := []byte(`{
-        "level": "debug",
-        "outputPaths": ["stderr"],
-        "errorOutputPaths": ["stderr"],
-        "encoding": "console",
-        "encoderConfig": {
-            "messageKey": "message",
-            "levelKey": "level",
-            "levelEncoder": "lowercase",
-            "timeKey": "timestamp",
-			"timeEncoder": "iso8601"
-        }
-    }`)
-
-	if err := json.Unmarshal(cfgJson, &cfg); err != nil {
-		panic(err)
-	}
-
-	cfg.EncoderConfig.EncodeTime = func(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
-		enc.AppendString(t.Format(dateTimeFormat))
+	encoderCfg = zapcore.EncoderConfig{
+		TimeKey:     "timestamp",
+		LevelKey:    "level",
+		MessageKey:  "message",
+		EncodeLevel: zapcore.LowercaseLevelEncoder,
+		EncodeTime: func(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
+			enc.AppendString(t.Format(dateTimeFormat))
+		},
 	}
 
 	isStdoutToTerminal = detectTerminal()
@@ -131,13 +119,12 @@ func detectTerminal() bool {
 
 func Init(logToStderr bool, logToFile bool, logFileName string, simId int) {
 	var err error
-	logPath = logFileName
 
 	if logToFile {
 		// Open the log file here (not inside Zap) so we can store the file handle in our package.
 		// os.O_APPEND is used to enable multiple goroutines to write to the same handle.
 		// os.O_TRUNC ensures any prior log file from a previous run is overwritten cleanly.
-		logFileHandle, err = os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+		logFileHandle, err = os.OpenFile(logFileName, os.O_APPEND|os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 		if err != nil {
 			Errorf("Error: failed to open log file: %v\n", err)
 		} else {
@@ -204,7 +191,7 @@ func rebuildLoggerFromCfg() {
 		_ = zaplogger.Sync()
 	}
 
-	encoder := zapcore.NewConsoleEncoder(cfg.EncoderConfig)
+	encoder := zapcore.NewConsoleEncoder(encoderCfg)
 	// Accept all levels — Go-level checks in Logf/logAlways gate what actually reaches zap.
 	allLevels := zap.LevelEnablerFunc(func(zapcore.Level) bool { return true })
 
