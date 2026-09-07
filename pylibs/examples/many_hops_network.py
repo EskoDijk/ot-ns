@@ -36,7 +36,6 @@
 import enum
 import logging
 import math
-import os
 from typing import Dict
 
 from otns.cli import OTNS

@@ -33,7 +33,8 @@ from pathlib import Path
 
 from otns.cli import OTNS
 
-# Unit tests always run with base OTNS instance with a fixed SimId and output path.
+# Unit tests always run with a base OTNS instance with a fixed SimId and output path. These must
+# stay in sync with the OTNS() arguments used in setUp() below.
 OTNS_OUTPUT_PATH = 'tmp'
 OTNS_SIM_ID = 0
 
@@ -50,7 +51,11 @@ class OTNSTestCase(unittest.TestCase):
 
     def setUp(self) -> None:
         logging.info("Setting up for test: %s", self.name())
-        # Removing all flash files prevents node state carrying over between tests.
+        # Remove node flash files from earlier tests, so that no node state carries over.
+        # Unit tests may be randomly ordered so never test flash-based node restore between
+        # tests. Note this cleans the default output directory and sim ID only. See
+        # OTNS_OUTPUT_PATH above. A subclass that runs OTNS with a different '-output' or
+        # sim ID is responsible for cleaning that directory itself.
         for f in Path(OTNS_OUTPUT_PATH).glob(f'{OTNS_SIM_ID}_*.flash'):
             f.unlink(missing_ok=True)
         self.ns = OTNS(otns_args=['-log', 'debug'])  # may add '-watch', 'trace' to see detailed OT node traces.
