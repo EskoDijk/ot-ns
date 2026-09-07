@@ -13,6 +13,5 @@ openthread/cmake-build-debug
 
 web/site/node_modules
 
-current.pcap
-otns_*.replay
+# simulation output directory (default; see the -output argument)
 tmp
