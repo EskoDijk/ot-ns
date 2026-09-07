@@ -57,6 +57,7 @@ const (
 	FatalLevel   Level = -1
 	MinLevel           = FatalLevel
 	DefaultLevel       = InfoLevel
+	OffLevel           = PanicLevel
 )
 
 type logEntry struct {

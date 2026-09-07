@@ -78,6 +78,7 @@ func TestGetLevelStringCoversSettableLevels(t *testing.T) {
 	// "off" is reported for the Panic level: zap renders such a message as "panic", while the
 	// user-facing level name (e.g. for node watching) stays the "off" that was asked for.
 	assert.Equal(t, "off", GetLevelString(PanicLevel))
+	assert.Equal(t, "off", GetLevelString(OffLevel))
 
 	// Aliases deliberately do not round-trip; GetLevelString returns one canonical name per level.
 	assert.Equal(t, "crit", GetLevelString(ErrorLevel))

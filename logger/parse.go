@@ -112,7 +112,7 @@ func GetLevelString(level Level) string {
 		return "warn"
 	case ErrorLevel:
 		return "crit"
-	case PanicLevel:
+	case OffLevel:
 		return "off"
 	default:
 		Panicf("Unknown or invalid log Level: %d", level)

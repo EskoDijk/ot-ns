@@ -337,7 +337,8 @@ func createSimulation(simId int, ctx *progctx.ProgCtx) (*simulation.Simulation, 
 	if err != nil {
 		return nil, err
 	}
-	dispatcherCfg.DefaultWatchOn = watchLevel >= logger.PanicLevel
+	// A watch level of 'off'/'none' means new nodes are not watched by default. It can't be
+	dispatcherCfg.DefaultWatchOn = watchLevel > logger.OffLevel
 	dispatcherCfg.PhyTxStats = args.PhyTxStats
 
 	sim, err := simulation.NewSimulation(ctx, simcfg, dispatcherCfg)
