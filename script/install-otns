@@ -39,8 +39,9 @@ install_otns()
     # contains spaces. (Double quotes, not single: a repo path may contain an apostrophe.)
     local ldflags="-X \"github.com/openthread/ot-ns/simulation.installedNodesDir=${OTNSDIR}/ot-rfsim/ot-versions\""
 
-    go mod tidy
-    repeat 3 go_install "-ldflags=${ldflags}" ./cmd/...
+    go mod tidy || die "'go mod tidy' failed"
+    # repeats are done to get past transient failures such as a download hiccup.
+    repeat 3 go_install "-ldflags=${ldflags}" ./cmd/... || die "building OTNS failed - see the Go build errors above"
     echo "otns installed: $(command -v otns)"
 }
 

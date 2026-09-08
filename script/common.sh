@@ -69,10 +69,12 @@ OTNS_EXCLUDE_DIRS=(ot-rfsim/build/ web/site/node_modules/ pylibs/build/ pylibs/o
     ot-rfsim/openthread-v11/ ot-rfsim/openthread-v12/ ot-rfsim/openthread-v13/)
 declare -rx OTNS_EXCLUDE_DIRS
 
+# Builds and installs the Go package(s) given as last argument; any preceding arguments are
+# build flags. Also used to install an external Go tool, given as '<package>@<version>'.
+# A build failure is reported back to the caller (non-zero status).
 go_install()
 {
-    local pkg="${*: -1}" # the package is the last argument; any preceding arguments are build flags.
-    go install "$@" || go get "${pkg}"
+    go install "$@"
 }
 
 get_openthread()
