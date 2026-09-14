@@ -189,7 +189,7 @@ func NewDispatcher(ctx *progctx.ProgCtx, cfg *Config, cbHandler CallbackHandler)
 		taskChan:           make(chan func(), 10000),
 		watchingNodes:      map[NodeId]struct{}{},
 		goDurationChan:     make(chan goDuration, 1),
-		visOptions:         defaultVisualizationOptions(),
+		visOptions:         DefaultVisualizationOptions(),
 		stopped:            false,
 		oldStats:           NodeStats{},
 		timeWinStats:       defaultTimeWindowStats(),
@@ -1591,6 +1591,7 @@ func (d *Dispatcher) GetVisualizationOptions() VisualizationOptions {
 func (d *Dispatcher) SetVisualizationOptions(opts VisualizationOptions) {
 	logger.Debugf("dispatcher set visualization options: %+v", opts)
 	d.visOptions = opts
+	d.vis.SetVisualizationOptions(opts)
 }
 
 // NotifyCommand notifies the Dispatcher that the node is now processing a command which was

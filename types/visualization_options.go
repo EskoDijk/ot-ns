@@ -24,28 +24,46 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-// nodes and numbering
-export const NODE_ID_INVALID = 0xffff;
-export const EXT_ADDR_INVALID = 0xFFFFFFFFFFFFFFFF;
+package types
 
-// simulation speed controls
-export const PAUSE_SPEED = 0;
-export const MAX_SPEED = 1000000;
-export const TUNE_SPEED_SETTINGS = [0.000001, 0.000005, 0.00001, 0.00005, 0.0001, 0.0005, 0.001, 0.005, 0.01,
-                                0.05, 0.1, 0.25, 0.5, 1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, MAX_SPEED];
+// VisualizationOptions defines which items the visualizer(s) show, and in which style.
+type VisualizationOptions struct {
+	BroadcastMessage bool
+	UnicastMessage   bool
+	AckMessage       bool
+	RouterTable      bool
+	ChildTable       bool
+	PartitionId      bool   // show the partition ID of each node (as a colored dot)
+	Skin             string // visual style of the network visualization, one of VisualizationSkins
+}
 
-// radio frame and power info
-export const FRAME_CONTROL_MASK_FRAME_TYPE = 0x7;
-export const FRAME_TYPE_ACK = 2;
-export const POWER_DBM_INVALID = 127;
+const (
+	VisualizationSkinThread  = "thread"  // Thread network diagram style
+	VisualizationSkinClassic = "classic" // the original OTNS style
+	DefaultVisualizationSkin = VisualizationSkinThread
+)
 
-// fonts (colors of nodes, links and messages are defined per skin, see skins/)
-export const BUTTON_LABEL_FONT_FAMILY = 'verdana, helvetica, sans-serif';
-export const NODE_LABEL_FONT_FAMILY = 'helvetica, arial, monospace, sans-serif';
-export const NODE_LABEL_FONT_SIZE = 13;
-export const STATUS_MSG_FONT_FAMILY = 'consolas, monaco, monospace';
-export const STATUS_MSG_FONT_SIZE = 13;
+// VisualizationSkins lists the skins of the web visualization; each must be implemented in
+// web/site/js/vis/skins/ and registered in web/site/js/vis/skins/index.js.
+var VisualizationSkins = []string{VisualizationSkinThread, VisualizationSkinClassic}
 
-export const LOG_WINDOW_FONT_FAMILY = 'verdana, helvetica, sans-serif';
-export const LOG_WINDOW_FONT_SIZE = 11.5;
-export const LOG_WINDOW_FONT_COLOR = "Blue";
+func IsVisualizationSkin(name string) bool {
+	for _, s := range VisualizationSkins {
+		if s == name {
+			return true
+		}
+	}
+	return false
+}
+
+func DefaultVisualizationOptions() VisualizationOptions {
+	return VisualizationOptions{
+		BroadcastMessage: true,
+		UnicastMessage:   true,
+		AckMessage:       false,
+		RouterTable:      true,
+		ChildTable:       true,
+		PartitionId:      true,
+		Skin:             DefaultVisualizationSkin,
+	}
+}

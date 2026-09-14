@@ -1,4 +1,4 @@
-// Copyright (c) 2020-2024, The OTNS Authors.
+// Copyright (c) 2020-2026, The OTNS Authors.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -87,6 +87,26 @@ func (gv *grpcVisualizer) SetNetworkInfo(networkInfo visualize.NetworkInfo) {
 		NodeId:        int32(networkInfo.NodeId),
 		ThreadVersion: int32(networkInfo.ThreadVersion),
 	}}})
+}
+
+func (gv *grpcVisualizer) SetVisualizationOptions(opts VisualizationOptions) {
+	gv.Lock()
+	defer gv.Unlock()
+
+	gv.f.setVisualizationOptions(opts)
+	gv.addVisualizeEvent(newSetVisualizationOptionsEvent(opts))
+}
+
+func newSetVisualizationOptionsEvent(opts VisualizationOptions) *pb.VisualizeEvent {
+	return &pb.VisualizeEvent{Type: &pb.VisualizeEvent_SetVisualizationOptions{SetVisualizationOptions: &pb.SetVisualizationOptionsEvent{
+		BroadcastMessage: opts.BroadcastMessage,
+		UnicastMessage:   opts.UnicastMessage,
+		AckMessage:       opts.AckMessage,
+		RouterTable:      opts.RouterTable,
+		ChildTable:       opts.ChildTable,
+		PartitionId:      opts.PartitionId,
+		Skin:             opts.Skin,
+	}}}
 }
 
 func (gv *grpcVisualizer) Init() {
@@ -485,6 +505,11 @@ func (gv *grpcVisualizer) prepareStream(stream *grpcStream) error {
 		}); err != nil {
 			return err
 		}
+	}
+
+	// set visualization options
+	if err := stream.Send(newSetVisualizationOptionsEvent(gv.f.visOptions)); err != nil {
+		return err
 	}
 
 	// advance time

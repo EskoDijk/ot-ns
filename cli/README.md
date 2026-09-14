@@ -169,7 +169,7 @@ Done
 Configure visualization options.
 
 ```shell
-cv [<option> on|off] ...
+cv [<option> on|off] ... [skin <name>]
 ```
 
 Visualization Options:
@@ -179,6 +179,10 @@ Visualization Options:
 - `ack`: ACK message
 - `rtb`: router table
 - `ctb`: child table
+- `pid`: partition ID of nodes (shown as a colored dot)
+- `skin`: visual style of the network visualization (see [GUIDE](../GUIDE.md#network-visualization-skins)):
+  - `thread`: Thread network diagram style (default)
+  - `classic`: the original OTNS style
 
 ```bash
 > cv
@@ -187,6 +191,8 @@ uni=on
 ack=off
 rtb=on
 ctb=on
+pid=on
+skin=thread
 Done
 > cv bro off
 bro=off
@@ -194,13 +200,17 @@ uni=on
 ack=off
 rtb=on
 ctb=on
+pid=on
+skin=thread
 Done
-> cv bro on uni on ack on rtb on ctb on
+> cv bro on uni on ack on rtb on ctb on pid on skin classic
 bro=on
 uni=on
 ack=on
 rtb=on
 ctb=on
+pid=on
+skin=classic
 Done
 ```
 

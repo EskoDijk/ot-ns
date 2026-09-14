@@ -1,4 +1,4 @@
-// Copyright (c) 2020-2024, The OTNS Authors.
+// Copyright (c) 2020-2026, The OTNS Authors.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -70,6 +70,12 @@ function loadOk() {
     grpcServiceClient = new VisualizeGrpcServiceClient(server);
 
     vis = new PixiVisualizer(app, grpcServiceClient);
+    // for development: '?skin=<name>' in the page URL overrides the skin selected by the simulator.
+    let skinOverride = new URLSearchParams(window.location.search).get('skin');
+    if (skinOverride) {
+        vis.skinOverride = skinOverride;
+        vis.setSkin(skinOverride);
+    }
 
     let [w, h] = getDesiredFieldSize();
     vis.onResize(w, h);
@@ -175,6 +181,18 @@ function loadOk() {
             case VisualizeEvent.TypeCase.SET_NETWORK_INFO:
                 e = resp.getSetNetworkInfo();
                 vis.visSetNetworkInfo(e.getVersion(), e.getCommit(), e.getReal(), e.getNodeId(), e.getThreadVersion());
+                break;
+            case VisualizeEvent.TypeCase.SET_VISUALIZATION_OPTIONS:
+                e = resp.getSetVisualizationOptions();
+                vis.visSetVisualizationOptions({
+                    broadcastMessage: e.getBroadcastMessage(),
+                    unicastMessage: e.getUnicastMessage(),
+                    ackMessage: e.getAckMessage(),
+                    routerTable: e.getRouterTable(),
+                    childTable: e.getChildTable(),
+                    partitionId: e.getPartitionId(),
+                    skin: e.getSkin(),
+                });
                 break;
             default:
                 break

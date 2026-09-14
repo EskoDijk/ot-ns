@@ -40,6 +40,7 @@ import {
     NODE_LABEL_FONT_FAMILY
 } from "./consts";
 import Node from "./Node"
+import {Skin, SkinName, SetSkin, DEFAULT_SKIN_NAME} from "./skins";
 import {AckMessage, BroadcastMessage, UnicastMessage} from "./message";
 import LogWindow, {LOG_WINDOW_WIDTH} from "./LogWindow";
 import * as fmt from "./format_text"
@@ -69,6 +70,13 @@ export default class PixiVisualizer extends VObject {
         this.nodes = {};
         this._messages = {};
         this.newNodePos = null;
+        // visualization options, see the 'cv' CLI command; defaults must match types.DefaultVisualizationOptions()
+        this.visOptions = {
+            broadcastMessage: true, unicastMessage: true, ackMessage: false,
+            routerTable: true, childTable: true, partitionId: true, skin: DEFAULT_SKIN_NAME,
+        };
+        // if set, this skin is used instead of the one selected by the simulator (for development)
+        this.skinOverride = null;
 
         this.root = new PIXI.Container();
         // this.root.width =
@@ -546,12 +554,38 @@ export default class PixiVisualizer extends VObject {
         )
     }
 
+    visSetVisualizationOptions(opts) {
+        this.visOptions = opts;
+        for (let nodeid in this.nodes) {
+            this.nodes[nodeid].setPartitionVisible(opts.partitionId);
+        }
+        this.setSkin(this.skinOverride || opts.skin);
+    }
+
+    /**
+     * Activate the named skin (see skins/index.js) and redraw everything that depends on it.
+     * An unknown name keeps the active skin.
+     */
+    setSkin(name) {
+        if (name === SkinName()) {
+            return;
+        }
+        if (!SetSkin(name)) {
+            console.error("unknown visualization skin '" + name + "', keeping skin '" + SkinName() + "'");
+            return;
+        }
+        for (let nodeid in this.nodes) {
+            this.nodes[nodeid].applySkin();
+        }
+        this._drawNodeLinks();
+    }
+
     getPartitionColor(parid) {
         if (parid === 0) {
             return 0x000000
         }
-
-        return parid
+        // map the 32-bit partition ID to a 24-bit RGB color (Pixi rejects larger color values)
+        return parid & 0xffffff
     }
 
     setSelectedNode(id) {
@@ -614,59 +648,64 @@ export default class PixiVisualizer extends VObject {
     }
 
     _drawNodeLinks() {
-        let linkLineWidth = 1;
         // this._bgStage.removeChildAt(0)
         this._bgStage.removeChildren().forEach(child => child.destroy());
 
         const graphics = new PIXI.Graphics();
 
+        // The active skin determines color and width of a link from its kind ('child' for
+        // parent-child links, 'router' for router-table links between two Routers, 'neighbor' for
+        // other router-table links, see skins/Skin.js) and whether it touches the selected node.
+        // Note that FTD children (FED/REED) also report router-table entries for the Routers
+        // they hear, so a router-table link is only a Router-to-Router link if both ends are Routers.
         // Pixi v8 strokes the whole current path with a single style, so group
         // segments by (color, width) and stroke each group as its own path.
-        // Green = parent/child tree links, blue = neighbor links; links touching
-        // the selected node are drawn 3x thicker.
-        const GREEN = 0x8bc34a, BLUE = 0x1976d2;
-        const greenThin = [], greenThick = [], blueThin = [], blueThick = [];
+        const skin = Skin();
+        const groups = {};
+        const addLink = (kind, selected, from, to) => {
+            const style = skin.linkStyle(kind, selected);
+            const key = style.color + ":" + style.width;
+            if (!(key in groups)) {
+                groups[key] = {style: style, segments: []};
+            }
+            groups[key].segments.push([from, to]);
+        };
+        const isRouter = (n) => n.role === OtDeviceRole.OT_DEVICE_ROLE_ROUTER || n.role === OtDeviceRole.OT_DEVICE_ROLE_LEADER;
 
         for (let nodeid in this.nodes) {
             let node = this.nodes[nodeid];
             if (node.parent) {
                 let parent = this.findNodeByExtAddr(node.parent);
                 if (parent !== null) {
-                    let thick = nodeid == this._selectedNodeId || parent.id == this._selectedNodeId;
-                    (thick ? greenThick : greenThin).push([node.position, parent.position]);
+                    let selected = nodeid == this._selectedNodeId || parent.id == this._selectedNodeId;
+                    addLink('child', selected, node.position, parent.position);
                 }
             }
             for (let extaddr in node._children) {
                 let child = this.findNodeByExtAddr(extaddr);
                 if (child) {
-                    let thick = nodeid == this._selectedNodeId || child.id == this._selectedNodeId;
-                    (thick ? greenThick : greenThin).push([node.position, child.position]);
+                    let selected = nodeid == this._selectedNodeId || child.id == this._selectedNodeId;
+                    addLink('child', selected, node.position, child.position);
                 }
             }
             for (let extaddr in node._neighbors) {
                 let neighbor = this.findNodeByExtAddr(extaddr);
                 if (neighbor) {
-                    let thick = nodeid == this._selectedNodeId;
-                    (thick ? blueThick : blueThin).push([node.position, neighbor.position]);
+                    let selected = nodeid == this._selectedNodeId;
+                    let kind = isRouter(node) && isRouter(neighbor) ? 'router' : 'neighbor';
+                    addLink(kind, selected, node.position, neighbor.position);
                 }
             }
         }
 
-        const strokeGroup = (segments, width, color) => {
-            if (segments.length === 0) {
-                return;
-            }
+        for (let key in groups) {
+            const {style, segments} = groups[key];
             graphics.beginPath();
             for (let [from, to] of segments) {
                 graphics.moveTo(from.x, from.y).lineTo(to.x, to.y);
             }
-            graphics.stroke({width: width, color: color, alpha: 1});
-        };
-
-        strokeGroup(greenThin, linkLineWidth, GREEN);
-        strokeGroup(greenThick, linkLineWidth * 3, GREEN);
-        strokeGroup(blueThin, linkLineWidth, BLUE);
-        strokeGroup(blueThick, linkLineWidth * 3, BLUE);
+            graphics.stroke({width: style.width, color: style.color, alpha: 1});
+        }
 
         this._bgStage.addChild(graphics)
     }
