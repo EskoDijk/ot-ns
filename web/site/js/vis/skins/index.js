@@ -1,4 +1,4 @@
-// Copyright (c) 2020, The OTNS Authors.
+// Copyright (c) 2026, The OTNS Authors.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -23,23 +23,49 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
+// Registry of the visualization skins, selectable with the CLI command 'cv skin <name>'.
+// The names must match types.VisualizationSkins on the Go side.
 
-package dispatcher
+import ThreadSkin from "./thread";
+import ClassicSkin from "./classic";
 
-type VisualizationOptions struct {
-	BroadcastMessage bool
-	UnicastMessage   bool
-	AckMessage       bool
-	RouterTable      bool
-	ChildTable       bool
+const SKINS = {
+    thread: ThreadSkin,
+    classic: ClassicSkin,
+};
+
+export const DEFAULT_SKIN_NAME = 'thread';
+
+let skinName = DEFAULT_SKIN_NAME;
+let skin = new ThreadSkin();
+
+/**
+ * @returns {Skin} the active skin
+ */
+export function Skin() {
+    return skin;
 }
 
-func defaultVisualizationOptions() VisualizationOptions {
-	return VisualizationOptions{
-		BroadcastMessage: true,
-		UnicastMessage:   true,
-		AckMessage:       false,
-		RouterTable:      true,
-		ChildTable:       true,
-	}
+export function SkinName() {
+    return skinName;
+}
+
+export function SkinNames() {
+    return Object.keys(SKINS);
+}
+
+/**
+ * Activate the skin with the given name. Callers must then rebuild the skin-dependent
+ * objects (see PixiVisualizer.visSetVisualizationOptions).
+ * @returns {boolean} false if the name is unknown; the active skin is left unchanged.
+ */
+export function SetSkin(name) {
+    if (!(name in SKINS)) {
+        return false;
+    }
+    if (name !== skinName) {
+        skinName = name;
+        skin = new SKINS[name]();
+    }
+    return true;
 }

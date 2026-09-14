@@ -1244,8 +1244,8 @@ class OTNS(object):
         self.node_cmd(nodeid, f"commissioner joiner add {usr} CCMCCM{timeout_s}")
 
     def config_visualization(self, broadcast_message: bool = None, unicast_message: bool = None,
-                             ack_message: bool = None, router_table: bool = None, child_table: bool = None) \
-            -> Dict[str, bool]:
+                             ack_message: bool = None, router_table: bool = None, child_table: bool = None,
+                             partition_id: bool = None, skin: str = None) -> Dict[str, Union[bool, str]]:
         """
         Configure the visualization options.
 
@@ -1254,6 +1254,8 @@ class OTNS(object):
         :param ack_message: whether or not to visualize ACK messages
         :param router_table: whether or not to visualize router tables
         :param child_table: whether or not to visualize child tables
+        :param partition_id: whether or not to visualize the partition ID of nodes
+        :param skin: name of the visual style (skin) of the network visualization: 'thread' or 'classic'
 
         :return: the active visualization options
         """
@@ -1273,12 +1275,22 @@ class OTNS(object):
         if child_table is not None:
             cmd += " ctb " + ("on" if child_table else "off")
 
+        if partition_id is not None:
+            cmd += " pid " + ("on" if partition_id else "off")
+
+        if skin is not None:
+            cmd += " skin " + skin
+
         output = self._do_command(cmd)
         vopts = {}
         for line in output:
             line = line.split('=')
-            assert len(line) == 2 and line[1] in ('on', 'off'), line
-            vopts[line[0]] = (line[1] == "on")
+            assert len(line) == 2, line
+            if line[0] == 'skin':
+                vopts['skin'] = line[1]
+            else:
+                assert line[1] in ('on', 'off'), line
+                vopts[line[0]] = (line[1] == "on")
 
         # convert command options to python options
         vopts['broadcast_message'] = vopts.pop('bro')
@@ -1286,6 +1298,7 @@ class OTNS(object):
         vopts['ack_message'] = vopts.pop('ack')
         vopts['router_table'] = vopts.pop('rtb')
         vopts['child_table'] = vopts.pop('ctb')
+        vopts['partition_id'] = vopts.pop('pid')
 
         return vopts
 

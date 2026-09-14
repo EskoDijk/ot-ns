@@ -1,4 +1,4 @@
-// Copyright (c) 2020-2023, The OTNS Authors.
+// Copyright (c) 2020-2026, The OTNS Authors.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -39,8 +39,7 @@ export const FRAME_CONTROL_MASK_FRAME_TYPE = 0x7;
 export const FRAME_TYPE_ACK = 2;
 export const POWER_DBM_INVALID = 127;
 
-// colors and fonts
-export const COLOR_ACK_MESSAGE = 0xaee571;
+// fonts (colors of nodes, links and messages are defined per skin, see skins/)
 export const BUTTON_LABEL_FONT_FAMILY = 'verdana, helvetica, sans-serif';
 export const NODE_LABEL_FONT_FAMILY = 'helvetica, arial, monospace, sans-serif';
 export const NODE_LABEL_FONT_SIZE = 13;

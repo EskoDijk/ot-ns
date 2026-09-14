@@ -1,4 +1,4 @@
-// Copyright (c) 2022-2024, The OTNS Authors.
+// Copyright (c) 2022-2026, The OTNS Authors.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -117,6 +117,12 @@ func (mv *MultiVisualizer) Send(srcid NodeId, dstid NodeId, mvinfo *visualize.Ms
 func (mv *MultiVisualizer) SetNodePartitionId(nodeid NodeId, parid uint32) {
 	for _, v := range mv.vs {
 		v.SetNodePartitionId(nodeid, parid)
+	}
+}
+
+func (mv *MultiVisualizer) SetVisualizationOptions(opts VisualizationOptions) {
+	for _, v := range mv.vs {
+		v.SetVisualizationOptions(opts)
 	}
 }
 

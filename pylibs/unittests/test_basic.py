@@ -327,7 +327,7 @@ class BasicTests(OTNSTestCase):
         ns = self.ns
         vopts = ns.config_visualization()
         print('vopts', vopts)
-        for opt in ('broadcast_message', 'unicast_message', 'ack_message', 'router_table', 'child_table'):
+        for opt in ('broadcast_message', 'unicast_message', 'ack_message', 'router_table', 'child_table', 'partition_id'):
             self.assertTrue(opt in vopts)
 
             set_vals = (False, True) if vopts[opt] else (True, False)
@@ -339,19 +339,33 @@ class BasicTests(OTNSTestCase):
                                         unicast_message=True,
                                         ack_message=True,
                                         router_table=True,
-                                        child_table=True)
+                                        child_table=True,
+                                        partition_id=True)
 
-        for opt in ('broadcast_message', 'unicast_message', 'ack_message', 'router_table', 'child_table'):
+        for opt in ('broadcast_message', 'unicast_message', 'ack_message', 'router_table', 'child_table', 'partition_id'):
             self.assertTrue(vopts[opt])
 
         vopts = ns.config_visualization(broadcast_message=False,
                                         unicast_message=False,
                                         ack_message=False,
                                         router_table=False,
-                                        child_table=False)
+                                        child_table=False,
+                                        partition_id=False)
 
-        for opt in ('broadcast_message', 'unicast_message', 'ack_message', 'router_table', 'child_table'):
+        for opt in ('broadcast_message', 'unicast_message', 'ack_message', 'router_table', 'child_table', 'partition_id'):
             self.assertFalse(vopts[opt])
+
+        # skin selection
+        self.assertEqual(vopts['skin'], 'thread')
+        vopts = ns.config_visualization(skin='classic')
+        self.assertEqual(vopts['skin'], 'classic')
+        self.assertFalse(vopts['partition_id'])  # other options are unchanged
+        vopts = ns.config_visualization(skin='thread', partition_id=True)
+        self.assertEqual(vopts['skin'], 'thread')
+        self.assertTrue(vopts['partition_id'])
+        with self.assertRaises(errors.OTNSCliError):
+            ns.config_visualization(skin='nonexistent')
+        self.assertEqual(ns.config_visualization()['skin'], 'thread')
 
     def testWithOTNS(self):
         """

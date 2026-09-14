@@ -1149,7 +1149,12 @@ func (rt *CmdRunner) executeScan(cc *CommandContext, cmd *ScanCmd) {
 }
 
 func (rt *CmdRunner) executeConfigVisualization(cc *CommandContext, cmd *ConfigVisualizationCmd) {
-	var opts dispatcher.VisualizationOptions
+	var opts VisualizationOptions
+
+	if cmd.Skin != nil && !IsVisualizationSkin(cmd.Skin.Name) {
+		cc.errorf("unknown skin '%s', available skins: %s", cmd.Skin.Name, strings.Join(VisualizationSkins, ", "))
+		return
+	}
 
 	rt.postAsyncWait(cc, func(sim *simulation.Simulation) {
 		opts = sim.Dispatcher().GetVisualizationOptions()
@@ -1174,6 +1179,14 @@ func (rt *CmdRunner) executeConfigVisualization(cc *CommandContext, cmd *ConfigV
 			opts.ChildTable = cmd.ChildTable.OnOrOff.On != nil
 		}
 
+		if cmd.PartitionId != nil {
+			opts.PartitionId = cmd.PartitionId.OnOrOff.On != nil
+		}
+
+		if cmd.Skin != nil {
+			opts.Skin = cmd.Skin.Name
+		}
+
 		sim.Dispatcher().SetVisualizationOptions(opts)
 	})
 
@@ -1189,6 +1202,8 @@ func (rt *CmdRunner) executeConfigVisualization(cc *CommandContext, cmd *ConfigV
 	cc.outputf("ack=%s\n", bool_to_onoroff(opts.AckMessage))
 	cc.outputf("rtb=%s\n", bool_to_onoroff(opts.RouterTable))
 	cc.outputf("ctb=%s\n", bool_to_onoroff(opts.ChildTable))
+	cc.outputf("pid=%s\n", bool_to_onoroff(opts.PartitionId))
+	cc.outputf("skin=%s\n", opts.Skin)
 }
 
 func (rt *CmdRunner) enterNodeContext(nodeId NodeId) bool {
