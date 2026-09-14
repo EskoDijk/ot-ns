@@ -1285,8 +1285,9 @@ func (d *Dispatcher) AddNode(nodeid NodeId, cfg *NodeConfig) *Node {
 
 	if !d.isFirstNodeAdded {
 		d.speedStartRealTime = time.Now()
+		d.speedStartTime = d.CurTime
 		d.isFirstNodeAdded = true
-		logger.Debugf("Dispatcher simulation time t=0 marked at real time: %v", d.speedStartRealTime)
+		logger.Debugf("Dispatcher simulation time t=%d marked at real time: %v", d.CurTime, d.speedStartRealTime)
 	}
 	return node
 }

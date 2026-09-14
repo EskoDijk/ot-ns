@@ -235,7 +235,7 @@ func (s *Simulation) AddNode(cfg *NodeConfig) (*Node, error) {
 	// Simulation autogo starts with the first node that is added.
 	if !s.isFirstNodeAdded {
 		if s.autoGo {
-			s.autoGoChange <- true // trigger 'autogo' GoRoutine
+			s.signalAutoGo(true) // trigger 'autogo' GoRoutine
 		}
 		s.isFirstNodeAdded = true
 	}
@@ -299,14 +299,29 @@ func (s *Simulation) AutoGo() bool {
 	return s.autoGo
 }
 
+// SetAutoGo enables or disables autogo.
 func (s *Simulation) SetAutoGo(isAuto bool) {
 	if s.cfg.Realtime {
 		logger.AssertTrue(isAuto) // Required in real-time mode.
 		return
 	}
 	if s.autoGo != isAuto {
-		s.autoGoChange <- isAuto
 		s.autoGo = isAuto
+		if s.isFirstNodeAdded {
+			s.signalAutoGo(isAuto)
+		}
+	}
+}
+
+// signalAutoGo passes the latest autogo state to AutoGoRoutine without blocking.
+// Must be called on the dispatcher goroutine, so that there is only one sender.
+func (s *Simulation) signalAutoGo(isAuto bool) {
+	for {
+		select {
+		case s.autoGoChange <- isAuto:
+			return
+		case <-s.autoGoChange: // drop the unread pending state change, then retry the send.
+		}
 	}
 }
 
