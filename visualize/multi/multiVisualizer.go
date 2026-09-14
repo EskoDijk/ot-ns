@@ -120,6 +120,12 @@ func (mv *MultiVisualizer) SetNodePartitionId(nodeid NodeId, parid uint32) {
 	}
 }
 
+func (mv *MultiVisualizer) SetVisualizationOptions(opts VisualizationOptions) {
+	for _, v := range mv.vs {
+		v.SetVisualizationOptions(opts)
+	}
+}
+
 func (mv *MultiVisualizer) AdvanceTime(ts uint64, speed float64) {
 	for _, v := range mv.vs {
 		v.AdvanceTime(ts, speed)

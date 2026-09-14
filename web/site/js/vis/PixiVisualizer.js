@@ -37,7 +37,12 @@ import {
     STATUS_MSG_FONT_FAMILY,
     STATUS_MSG_FONT_SIZE,
     NODE_ID_INVALID,
-    NODE_LABEL_FONT_FAMILY
+    NODE_LABEL_FONT_FAMILY,
+    COLOR_LINK_ROUTER,
+    COLOR_LINK_PARENT_CHILD,
+    LINK_WIDTH_PARENT_CHILD,
+    LINK_WIDTH_ROUTER,
+    LINK_WIDTH_SELECTED_EXTRA
 } from "./consts";
 import Node from "./Node"
 import {AckMessage, BroadcastMessage, UnicastMessage} from "./message";
@@ -69,6 +74,11 @@ export default class PixiVisualizer extends VObject {
         this.nodes = {};
         this._messages = {};
         this.newNodePos = null;
+        // visualization options, see the 'cv' CLI command; defaults must match types.DefaultVisualizationOptions()
+        this.visOptions = {
+            broadcastMessage: true, unicastMessage: true, ackMessage: false,
+            routerTable: true, childTable: true, partitionId: true,
+        };
 
         this.root = new PIXI.Container();
         // this.root.width =
@@ -545,12 +555,19 @@ export default class PixiVisualizer extends VObject {
         )
     }
 
+    visSetVisualizationOptions(opts) {
+        this.visOptions = opts;
+        for (let nodeid in this.nodes) {
+            this.nodes[nodeid].setPartitionVisible(opts.partitionId);
+        }
+    }
+
     getPartitionColor(parid) {
         if (parid === 0) {
             return 0x000000
         }
-
-        return parid
+        // map the 32-bit partition ID to a 24-bit RGB color (Pixi rejects larger color values)
+        return parid & 0xffffff
     }
 
     setSelectedNode(id) {
@@ -613,18 +630,19 @@ export default class PixiVisualizer extends VObject {
     }
 
     _drawNodeLinks() {
-        let linkLineWidth = 1;
         // this._bgStage.removeChildAt(0)
         this._bgStage.removeChildren().forEach(child => child.destroy());
 
         const graphics = new PIXI.Graphics();
 
+        // Links between two Routers are orange and thicker than the (grey) links between a
+        // Router and an End Device; links touching the selected node are drawn thicker still.
+        // Note that FTD children (FED/REED) also report router-table entries for the Routers
+        // they hear, so a router-table link is only a Router-to-Router link if both ends are Routers.
         // Pixi v8 strokes the whole current path with a single style, so group
         // segments by (color, width) and stroke each group as its own path.
-        // Green = parent/child tree links, blue = neighbor links; links touching
-        // the selected node are drawn 3x thicker.
-        const GREEN = 0x8bc34a, BLUE = 0x1976d2;
-        const greenThin = [], greenThick = [], blueThin = [], blueThick = [];
+        const childThin = [], childThick = [], routerThin = [], routerThick = [];
+        const isRouter = (n) => n.role === OtDeviceRole.OT_DEVICE_ROLE_ROUTER || n.role === OtDeviceRole.OT_DEVICE_ROLE_LEADER;
 
         for (let nodeid in this.nodes) {
             let node = this.nodes[nodeid];
@@ -632,21 +650,25 @@ export default class PixiVisualizer extends VObject {
                 let parent = this.findNodeByExtAddr(node.parent);
                 if (parent !== null) {
                     let thick = nodeid == this._selectedNodeId || parent.id == this._selectedNodeId;
-                    (thick ? greenThick : greenThin).push([node.position, parent.position]);
+                    (thick ? childThick : childThin).push([node.position, parent.position]);
                 }
             }
             for (let extaddr in node._children) {
                 let child = this.findNodeByExtAddr(extaddr);
                 if (child) {
                     let thick = nodeid == this._selectedNodeId || child.id == this._selectedNodeId;
-                    (thick ? greenThick : greenThin).push([node.position, child.position]);
+                    (thick ? childThick : childThin).push([node.position, child.position]);
                 }
             }
             for (let extaddr in node._neighbors) {
                 let neighbor = this.findNodeByExtAddr(extaddr);
                 if (neighbor) {
                     let thick = nodeid == this._selectedNodeId;
-                    (thick ? blueThick : blueThin).push([node.position, neighbor.position]);
+                    if (isRouter(node) && isRouter(neighbor)) {
+                        (thick ? routerThick : routerThin).push([node.position, neighbor.position]);
+                    } else {
+                        (thick ? childThick : childThin).push([node.position, neighbor.position]);
+                    }
                 }
             }
         }
@@ -662,10 +684,10 @@ export default class PixiVisualizer extends VObject {
             graphics.stroke({width: width, color: color, alpha: 1});
         };
 
-        strokeGroup(greenThin, linkLineWidth, GREEN);
-        strokeGroup(greenThick, linkLineWidth * 3, GREEN);
-        strokeGroup(blueThin, linkLineWidth, BLUE);
-        strokeGroup(blueThick, linkLineWidth * 3, BLUE);
+        strokeGroup(childThin, LINK_WIDTH_PARENT_CHILD, COLOR_LINK_PARENT_CHILD);
+        strokeGroup(childThick, LINK_WIDTH_PARENT_CHILD + LINK_WIDTH_SELECTED_EXTRA, COLOR_LINK_PARENT_CHILD);
+        strokeGroup(routerThin, LINK_WIDTH_ROUTER, COLOR_LINK_ROUTER);
+        strokeGroup(routerThick, LINK_WIDTH_ROUTER + LINK_WIDTH_SELECTED_EXTRA, COLOR_LINK_ROUTER);
 
         this._bgStage.addChild(graphics)
     }

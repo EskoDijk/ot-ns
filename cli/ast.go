@@ -228,7 +228,8 @@ type ConfigVisualizationCmd struct {
 	UnicastMessage   *CVUnicastMessage   `| @@`    //nolint
 	AckMessage       *CVAckMessage       `| @@`    //nolint
 	RouterTable      *CVRouterTable      `| @@`    //nolint
-	ChildTable       *CVChildTable       `| @@ )*` //nolint
+	ChildTable       *CVChildTable       `| @@`    //nolint
+	PartitionId      *CVPartitionId      `| @@ )*` //nolint
 }
 
 // noinspection GoVetStructTag
@@ -258,6 +259,12 @@ type CVRouterTable struct {
 // noinspection GoVetStructTag
 type CVChildTable struct {
 	Flag    struct{}    `"ctb"` //nolint
+	OnOrOff OnOrOffFlag `@@`    //nolint
+}
+
+// noinspection GoVetStructTag
+type CVPartitionId struct {
+	Flag    struct{}    `"pid"` //nolint
 	OnOrOff OnOrOffFlag `@@`    //nolint
 }
 

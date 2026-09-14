@@ -41,6 +41,19 @@ export const POWER_DBM_INVALID = 127;
 
 // colors and fonts
 export const COLOR_ACK_MESSAGE = 0xaee571;
+// node and link colors, following the common Thread network diagram style
+export const COLOR_THREAD_ORANGE = 0xfd4f27;   // Routers, router-capable End Devices, Thread links
+export const COLOR_THREAD_GREY = 0x8499b0;     // Leader, End Devices that are not router-capable
+export const COLOR_BR_BLACK = 0x363636;        // Border Routers
+export const COLOR_NODE_FILL = 0xffffff;       // fill of End Device shapes
+export const COLOR_NODE_SELECTION = 0x363636;
+export const COLOR_LINK_ROUTER = COLOR_THREAD_ORANGE; // router-to-router links
+export const COLOR_LINK_PARENT_CHILD = 0x555555;      // Router to End Device (child) links
+export const COLOR_UNICAST_MESSAGE = 0x1565c0;
+export const COLOR_BROADCAST_MESSAGE = 0x1565c0;
+export const LINK_WIDTH_PARENT_CHILD = 1;
+export const LINK_WIDTH_ROUTER = 2;
+export const LINK_WIDTH_SELECTED_EXTRA = 2;           // added to links of the selected node
 export const BUTTON_LABEL_FONT_FAMILY = 'verdana, helvetica, sans-serif';
 export const NODE_LABEL_FONT_FAMILY = 'helvetica, arial, monospace, sans-serif';
 export const NODE_LABEL_FONT_SIZE = 13;

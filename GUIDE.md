@@ -100,6 +100,19 @@ Use a web browser to manage the simulated Thread network:
 - See some logged events
 - See nodes' energy usage (Beta feature - pending validation)
 
+The network visualization uses the common Thread network diagram style:
+
+- Router: solid orange pentagon; Leader: solid grey pentagon
+- End Device: circle with white fill. The outline is orange for a router-capable device (REED)
+  and grey for a device that is not router-capable (FED, MED, SED, SSED). Full Thread Devices
+  (REED, FED) have a thick outline and MTDs a thin one; sleepy MTDs have a dashed outline:
+  6 dashes = SSED, 8 dashes = SED.
+- Border Router (BR): solid black square (with a grey outline when it is the Leader)
+- Thread links: orange lines between two Routers; dark grey, thinner lines between a Router and an
+  End Device
+- The colored dot in the center of a node shows its partition; it can be switched off with the
+  CLI command `cv pid off`. Detached, disabled and failed nodes are drawn semi-transparent.
+
 ## Use OTNS CLI
 
 See [OTNS CLI Reference](cli/README.md).

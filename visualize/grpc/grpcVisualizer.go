@@ -89,6 +89,25 @@ func (gv *grpcVisualizer) SetNetworkInfo(networkInfo visualize.NetworkInfo) {
 	}}})
 }
 
+func (gv *grpcVisualizer) SetVisualizationOptions(opts VisualizationOptions) {
+	gv.Lock()
+	defer gv.Unlock()
+
+	gv.f.setVisualizationOptions(opts)
+	gv.addVisualizeEvent(newSetVisualizationOptionsEvent(opts))
+}
+
+func newSetVisualizationOptionsEvent(opts VisualizationOptions) *pb.VisualizeEvent {
+	return &pb.VisualizeEvent{Type: &pb.VisualizeEvent_SetVisualizationOptions{SetVisualizationOptions: &pb.SetVisualizationOptionsEvent{
+		BroadcastMessage: opts.BroadcastMessage,
+		UnicastMessage:   opts.UnicastMessage,
+		AckMessage:       opts.AckMessage,
+		RouterTable:      opts.RouterTable,
+		ChildTable:       opts.ChildTable,
+		PartitionId:      opts.PartitionId,
+	}}}
+}
+
 func (gv *grpcVisualizer) Init() {
 	//
 }
@@ -485,6 +504,11 @@ func (gv *grpcVisualizer) prepareStream(stream *grpcStream) error {
 		}); err != nil {
 			return err
 		}
+	}
+
+	// set visualization options
+	if err := stream.Send(newSetVisualizationOptionsEvent(gv.f.visOptions)); err != nil {
+		return err
 	}
 
 	// advance time

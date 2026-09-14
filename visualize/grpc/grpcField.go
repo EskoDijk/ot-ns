@@ -40,6 +40,7 @@ type grpcField struct {
 	titleInfo     visualize.TitleInfo
 	networkInfo   visualize.NetworkInfo
 	nodeStatsInfo visualize.NodeStatsInfo
+	visOptions    VisualizationOptions
 }
 
 func (f *grpcField) addNode(id NodeId, cfg *NodeConfig) *grpcNode {
@@ -139,6 +140,10 @@ func (f *grpcField) setNodeStatsInfo(info visualize.NodeStatsInfo) {
 	f.nodeStatsInfo = info
 }
 
+func (f *grpcField) setVisualizationOptions(opts VisualizationOptions) {
+	f.visOptions = opts
+}
+
 func newGrpcField() *grpcField {
 	gf := &grpcField{
 		nodes:         map[NodeId]*grpcNode{},
@@ -146,6 +151,7 @@ func newGrpcField() *grpcField {
 		speed:         1,
 		networkInfo:   visualize.DefaultNetworkInfo(),
 		nodeStatsInfo: visualize.DefaultNodeStatsInfo(),
+		visOptions:    DefaultVisualizationOptions(),
 	}
 	return gf
 }
