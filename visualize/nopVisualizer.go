@@ -118,6 +118,10 @@ func (nv *NopVisualizer) SetNodePartitionId(nodeid NodeId, parid uint32) {
 
 }
 
+func (nv *NopVisualizer) SetVisualizationOptions(opts VisualizationOptions) {
+
+}
+
 func (nv *NopVisualizer) AdvanceTime(ts uint64, speed float64) {
 
 }

@@ -27,10 +27,12 @@
 import * as PIXI from "pixi.js";
 import LVObject from "./LVObject";
 import {Resources} from "./resources";
-import {COLOR_ACK_MESSAGE} from "./consts";
+import {COLOR_ACK_MESSAGE, COLOR_BROADCAST_MESSAGE, COLOR_UNICAST_MESSAGE} from "./consts";
 
 const BROADCAST_MESSAGE_SCALE = 128;
+const BROADCAST_MESSAGE_BEGIN_RADIUS = 40;
 const UNICAST_MESSAGE_SCALE = 64;
+const UNICAST_MESSAGE_SIZE = 16;
 
 let nextMessageId = 1;
 
@@ -42,7 +44,7 @@ export class BroadcastMessage extends LVObject {
         this.mvInfo = mvInfo;
         this.src = src;
 
-        let beginRadius = 32;
+        let beginRadius = BROADCAST_MESSAGE_BEGIN_RADIUS;
         let sprite = new PIXI.Sprite(Resources().WhiteDashed8Circle128.texture);
         sprite.tint = this.getColor();
         sprite.scale.set(beginRadius * 2 / BROADCAST_MESSAGE_SCALE, beginRadius * 2 / BROADCAST_MESSAGE_SCALE);
@@ -55,7 +57,7 @@ export class BroadcastMessage extends LVObject {
     }
 
     getColor() {
-        return 0x1565c0
+        return COLOR_BROADCAST_MESSAGE
     }
 
     isBroadcast() {
@@ -71,7 +73,7 @@ export class BroadcastMessage extends LVObject {
         }
 
         try {
-            let beginRadius = 32;
+            let beginRadius = BROADCAST_MESSAGE_BEGIN_RADIUS;
             let playRatio = this.getLifetimeProgress();
             let radius = beginRadius + (this._targetRadius - beginRadius) * Math.pow(playRatio, 0.5);
             this.sprite.scale.set(radius * 2 / BROADCAST_MESSAGE_SCALE, radius * 2 / BROADCAST_MESSAGE_SCALE);
@@ -100,7 +102,7 @@ export class UnicastMessage extends LVObject {
         this.src = src;
         this.mvInfo = mvInfo;
 
-        let size = 10;
+        let size = UNICAST_MESSAGE_SIZE;
         let sprite = new PIXI.Sprite(Resources().WhiteSolidHexagon64.texture);
         sprite.tint = this.getColor();
         sprite.scale.set(size / UNICAST_MESSAGE_SCALE, size / UNICAST_MESSAGE_SCALE);
@@ -115,7 +117,7 @@ export class UnicastMessage extends LVObject {
     }
 
     getColor() {
-        return 0xff8f00
+        return COLOR_UNICAST_MESSAGE
     }
 
     update(dt) {
@@ -158,7 +160,7 @@ export class AckMessage extends LVObject {
         this.src = src;
         this.mvInfo = mvInfo;
 
-        let size = 10;
+        let size = UNICAST_MESSAGE_SIZE;
         let sprite = new PIXI.Sprite(Resources().WhiteSolidTriangle64.texture);
         sprite.tint = this.getColor();
         sprite.scale.set(size / UNICAST_MESSAGE_SCALE, size / UNICAST_MESSAGE_SCALE);

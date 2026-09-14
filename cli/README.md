@@ -169,6 +169,7 @@ Visualization Options:
 - `ack`: ACK message
 - `rtb`: router table
 - `ctb`: child table
+- `pid`: partition ID of nodes (shown as a colored dot)
 
 ```bash
 > cv
@@ -177,6 +178,7 @@ uni=on
 ack=off
 rtb=on
 ctb=on
+pid=on
 Done
 > cv bro off
 bro=off
@@ -184,13 +186,15 @@ uni=on
 ack=off
 rtb=on
 ctb=on
+pid=on
 Done
-> cv bro on uni on ack on rtb on ctb on
+> cv bro on uni on ack on rtb on ctb on pid on
 bro=on
 uni=on
 ack=on
 rtb=on
 ctb=on
+pid=on
 Done
 ```
 

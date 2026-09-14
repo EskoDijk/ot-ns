@@ -1,0 +1,156 @@
+// Copyright (c) 2026, The OTNS Authors.
+// All rights reserved.
+//
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+// 1. Redistributions of source code must retain the above copyright
+//    notice, this list of conditions and the following disclaimer.
+// 2. Redistributions in binary form must reproduce the above copyright
+//    notice, this list of conditions and the following disclaimer in the
+//    documentation and/or other materials provided with the distribution.
+// 3. Neither the name of the copyright holder nor the
+//    names of its contributors may be used to endorse or promote products
+//    derived from this software without specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+// POSSIBILITY OF SUCH DAMAGE.
+
+// Visual style of a node's shape in the network visualization, following the common
+// Thread network diagram conventions:
+//   - Router: solid orange pentagon. Leader: solid grey pentagon.
+//   - End Device: circle with white fill; orange outline if router-capable (REED),
+//     grey outline if not (FED/MED/SED/SSED). FTDs (REED/FED) get a thick outline, MTDs a
+//     thin one; sleepy MTDs get a dashed outline: 6 dashes = SSED, 8 dashes = SED.
+//   - Border Router (BR): solid black square. A Leader BR gets a grey outline; a BR that
+//     is not (yet) a Router is drawn with white fill and black outline.
+//   - Wi-Fi interferer node: solid grey circle.
+//   - Detached, disabled and failed nodes are drawn semi-transparent.
+
+import {OtDeviceRole} from '../proto/visualize_grpc_pb'
+import {COLOR_THREAD_ORANGE, COLOR_THREAD_GREY, COLOR_BR_BLACK, COLOR_NODE_FILL} from "./consts";
+
+export const CIRCULAR_SHAPE_RADIUS = 35;
+export const PENTAGON_SHAPE_RADIUS = 38;
+export const SQUARE_SHAPE_RADIUS = 33; // half of the square's side
+export const NODE_MAX_RADIUS = PENTAGON_SHAPE_RADIUS;
+const OUTLINE_WIDTH_MTD = 4;
+const OUTLINE_WIDTH_FTD = 6;
+const OUTLINE_WIDTH_LEADER_BR = 7;
+const DASH_FRACTION = 0.6; // drawn part of each dash period of a dashed outline
+const ALPHA_DETACHED = 0.5;
+const ALPHA_DISABLED = 0.3;
+
+// Node types (see types/types.go) that can become a Router, resp. cannot. Any other node
+// type (e.g. an externally started node) is classified by its Thread mode: FTD -> router-capable.
+const ROUTER_CAPABLE_TYPES = ['router', 'reed', 'ftd', 'br', 'matter'];
+const NOT_ROUTER_CAPABLE_TYPES = ['fed', 'wifi', 'med', 'mtd', 'sed', 'ssed'];
+
+export function isRouterCapable(nodeType, nodeMode) {
+    if (ROUTER_CAPABLE_TYPES.includes(nodeType)) {
+        return true;
+    }
+    if (NOT_ROUTER_CAPABLE_TYPES.includes(nodeType)) {
+        return false;
+    }
+    return nodeMode.getFullThreadDevice();
+}
+
+/**
+ * Determine the visual style of a node from its type ('router', 'fed', 'br', ...), OtDeviceRole,
+ * NodeMode and failed state.
+ * @returns {{shape: string, radius: number, fill: number, outline: (number|null), outlineWidth: number,
+ *            dashes: number, alpha: number}}
+ */
+export function getNodeVisualStyle(nodeType, role, nodeMode, failed) {
+    const isLeader = role === OtDeviceRole.OT_DEVICE_ROLE_LEADER;
+    const isRouterRole = isLeader || role === OtDeviceRole.OT_DEVICE_ROLE_ROUTER;
+    let style = {
+        shape: 'circle',
+        radius: CIRCULAR_SHAPE_RADIUS,
+        fill: COLOR_NODE_FILL,
+        outline: COLOR_THREAD_GREY,
+        outlineWidth: OUTLINE_WIDTH_FTD,
+        dashes: 0,
+        alpha: 1.0,
+    };
+
+    if (nodeType === 'br') {
+        style.shape = 'square';
+        style.radius = SQUARE_SHAPE_RADIUS;
+        style.outline = COLOR_BR_BLACK;
+        if (isRouterRole) {
+            style.fill = COLOR_BR_BLACK;
+            style.outline = isLeader ? COLOR_THREAD_GREY : null;
+            style.outlineWidth = OUTLINE_WIDTH_LEADER_BR;
+        }
+    } else if (nodeType === 'wifi') {
+        style.fill = COLOR_THREAD_GREY;
+        style.outline = null;
+    } else if (isRouterRole) {
+        style.shape = 'pentagon';
+        style.radius = PENTAGON_SHAPE_RADIUS;
+        style.fill = isLeader ? COLOR_THREAD_GREY : COLOR_THREAD_ORANGE;
+        style.outline = null;
+    } else {
+        style.outline = isRouterCapable(nodeType, nodeMode) ? COLOR_THREAD_ORANGE : COLOR_THREAD_GREY;
+        if (!nodeMode.getFullThreadDevice()) {
+            style.outlineWidth = OUTLINE_WIDTH_MTD;
+            if (!nodeMode.getRxOnWhenIdle()) {
+                style.dashes = nodeType === 'ssed' ? 6 : 8;
+            }
+        }
+    }
+
+    // a Wi-Fi node never joins the Thread network, so it is not shown as detached/disabled.
+    const useRole = nodeType !== 'wifi';
+    if (failed || (useRole && role === OtDeviceRole.OT_DEVICE_ROLE_DETACHED)) {
+        style.alpha = ALPHA_DETACHED;
+    } else if (useRole && role === OtDeviceRole.OT_DEVICE_ROLE_DISABLED) {
+        style.alpha = ALPHA_DISABLED;
+    }
+    return style;
+}
+
+/**
+ * Draw the node shape described by `style` (see getNodeVisualStyle) into `graphics`, centered
+ * at (0,0). The caller is responsible for applying style.alpha.
+ */
+export function drawNodeShape(graphics, style) {
+    graphics.clear();
+    const hasOutline = style.outline !== null;
+    // the stroke is centered on the path, so inset the path to keep the outer size at style.radius.
+    const r = hasOutline ? style.radius - style.outlineWidth / 2 : style.radius;
+    switch (style.shape) {
+        case 'pentagon':
+            graphics.regularPoly(0, 0, r, 5);
+            break;
+        case 'square':
+            graphics.rect(-r, -r, 2 * r, 2 * r);
+            break;
+        default:
+            graphics.circle(0, 0, r);
+    }
+    graphics.fill({color: style.fill});
+    if (!hasOutline) {
+        return;
+    }
+    if (style.dashes > 0) {
+        // dashed outline: stroke separate arcs instead of the shape's own path.
+        const period = 2 * Math.PI / style.dashes;
+        for (let i = 0; i < style.dashes; i++) {
+            const a0 = -Math.PI / 2 + i * period;
+            graphics.moveTo(r * Math.cos(a0), r * Math.sin(a0));
+            graphics.arc(0, 0, r, a0, a0 + period * DASH_FRACTION);
+        }
+    }
+    graphics.stroke({width: style.outlineWidth, color: style.outline});
+}

@@ -1,4 +1,4 @@
-// Copyright (c) 2020, The OTNS Authors.
+// Copyright (c) 2026, The OTNS Authors.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -24,22 +24,25 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-package dispatcher
+package types
 
+// VisualizationOptions defines which items the visualizer(s) show.
 type VisualizationOptions struct {
 	BroadcastMessage bool
 	UnicastMessage   bool
 	AckMessage       bool
 	RouterTable      bool
 	ChildTable       bool
+	PartitionId      bool // show the partition ID of each node (as a colored dot)
 }
 
-func defaultVisualizationOptions() VisualizationOptions {
+func DefaultVisualizationOptions() VisualizationOptions {
 	return VisualizationOptions{
 		BroadcastMessage: true,
 		UnicastMessage:   true,
 		AckMessage:       false,
 		RouterTable:      true,
 		ChildTable:       true,
+		PartitionId:      true,
 	}
 }

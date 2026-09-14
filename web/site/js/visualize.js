@@ -176,6 +176,17 @@ function loadOk() {
                 e = resp.getSetNetworkInfo();
                 vis.visSetNetworkInfo(e.getVersion(), e.getCommit(), e.getReal(), e.getNodeId(), e.getThreadVersion());
                 break;
+            case VisualizeEvent.TypeCase.SET_VISUALIZATION_OPTIONS:
+                e = resp.getSetVisualizationOptions();
+                vis.visSetVisualizationOptions({
+                    broadcastMessage: e.getBroadcastMessage(),
+                    unicastMessage: e.getUnicastMessage(),
+                    ackMessage: e.getAckMessage(),
+                    routerTable: e.getRouterTable(),
+                    childTable: e.getChildTable(),
+                    partitionId: e.getPartitionId(),
+                });
+                break;
             default:
                 break
         }

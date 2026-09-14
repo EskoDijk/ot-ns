@@ -1175,8 +1175,8 @@ class OTNS(object):
         self.node_cmd(nodeid, f"commissioner joiner add {usr} CCMCCM{timeout_s}")
 
     def config_visualization(self, broadcast_message: bool = None, unicast_message: bool = None,
-                             ack_message: bool = None, router_table: bool = None, child_table: bool = None) \
-            -> Dict[str, bool]:
+                             ack_message: bool = None, router_table: bool = None, child_table: bool = None,
+                             partition_id: bool = None) -> Dict[str, bool]:
         """
         Configure the visualization options.
 
@@ -1185,6 +1185,7 @@ class OTNS(object):
         :param ack_message: whether or not to visualize ACK messages
         :param router_table: whether or not to visualize router tables
         :param child_table: whether or not to visualize child tables
+        :param partition_id: whether or not to visualize the partition ID of nodes
 
         :return: the active visualization options
         """
@@ -1204,6 +1205,9 @@ class OTNS(object):
         if child_table is not None:
             cmd += " ctb " + ("on" if child_table else "off")
 
+        if partition_id is not None:
+            cmd += " pid " + ("on" if partition_id else "off")
+
         output = self._do_command(cmd)
         vopts = {}
         for line in output:
@@ -1217,6 +1221,7 @@ class OTNS(object):
         vopts['ack_message'] = vopts.pop('ack')
         vopts['router_table'] = vopts.pop('rtb')
         vopts['child_table'] = vopts.pop('ctb')
+        vopts['partition_id'] = vopts.pop('pid')
 
         return vopts
 

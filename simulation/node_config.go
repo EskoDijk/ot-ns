@@ -133,8 +133,9 @@ type NodeAutoPlacer struct {
 	X, Y, Z         int
 	Xref, Yref      int
 	Xmax            int
-	NodeDeltaCoarse int
-	NodeDeltaFine   int
+	NodeDeltaCoarse int // spacing of Routers (and other non-child nodes)
+	NodeDeltaFine   int // horizontal spacing of End Devices placed below their parent
+	NodeDeltaRow    int // vertical spacing of the rows of End Devices below their parent
 	fineCount       int
 	isReset         bool
 }
@@ -349,8 +350,9 @@ func NewNodeAutoPlacer() *NodeAutoPlacer {
 		X:               100,
 		Y:               100,
 		Z:               0,
-		NodeDeltaCoarse: 100,
-		NodeDeltaFine:   40,
+		NodeDeltaCoarse: 150,
+		NodeDeltaFine:   60,
+		NodeDeltaRow:    90,
 		fineCount:       0,
 		isReset:         true,
 	}
@@ -386,7 +388,7 @@ func (nap *NodeAutoPlacer) NextNodePosition(isBelowParent bool) (int, int, int) 
 	if isBelowParent {
 		fineCountCol = nap.fineCount % 16
 		fineCountRow = nap.fineCount / 16
-		y = nap.Y + (nap.NodeDeltaCoarse/2)*(fineCountRow+1)
+		y = nap.Y + nap.NodeDeltaRow*(fineCountRow+1)
 		x = nap.X + (fineCountCol*nap.NodeDeltaFine - nap.NodeDeltaFine)
 		nap.fineCount++
 	} else {

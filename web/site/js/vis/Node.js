@@ -30,14 +30,15 @@ import {NodeMode, OtDeviceRole} from '../proto/visualize_grpc_pb'
 import {Visualizer} from "./PixiVisualizer";
 import {Resources} from "./resources";
 import {NODE_ID_INVALID, NODE_LABEL_FONT_FAMILY, NODE_LABEL_FONT_SIZE, POWER_DBM_INVALID,
-        EXT_ADDR_INVALID} from "./consts";
+        EXT_ADDR_INVALID, COLOR_NODE_SELECTION, COLOR_THREAD_GREY} from "./consts";
+import {NODE_MAX_RADIUS, getNodeVisualStyle, drawNodeShape} from "./nodeStyle";
 
-const NODE_SHAPE_SCALE = 64;
 const NODE_SELECTION_SCALE = 128;
+const NODE_SELECTION_BOX_SIZE = 105;
 const NODE_Z_SCALER = 2000;
-const CIRCULAR_SHAPE_RADIUS = 20;
-const HEXAGONAL_SHAPE_RADIUS = 22;
-const SQUARE_SHAPE_RADIUS = 22;
+const NODE_LABEL_OFFSET = 26; // label starts just outside the node shape (bottom-right)
+const PARTITION_DOT_RADIUS = 10;
+const FAILED_MARK_SCALE = 0.85;
 
 let vis = Visualizer();
 
@@ -75,18 +76,19 @@ export default class Node extends VObject {
         this.z = z;
         this.position.set(x, y);
 
-        let radius = CIRCULAR_SHAPE_RADIUS;
-        let statusSprite = this._createStatusSprite();
-        statusSprite.tint = this.getRoleColor();
-        statusSprite.anchor.x = 0.5;
-        statusSprite.anchor.y = 0.5;
-        statusSprite.scale.x = statusSprite.scale.y = radius * 2 / NODE_SHAPE_SCALE;
-        this._root.addChild(statusSprite);
-        this._statusSprite = statusSprite;
+        // the node body: its role/type dependent shape with a partition indicator dot on top.
+        let body = new PIXI.Container();
+        this._shape = new PIXI.Graphics();
+        body.addChild(this._shape);
+        this._partitionDot = new PIXI.Graphics();
+        this._partitionDot.visible = this.vis.visOptions.partitionId;
+        body.addChild(this._partitionDot);
+        this._root.addChild(body);
+        this._body = body;
+        this._redraw();
 
         let node = this;
         this._root.eventMode = 'static';
-        this._root.hitArea = new PIXI.Circle(0, 0, radius);
         this.setOnTouchStart((e) => {
             this.vis.setSelectedNode(node.id);
             e.stopPropagation();
@@ -97,25 +99,17 @@ export default class Node extends VObject {
 
         this.setDraggable();
 
-        let partitionSprite = this._createPartitionSprite();
-        partitionSprite.anchor.x = 0.5;
-        partitionSprite.anchor.y = 0.5;
-        partitionSprite.scale.x = partitionSprite.scale.y = radius * 2 / NODE_SHAPE_SCALE / 1.5;
-        partitionSprite.tint = this.vis.getPartitionColor(this._partition);
-        this._root.addChild(partitionSprite);
-        this._partitionSprite = partitionSprite;
-
         this._updateSize();
 
         let label = new PIXI.Text({text: "", style: {fontFamily: NODE_LABEL_FONT_FAMILY, fontSize: NODE_LABEL_FONT_SIZE, align: 'left'}});
-        label.position.set(11, 11);
+        label.position.set(NODE_LABEL_OFFSET, NODE_LABEL_OFFSET);
         this._root.addChild(label);
         this.label = label;
         this._updateLabel();
 
         let failedMask = new PIXI.Sprite(Resources().FailedNodeMark.texture);
         failedMask.anchor.set(0.5, 0.5);
-        failedMask.scale.set(0.5, 0.5);
+        failedMask.scale.set(FAILED_MARK_SCALE, FAILED_MARK_SCALE);
         failedMask.visible = false;
         this._root.addChild(failedMask);
         this._failedMask = failedMask
@@ -128,7 +122,8 @@ export default class Node extends VObject {
     set failed(v) {
         if (this._failed !== v) {
             this._failed = v;
-            this._failedMask.visible = this._failed
+            this._failedMask.visible = this._failed;
+            this._redraw();
         }
     }
 
@@ -147,7 +142,7 @@ export default class Node extends VObject {
     set partition(v) {
         if (v !== this._partition) {
             this._partition = v;
-            this._partitionSprite.tint = this.vis.getPartitionColor(this._partition)
+            this._redrawPartitionDot();
         }
     }
 
@@ -155,46 +150,25 @@ export default class Node extends VObject {
         return "node"
     }
 
-    _createStatusSprite() {
-        return new PIXI.Sprite(this._getStatusSpriteTexture());
+    /**
+     * Redraw the node shape after a change of role, mode or failed state. See nodeStyle.js
+     * for the visual style rules.
+     */
+    _redraw() {
+        let style = getNodeVisualStyle(this.type, this.role, this.nodeMode, this.failed);
+        drawNodeShape(this._shape, style);
+        this._body.alpha = style.alpha;
+        this._redrawPartitionDot();
     }
 
-    _createPartitionSprite() {
-        return new PIXI.Sprite(this._getPartitionSpriteTexture());
+    _redrawPartitionDot() {
+        this._partitionDot.clear();
+        this._partitionDot.circle(0, 0, PARTITION_DOT_RADIUS);
+        this._partitionDot.fill({color: this.vis.getPartitionColor(this._partition)});
     }
 
-    _getStatusSpriteTexture() {
-        if (this.type === 'br') {
-            return Resources().WhiteSolidSquare64.texture;
-        }
-        switch (this.role) {
-            case OtDeviceRole.OT_DEVICE_ROLE_LEADER:
-            case OtDeviceRole.OT_DEVICE_ROLE_ROUTER:
-                return Resources().WhiteSolidHexagon64.texture;
-        }
-        if (this.nodeMode.getFullThreadDevice()) {
-            return Resources().WhiteSolidCircle64.texture;
-        } else if (this.nodeMode.getRxOnWhenIdle()) {
-            return Resources().WhiteDashed4Circle64.texture;
-        } else {
-            if (this.type == 'ssed'){
-                return Resources().WhiteDashed6Circle64.texture;
-            }
-            return Resources().WhiteDashed8Circle64.texture;
-        }
-    }
-
-    _getPartitionSpriteTexture() {
-        if (this.type === 'br') {
-            return Resources().WhiteSolidSquare64.texture;
-        }
-        switch (this.role) {
-            case OtDeviceRole.OT_DEVICE_ROLE_LEADER:
-            case OtDeviceRole.OT_DEVICE_ROLE_ROUTER:
-                return Resources().WhiteSolidHexagon64.texture;
-            default:
-                return Resources().WhiteSolidCircle64.texture;
-        }
+    setPartitionVisible(visible) {
+        this._partitionDot.visible = visible;
     }
 
     setPosition(x, y, z) {
@@ -216,18 +190,9 @@ export default class Node extends VObject {
     }
 
     _updateSize() {
-        let radius = CIRCULAR_SHAPE_RADIUS;
         let heightScale = 1.0 + this.z / NODE_Z_SCALER;
-        if (this.type === 'br') {
-            radius = SQUARE_SHAPE_RADIUS;
-        }
-        switch (this.role) {
-            case OtDeviceRole.OT_DEVICE_ROLE_LEADER:
-            case OtDeviceRole.OT_DEVICE_ROLE_ROUTER:
-                radius = HEXAGONAL_SHAPE_RADIUS
-        }
-        this._statusSprite.scale.x = this._statusSprite.scale.y = radius * 2 / NODE_SHAPE_SCALE * heightScale;
-        this._partitionSprite.scale.x = this._partitionSprite.scale.y = radius * 2 / NODE_SHAPE_SCALE / 1.5  * heightScale;
+        this._body.scale.set(heightScale);
+        this._root.hitArea = new PIXI.Circle(0, 0, NODE_MAX_RADIUS * heightScale);
     }
 
     setRloc16(rloc16) {
@@ -240,10 +205,7 @@ export default class Node extends VObject {
     setRole(role) {
         if (role != this.role) {
             this.role = role;
-            this._statusSprite.tint = this.getRoleColor();
-            this._statusSprite.texture = this._getStatusSpriteTexture();
-            this._partitionSprite.texture = this._getPartitionSpriteTexture();
-            this._updateSize()
+            this._redraw();
         }
         if (role == OtDeviceRole.OT_DEVICE_ROLE_DISABLED || role == OtDeviceRole.OT_DEVICE_ROLE_DETACHED) {
             this._parent = NODE_ID_INVALID;
@@ -256,7 +218,7 @@ export default class Node extends VObject {
     setMode(mode) {
         if (mode != this.nodeMode) {
             this.nodeMode = mode;
-            this._statusSprite.texture = this._getStatusSpriteTexture();
+            this._redraw();
         }
     }
 
@@ -267,26 +229,6 @@ export default class Node extends VObject {
     setOTVersion(version, commit) {
         this.otVersion = version;
         this.otCommit = commit;
-    }
-
-    getRoleColor() {
-        if (this.failed) {
-            return 0x757575
-        }
-
-        switch (this.role) {
-            case OtDeviceRole.OT_DEVICE_ROLE_LEADER:
-                return 0xc62828;
-            case OtDeviceRole.OT_DEVICE_ROLE_ROUTER:
-                return 0x1565c0;
-            case OtDeviceRole.OT_DEVICE_ROLE_CHILD:
-                return 0x4caf50;
-            case OtDeviceRole.OT_DEVICE_ROLE_DETACHED:
-                return 0x546e7a;
-            case OtDeviceRole.OT_DEVICE_ROLE_DISABLED:
-                return 0x757575
-        }
-        return 0x757575
     }
 
     addRouterTable(extaddr) {
@@ -328,11 +270,10 @@ export default class Node extends VObject {
     onSelected() {
         this._selected = true;
         if (!this._selbox) {
-            const selboxsize = 60;
             let selbox = new PIXI.Sprite(Resources().WhiteRoundedDashedSquare128.texture);
-            selbox.tint = 0x2e7d32;
+            selbox.tint = COLOR_NODE_SELECTION;
             selbox.alpha = 0.7;
-            selbox.scale.set(selboxsize / NODE_SELECTION_SCALE, selboxsize / NODE_SELECTION_SCALE);
+            selbox.scale.set(NODE_SELECTION_BOX_SIZE / NODE_SELECTION_SCALE, NODE_SELECTION_BOX_SIZE / NODE_SELECTION_SCALE);
             selbox.anchor.set(0.5, 0.5);
             this.root.addChildAt(selbox, 0);
             this._selbox = selbox;
@@ -340,8 +281,8 @@ export default class Node extends VObject {
             const rangeCircleSize = this.radioRange;
             let rangeCircle = new PIXI.Graphics();
             rangeCircle.circle(0, 0, rangeCircleSize);
-            rangeCircle.fill({color: 0x98ee99, alpha: 0.2});
-            rangeCircle.stroke({width: 1, color: 0x338a3e, alpha: 0.7});
+            rangeCircle.fill({color: COLOR_THREAD_GREY, alpha: 0.12});
+            rangeCircle.stroke({width: 1, color: COLOR_THREAD_GREY, alpha: 0.7});
             this.root.addChildAt(rangeCircle, 0);
             this._rangeCircle = rangeCircle;
         }
