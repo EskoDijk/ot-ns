@@ -572,6 +572,7 @@ func (d *Dispatcher) HandleEvent(evt *Event) {
 		// No further handling is needed; the node info was already used at this point.
 	case EventTypeNodeDisconnected:
 		d.Counters.OtherEvents += 1
+		d.alarmMgr.SetNotified(node.Id)
 		node.DisconnectSocket() // close also from the local side
 		d.setSleeping(node.Id)
 		d.cbHandler.OnNodeDisconnected(node.Id)
@@ -891,6 +892,7 @@ func (d *Dispatcher) advanceNodeTime(node *Node, timestamp uint64, force bool) {
 	}
 
 	if !node.IsConnected() {
+		d.alarmMgr.SetNotified(node.Id)
 		return
 	}
 

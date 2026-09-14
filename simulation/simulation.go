@@ -529,7 +529,7 @@ func (s *Simulation) MoveNodeTo(nodeid NodeId, x, y int, z *int) error {
 
 func (s *Simulation) DeleteNode(nodeid NodeId) error {
 	node := s.nodes[nodeid]
-	if node == nil {
+	if node == nil || node.isExiting {
 		err := fmt.Errorf("node %d not found", nodeid)
 		return err
 	}
@@ -542,8 +542,8 @@ func (s *Simulation) DeleteNode(nodeid NodeId) error {
 		// in real-time mode, finalizing node exit is handled in the background.
 		go func() {
 			node.finalizeExit()
-			s.waitForSimulation()
 			s.PostAsync(func() {
+				s.waitForSimulation()
 				delete(s.nodes, nodeid)
 				s.d.DeleteNode(nodeid)
 			})

@@ -75,6 +75,7 @@ type Node struct {
 	threadVersion uint16
 	isSendStarted bool
 	isExiting     bool
+	exitOnce      sync.Once // makes finalizeExit() do its work at most once
 	sendGroupIds  map[int]struct{}
 
 	pendingLines     chan string       // OT node CLI output lines, pending processing.
@@ -305,14 +306,18 @@ func (node *Node) initiateExit() {
 	}
 }
 
-// finalizeExit completes the node exit process, ensuring all resources are released and any
-// remaining (exit) log messages are captured in the node log.
+// finalizeExit completes exit of the node's process, ensuring all resources are released and any
+// remaining (exit) log messages are captured in the node log. Must be preceded by initiateExit().
+// Safe to call from any goroutine, and more than once: only the first call does the work, and a
+// concurrent call blocks until that first call has completed.
 func (node *Node) finalizeExit() {
+	node.exitOnce.Do(node.doFinalizeExit)
+}
+
+func (node *Node) doFinalizeExit() {
 	var err error
 
-	if !node.isExiting {
-		node.initiateExit()
-	}
+	logger.AssertTrue(node.isExiting) // initiateExit() must be called first, on the dispatcher goroutine.
 
 	// Close stdin only — no more input to the process, without interrupting the stdout/stderr readers.
 	if node.pipeIn != nil {
