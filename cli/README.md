@@ -101,6 +101,8 @@ autogo [ 1 | 0 ]
 Use without parameter to get the property's value. If true (1), then autogo is enabled and the  
 simulation automatically runs with the current speed. If false (0), the simulation does not automatically run and requires an explicit `go` command to advance a particular time period. Use with a parameter to set the value.
 
+Note that an `autogo 1` command will not advance simulation time yet if no node has ever been added to the simulation previously.
+
 ```bash
 > autogo
 1
@@ -256,7 +258,6 @@ mtd: ot-cli-mtd
 br : ot-cli-ftd_br
 rcp: ot-rcp
 host: ot-cli
-<<<<<<< HEAD
 Executables search path: [".", "./ot-rfsim/ot-versions", "/home/user/otns/ot-rfsim/ot-versions"]
 Detected FTD path      : ./ot-rfsim/ot-versions/ot-cli-ftd
 Detected MTD path      : ./ot-rfsim/ot-versions/ot-cli-mtd
