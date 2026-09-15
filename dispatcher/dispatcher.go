@@ -555,7 +555,14 @@ func (d *Dispatcher) HandleEvent(evt *Event) {
 		d.Counters.UartWriteEvents += 1
 		d.cbHandler.OnUartWrite(node.Id, evt.Data)
 	case EventTypeUartDisconnected:
-		d.Counters.UartWriteEvents += 1
+		d.Counters.OtherEvents += 1
+		if !node.IsConnected() {
+			// The node never connected its socket (e.g. its process or RCP failed at startup), so no
+			// NodeDisconnected event will follow. Mark it disconnected, so it's never marked alive
+			// again, and stop waiting for events from it.
+			node.DisconnectSocket()
+			d.setSleeping(node.Id)
+		}
 		d.cbHandler.OnUartDisconnected(node.Id)
 	case EventTypeLogWrite:
 		d.Counters.LogWriteEvents += 1
