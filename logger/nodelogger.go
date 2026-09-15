@@ -166,11 +166,10 @@ func (nl *NodeLogger) LogOt(levelAndMsg string, alternateMarker bool) {
 	if alternateMarker {
 		levelAndMsg = setAlternativeOtLogMarker(levelAndMsg)
 	}
-	if isOtLogLine {
-		NodeLogf(nl.Id, level, levelAndMsg)
-	} else {
-		NodeLogf(nl.Id, WarnLevel, levelAndMsg) // warn that the level label is missing
+	if !isOtLogLine {
+		level = InfoLevel
 	}
+	NodeLogf(nl.Id, level, levelAndMsg)
 }
 
 func (nl *NodeLogger) Log(level Level, msg string) {

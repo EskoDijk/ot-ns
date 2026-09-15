@@ -904,6 +904,7 @@ func (node *Node) onStart() {
 
 // lineReaderStdErr reads the StdErr of any OT nodes and turns each line into a log event.
 // For RCP+Posix, OTNS status push lines will be detected, since these are routed as log entries.
+// Lines that are not OT log output (e.g. from perror()) are labeled to be logged at 'error' level.
 func (node *Node) lineReaderStdErr(reader io.Reader) {
 	syslogPrefix := ""
 	scanner := bufio.NewScanner(reader)
@@ -911,16 +912,18 @@ func (node *Node) lineReaderStdErr(reader io.Reader) {
 
 	for scanner.Scan() {
 		line := scanner.Text()
+		isOtLogLine := false
 
 		if node.cfg.IsRcp {
-			// ot-cli RCPs have a syslog prefix that is removed here.
+			// ot-cli RCP hosts have a syslog prefix that is removed here.
 			if syslogPrefix == "" {
 				if prefix := logger.ParseSyslogPrefix(line); prefix != "" {
-					syslogPrefix = prefix // prefix remains identical for node's lifetime
+					syslogPrefix = prefix // lazy init; prefix remains identical for node's lifetime
 				}
 			}
 			if syslogPrefix != "" && strings.HasPrefix(line, syslogPrefix) {
 				line = line[len(syslogPrefix):]
+				isOtLogLine = true
 			}
 			if isStatusPush, status := logger.ParseOtnsStatusPush(line); isStatusPush {
 				ev := &event.Event{
@@ -930,7 +933,12 @@ func (node *Node) lineReaderStdErr(reader io.Reader) {
 					NodeId: node.Id,
 				}
 				node.S.Dispatcher().PostEventAsync(ev)
+				isOtLogLine = true
 			}
+		}
+		if !isOtLogLine {
+			// Raw stderr output (e.g. perror(), fprintf(stderr, ...)), not an OT log line: log at error level.
+			line = "[C] StdErr--------: " + line
 		}
 
 		ev := &event.Event{
