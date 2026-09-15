@@ -233,6 +233,9 @@ func (nl *NodeLogger) writeToLogFile(line string) error {
 // This includes writing any pending entries to the node log file.
 func (nl *NodeLogger) DisplayPendingLogEntries(ts uint64) {
 	nl.timestampUs = ts
+	if len(nl.entries) == 0 {
+		return // low-overhead exit: important, since called every simulation time advance.
+	}
 	tsStr := fmt.Sprintf("%11d ", ts)
 	nodeStr := GetNodeName(nl.Id)
 	for {

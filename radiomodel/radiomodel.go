@@ -79,7 +79,9 @@ type RadioModel interface {
 	OnEventDispatch(srcNode *RadioNode, dstNode *RadioNode, evt *Event) bool
 
 	// OnNextEventTime is called when the Dispatcher moves the simulation time to a higher timestamp ts,
-	// after all events for previous times have been processed.
+	// after all events for previous times have been processed. It's called on every time advance: at event
+	// times, and also in between (e.g. in real-time mode). An implementations must be light-weight
+	// if there is nothing to do.
 	OnNextEventTime(ts uint64)
 
 	// HandleEvent handles all radio-model events coming out of the simulator event queue.

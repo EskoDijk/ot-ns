@@ -1158,6 +1158,9 @@ func (node *Node) setupMode() {
 }
 
 func (node *Node) DisplayPendingLines() {
+	if len(node.pendingLines) == 0 {
+		return // lightweight exit: needed, as this is called on every simulation time advance.
+	}
 	prefix := ""
 	if node.S.cmdRunner.GetNodeContext() != node.Id {
 		prefix = node.name

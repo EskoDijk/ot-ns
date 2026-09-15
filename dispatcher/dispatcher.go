@@ -65,7 +65,9 @@ type CallbackHandler interface {
 	// When isFromHost is true, the log item was produced by the node's Posix host process.
 	OnLogWrite(nodeid NodeId, data []byte, isFromHost bool)
 
-	// OnNextEventTime Notifies that the Dispatcher simulated-time will move to the next event time nextTimeUs.
+	// OnNextEventTime Notifies that the Dispatcher simulated-time is about to advance to nextTimeUs.
+	// It's called on every time advance: at event times, or in between (e.g. in real-time mode).
+	// An implementations must be lightweight when there is nothing to do.
 	OnNextEventTime(nextTimeUs uint64)
 
 	// OnRfSimEvent Notifies that Dispatcher received an OT-RFSIM platform event that it didn't handle itself.
