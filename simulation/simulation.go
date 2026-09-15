@@ -516,14 +516,13 @@ func (s *Simulation) SimHosts() *SimHosts {
 	return s.simHosts
 }
 
+// VisitNodesInOrder calls cb for each simulation node, in order of node id.
 func (s *Simulation) VisitNodesInOrder(cb func(node *Node)) {
-	var nodeids []NodeId
-	for nodeid := range s.nodes {
-		nodeids = append(nodeids, nodeid)
-	}
-	sort.Ints(nodeids)
-	for _, nodeid := range nodeids {
-		cb(s.nodes[nodeid])
+	// The dispatcher's node list is sorted by id, and rebuilt when a node is added or deleted.
+	for _, dnode := range s.d.Nodes() {
+		if node := s.nodes[dnode.Id]; node != nil {
+			cb(node)
+		}
 	}
 }
 
