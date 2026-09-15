@@ -328,26 +328,35 @@ func (node *Node) doFinalizeExit() {
 		node.Logger.Tracef("Waiting for process PID %d to exit ...", node.cmd.Process.Pid)
 		waitDone := make(chan error, 1)
 		go func() {
-			// cmd.Wait() reaps the process and closes pipeOut/pipeErr (per StdoutPipe/StderrPipe docs),
-			// delivering EOF to the reader goroutines so they drain cleanly.
+			// pipeOut/pipeErr will be closed by cmd.Wait(); so first wait for the reader goroutines to finish
+			// reading any remaining lines, and putting these into eventChan, before cmd.Wait().
+			node.pipesDone.Wait()
+
+			// cmd.Wait() reaps the process and closes pipeOut/pipeErr (per StdoutPipe/StderrPipe docs).
 			waitDone <- node.cmd.Wait()
 		}()
+
 		select {
 		case err = <-waitDone:
 			// continue
 		case <-time.After(NodeExitTimeout):
 			node.Logger.Warn("Node did not exit in time, sending SIGKILL.")
 			_ = node.cmd.Process.Kill()
-			err = <-waitDone
+			select {
+			case err = <-waitDone:
+				// continue, node.pipesDone completed
+			case <-time.After(NodeExitTimeout):
+				// Another process may hold the node's stdout/stderr: close our read ends to stop the readers.
+				node.Logger.Warn("Node output pipes still open after SIGKILL, closing them.")
+				_ = node.pipeOut.Close()
+				_ = node.pipeErr.Close()
+				err = <-waitDone
+			}
 		}
 		// typical err values: nil, "signal: killed" (SIGKILL), "signal: broken pipe", or "exit: ..."
 		node.Logger.Tracef("Node process exited. Wait().err=%v", err)
 		node.Logger.Debugf("Node process exited.")
 	}
-
-	// pipeOut/pipeErr are now closed by cmd.Wait(); wait for the reader goroutines to finish
-	// reading any remaining lines, and putting these into eventChan, before finalizing.
-	node.pipesDone.Wait()
 
 	// post a task to get remaining (log/UART) items from eventChan and display final node's output
 	node.S.PostAsync(func() {
@@ -1099,7 +1108,9 @@ func (node *Node) setupCli() error {
 	case 1:
 		testCmdOutput = outputLines[0]
 	case 2:
-		logger.AssertEqual(testCmd, outputLines[0])
+		if testCmd != outputLines[0] {
+			return fmt.Errorf("node did not provide expected command echo for '%s', but: '%s'", testCmd, outputLines[0])
+		}
 		node.uartHasEcho = true
 		testCmdOutput = outputLines[1]
 	default:
