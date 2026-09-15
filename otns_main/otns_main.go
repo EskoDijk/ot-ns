@@ -140,11 +140,6 @@ func parseListenAddr() (int, error) {
 }
 
 func validateArgs() error {
-	// TODO: below constraint is only applicable when Posix+RCP nodes will be supported in the future.
-	// Revisit this constraint at that time.
-	if args.Realtime && args.OutputDir != DefaultOutputDir {
-		return errors.New("-realtime cannot be combined with a non-default -output: externally started OT nodes may write flash files to '" + DefaultOutputDir + "' always")
-	}
 	if args.Realtime && args.RandomSeed != 0 {
 		return errors.New("-realtime cannot be combined with -seed: real-time simulations with external/Posix nodes are not fully reproducible")
 	}

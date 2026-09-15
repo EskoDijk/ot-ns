@@ -97,14 +97,6 @@ func newNode(s *Simulation, nodeid NodeId, cfg *NodeConfig, dnode *dispatcher.No
 	var args []string
 	var exePath string
 
-	if !cfg.Restore && !cfg.IsExternal {
-		flashFile := fmt.Sprintf("%s/%d_%d.flash", s.cfg.OutputDir, s.cfg.Id, nodeid)
-		if err = os.Remove(flashFile); err != nil && !os.IsNotExist(err) {
-			err = fmt.Errorf("remove flash file %s failed: %w", flashFile, err)
-			return nil, err
-		}
-	}
-
 	// check executables and construct process args
 	if cfg.IsRcp {
 		// First check if the to-be-forked RCP executable can be found.
@@ -122,7 +114,8 @@ func newNode(s *Simulation, nodeid NodeId, cfg *NodeConfig, dnode *dispatcher.No
 
 		// Flag -d 5 to enable all levels of log messages to be captured in the node's log file.
 		// Flag -v to also send log messages to stderr, so OTNS can capture them.
-		args = append(args, "-d", "5", "-v")
+		// Flag --data-path stores the host's settings (.data) file in the OTNS output dir.
+		args = append(args, "-d", "5", "-v", "--data-path", s.cfg.OutputDir)
 		// Provide the args: node-id, socket name and random seed, through the
 		// SPINEL URL's forkpty-arg query parameter, that can be repeated.
 		// TODO: change to url.URL url.Values query builder, but only after ot-cli accepts percent-encoded URLs.
