@@ -949,8 +949,8 @@ func (node *Node) lineReaderStdErr(reader io.Reader) {
 	node.stdoutReaderDone.Wait()
 
 	// send an event to the queue to unblock waitForSimulation() in case it is waiting for new
-	// events from this node. The event handler will set the node to sleeping/disconnected, thereby unblocking
-	// any ongoing wait for the node.
+	// events from this node. If the node never connected its socket (e.g. its process or RCP failed at startup),
+	// the event handler sets the node to sleeping, thereby unblocking any ongoing wait for the node.
 	node.S.Dispatcher().PostEventAsync(&event.Event{
 		Delay:  0,
 		Type:   event.EventTypeUartDisconnected,
