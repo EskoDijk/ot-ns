@@ -284,10 +284,10 @@ cd ot-rfsim
 [... build output here ...]
 Build of 'otbr-agent' done.
 Copy otbr-agent to /usr/local/sbin for use by OTNS? [y/N]
-[... next question here ...]
+[... next questions here ...]
 ```
 
-Answer 'y' to the two questions to copy the build result. This requires entering your password (for sudo). It results in the two binaries being installed locally, to be used by OTNS.
+Answer 'y' to the questions to install the build result. This requires entering your password (for sudo). It results in the two binaries being installed locally, to be used by OTNS, and a D-Bus policy file being installed in `/etc/dbus-1/system.d`. The policy allows `otbr-agent`, running as root, to register its D-Bus service: without it, `otbr-agent` exits after 30 seconds. The D-Bus policy question is skipped if a policy for `otbr-agent` is already installed, for example by an earlier OTBR installation. An existing policy is never overwritten.
 
 To run these, OTNS needs root access (sudo) for these binaries. When starting an OTBR node, OTNS will try to execute both using the `sudo -n` non-interactive invocation. To make this work, both binaries need to be added to the `/etc/sudoers` list by using `sudo visudo` and then adding the below two lines at the end of the file:
 
