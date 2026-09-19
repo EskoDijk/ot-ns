@@ -163,7 +163,7 @@ func (nl *NodeLogger) IsLevelVisible(level Level) bool {
 // alternative marker, which provides visual distinction between logging node types.
 func (nl *NodeLogger) LogOt(levelAndMsg string, alternateMarker bool) {
 	isOtLogLine, level := ParseOtLogLine(levelAndMsg)
-	if alternateMarker {
+	if alternateMarker && isOtLogLine {
 		levelAndMsg = setAlternativeOtLogMarker(levelAndMsg)
 	}
 	if !isOtLogLine {
