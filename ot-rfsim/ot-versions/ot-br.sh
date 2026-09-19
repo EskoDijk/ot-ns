@@ -72,15 +72,10 @@ sudo_command_failed()
     exit 1
 }
 
-socket_in_use()
+# Succeeds if a process (of any user, including root) listens on Unix socket path $1.
+socket_listening()
 {
-    if command -v ss >/dev/null 2>&1; then
-        ss -x src "$1" | grep -q "$1"
-    elif command -v lsof >/dev/null 2>&1; then
-        lsof "$1" >/dev/null 2>&1
-    else
-        return 1 # can't check, assume not in use (1 = false)
-    fi
+    [[ -n $(ss --unix --listening --no-header src "$1") ]]
 }
 
 invalid_args()
@@ -114,7 +109,6 @@ RADIO_URL=$5
 
 THREAD_IF_NAME="wpan${PORT_OFFSET}_${NODE_ID}"
 REST_PORT=$((8080 + PORT_OFFSET * 100 + NODE_ID))
-EXTRA_DELAY=0
 MAX_WAIT_SEC=5
 SOCKET_PATH="/run/openthread-${THREAD_IF_NAME}.sock"
 
@@ -132,14 +126,16 @@ debug "  AGENT_PARAM     =${AGENT_PARAM}"
 sudo -n otbr-agent -V >/dev/null 2>&1 || sudo_command_failed otbr-agent
 sudo -n ot-ctl -h >/dev/null 2>&1 || sudo_command_failed ot-ctl
 
-# check for existing socket usage
-if [ -S "${SOCKET_PATH}" ]; then
-    if socket_in_use "${SOCKET_PATH}"; then
-        crit "socket ${SOCKET_PATH} is already in use - is otbr-agent already running on ${THREAD_IF_NAME}?"
-        exit 1
-    fi
-    debug "existing (unused?) file ${SOCKET_PATH} detected - start with extra delay"
-    EXTRA_DELAY=3
+# 'ss' is required to check the otbr-agent socket
+if ! command -v ss >/dev/null 2>&1; then
+    crit "command 'ss' not found - install package 'iproute2'"
+    exit 1
+fi
+
+# check for an otbr-agent still running on this interface, e.g. one left over from an earlier OTNS run
+if socket_listening "${SOCKET_PATH}"; then
+    crit "socket ${SOCKET_PATH} is already in use - is otbr-agent already running on ${THREAD_IF_NAME}?"
+    exit 1
 fi
 
 info "starting otbr-agent"
@@ -150,9 +146,9 @@ SUDO_OTBR_PID=$!
 
 debug "otbr-agent started in background (parent PID=${SUDO_OTBR_PID}) - waiting until ready"
 
-# wait for otbr-agent to create its Unix socket
+# wait for otbr-agent to listen on its Unix socket.
 elapsed=0
-while [ ! -S "${SOCKET_PATH}" ]; do
+while ! socket_listening "${SOCKET_PATH}"; do
     if ! kill -0 "${SUDO_OTBR_PID}" 2>/dev/null; then
         crit "otbr-agent exited before socket was ready"
         exit 1
@@ -164,8 +160,7 @@ while [ ! -S "${SOCKET_PATH}" ]; do
     sleep 0.1
     elapsed=$((elapsed + 1))
 done
-debug "otbr-agent socket ready after $((elapsed / 10)).$((elapsed % 10))s, adding ${EXTRA_DELAY} s delay"
-sleep ${EXTRA_DELAY}
+debug "otbr-agent socket ready after $((elapsed / 10)).$((elapsed % 10))s"
 info "starting ot-ctl CLI"
 sudo -n ot-ctl -I "${THREAD_IF_NAME}"
 
