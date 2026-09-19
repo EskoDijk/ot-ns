@@ -28,7 +28,7 @@
 
 # Build script to build an OTBR, to use in OTNS realtime mode.
 # It requires a manual setup of the 'ot-br-posix' repository in the same directory where
-# the 'ot-ns' repo is checked out.
+# the 'ot-ns' directory is, which holds the checked-out repo.
 
 set -euxo pipefail
 
@@ -67,6 +67,37 @@ OTBR_OPTIONS=(
 )
 readonly OTBR_OPTIONS
 
+# D-Bus policy that allows otbr-agent, running as root, to own its D-Bus name. Without it, otbr-agent exits after 30 s.
+readonly DBUS_POLICY_FILE=../../ot-br-posix/build/otbr/src/agent/otbr-agent.conf
+readonly DBUS_POLICY_DIR=/etc/dbus-1/system.d
+
+install_dbus_policy()
+{
+    local existing
+
+    if [[ ! -f ${DBUS_POLICY_FILE} ]]; then
+        echo "No D-Bus policy file was built (OTBR_DBUS=OFF?): skipped D-Bus policy install."
+        return
+    fi
+
+    # An existing policy that grants ownership of the OTBR D-Bus name is never overwritten.
+    existing=$(grep -lsE 'own(_prefix)?="io\.openthread\.BorderRouter' "${DBUS_POLICY_DIR}"/*.conf \
+        /usr/share/dbus-1/system.d/*.conf || true)
+    if [[ -n ${existing} ]]; then
+        echo "D-Bus policy for otbr-agent already in place, not changed: ${existing}"
+        return
+    fi
+
+    read -rp "Install D-Bus policy for otbr-agent to ${DBUS_POLICY_DIR}? [y/N] " answer || true
+    if [[ ${answer} == [Yy] ]]; then
+        sudo install -m 0644 "${DBUS_POLICY_FILE}" "${DBUS_POLICY_DIR}"
+        echo "Installed D-Bus policy to ${DBUS_POLICY_DIR}"
+        sudo systemctl reload dbus || echo "Could not reload D-Bus: restart D-Bus, or reboot, to activate the policy."
+    else
+        echo "Skipped. To install manually: sudo install -m 0644 ${DBUS_POLICY_FILE} ${DBUS_POLICY_DIR}"
+    fi
+}
+
 main()
 {
     local options=()
@@ -94,6 +125,8 @@ main()
     else
         echo "Skipped. To copy manually: sudo cp ../../ot-br-posix/build/otbr/third_party/openthread/repo/src/posix/ot-ctl /usr/local/bin"
     fi
+
+    install_dbus_policy
 }
 
 main "$@"
