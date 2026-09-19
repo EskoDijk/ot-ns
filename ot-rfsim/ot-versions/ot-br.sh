@@ -30,9 +30,18 @@
 # ot-br.sh - script to start an OTBR node from an OTNS simulation.
 
 # Log helpers - all script logging goes to stderr, keeping stdout clean for the ot-ctl CLI interaction.
-debug() { echo "[DEBG]-OTBR.SH-: $*" 1>&2; }
-info()  { echo "[INFO]-OTBR.SH-: $*" 1>&2; }
-crit()  { echo "[CRIT]-OTBR.SH-: $*" 1>&2; }
+debug()
+{
+    echo "[DEBG]-OTBR.SH-: $*" 1>&2
+}
+info()
+{
+    echo "[INFO]-OTBR.SH-: $*" 1>&2
+}
+crit()
+{
+    echo "[CRIT]-OTBR.SH-: $*" 1>&2
+}
 
 # When a running script receives SIGTERM
 cleanup()
@@ -55,7 +64,7 @@ sudo_command_failed()
 
     cmd="otbr-agent"
     cmd_path=$(command -v "$cmd" 2>/dev/null)
-    crit "    ${USER} ALL=(ALL) NOPASSWD: SETENV: ${cmd_path:-/usr/local/sbin/${cmd}}"
+    crit "    ${USER} ALL=(ALL) NOPASSWD: ${cmd_path:-/usr/local/sbin/${cmd}}"
 
     cmd="ot-ctl"
     cmd_path=$(command -v "$cmd" 2>/dev/null)
@@ -74,18 +83,40 @@ socket_in_use()
     fi
 }
 
+invalid_args()
+{
+    crit "$1"
+    crit "usage: ot-br.sh <node-id> <backbone-if> <agent-param> <data-path> <radio-url>"
+    exit 1
+}
+
 debug "script started"
+
+[ $# -eq 5 ] || invalid_args "expected 5 arguments, got $#: $*"
+for i in 1 2 3 4 5; do
+    [ -n "${!i}" ] || invalid_args "argument ${i} is empty"
+done
+
+if [ -z "${PORT_OFFSET+x}" ]; then
+    crit "PORT_OFFSET environment variable is not set"
+    exit 1
+fi
+if [[ ! ${PORT_OFFSET} =~ ^(0|[1-9][0-9]*)$ ]]; then
+    crit "PORT_OFFSET must be a non-negative integer, got '${PORT_OFFSET}'"
+    exit 1
+fi
 
 NODE_ID=$1
 BACKBONE_IF_NAME=$2
 AGENT_PARAM=$3
-RADIO_URL=$4
+DATA_PATH=$4
+RADIO_URL=$5
+
 THREAD_IF_NAME="wpan${PORT_OFFSET}_${NODE_ID}"
-REST_PORT=$((8080 + NODE_ID))
+REST_PORT=$((8080 + PORT_OFFSET * 100 + NODE_ID))
 EXTRA_DELAY=0
 MAX_WAIT_SEC=5
 SOCKET_PATH="/run/openthread-${THREAD_IF_NAME}.sock"
-DATA_PATH="/var/lib/thread"
 
 debug "  PORT_OFFSET     =${PORT_OFFSET}"
 debug "  NODE_ID         =${NODE_ID}"
@@ -113,7 +144,7 @@ fi
 
 info "starting otbr-agent"
 # All otbr-agent output redirected to stderr, so that ot-ctl CLI interactions are not garbled.
-sudo -n PORT_OFFSET="${PORT_OFFSET}" otbr-agent --data-path "${DATA_PATH}" -s -d 7 -I "${THREAD_IF_NAME}" \
+sudo -n otbr-agent --data-path "${DATA_PATH}" -s -v -d 7 -I "${THREAD_IF_NAME}" \
     -B "${BACKBONE_IF_NAME}" --rest-listen-port "${REST_PORT}" "${AGENT_PARAM}" "${RADIO_URL}" 1>&2 &
 SUDO_OTBR_PID=$!
 

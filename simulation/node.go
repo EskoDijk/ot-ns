@@ -97,6 +97,9 @@ func newNode(s *Simulation, nodeid NodeId, cfg *NodeConfig, dnode *dispatcher.No
 	var args []string
 	var exePath string
 
+	nodeSpecificDataDir := fmt.Sprintf("%d_%d.nvm", s.cfg.Id, nodeid)
+	dataPath := filepath.Join(s.cfg.OutputDir, nodeSpecificDataDir)
+
 	// check executables and construct process args
 	if cfg.IsRcp {
 		// First check if the to-be-forked RCP executable can be found.
@@ -109,6 +112,7 @@ func newNode(s *Simulation, nodeid NodeId, cfg *NodeConfig, dnode *dispatcher.No
 		if cfg.RandomSeed != 0 {
 			return nil, fmt.Errorf("random seed != 0 not supported for RCP/OTBR (got %d)", cfg.RandomSeed)
 		}
+
 		// The executable and args formed here are for the Posix host process that will fork an RCP.
 		exePath = cfg.HostExePath
 
@@ -116,8 +120,9 @@ func newNode(s *Simulation, nodeid NodeId, cfg *NodeConfig, dnode *dispatcher.No
 			// Flag -d 5 to enable all levels of log messages to be captured in the node's log file.
 			// Flag -v to also send log messages to stderr, so OTNS can capture them.
 			// Flag --data-path stores the host's settings (.data) file in the OTNS output dir.
-			args = append(args, "-d", "5", "-v", "--data-path", s.cfg.OutputDir)
+			args = append(args, "-d", "5", "-v", "--data-path", dataPath)
 		} else {
+			// OTBR script uses positional arguments, added in order below
 			args = append(args, strconv.Itoa(nodeid))
 			args = append(args, cfg.NetIfName)
 			autoAttach := 0
@@ -125,6 +130,7 @@ func newNode(s *Simulation, nodeid NodeId, cfg *NodeConfig, dnode *dispatcher.No
 				autoAttach = 1
 			}
 			args = append(args, fmt.Sprintf("--auto-attach=%d", autoAttach))
+			args = append(args, dataPath)
 		}
 
 		// Provide the args: node-id, socket name and random seed, through the
@@ -149,28 +155,27 @@ func newNode(s *Simulation, nodeid NodeId, cfg *NodeConfig, dnode *dispatcher.No
 		}
 	}
 
-	// erase prior NVM state (if desired)
+	// erase prior node NVM state (if desired)
 	if !cfg.Restore && !cfg.IsExternal {
-		flashFile := fmt.Sprintf("%s/%d_%d.flash", s.cfg.OutputDir, s.cfg.Id, nodeid)
-		if err = os.RemoveAll(flashFile); err != nil {
-			err = fmt.Errorf("remove OT flash file %s failed: %w", flashFile, err)
+		if err = os.RemoveAll(dataPath); err != nil {
+			err = fmt.Errorf("clearing node's data dir '%s' failed: %w", dataPath, err)
 			return nil, err
 		}
-		if cfg.IsRcp {
-			eui64 := GetDefaultRcpIeeeEui64(nodeid)
-			settingsFile := fmt.Sprintf("%s/%d_%x.data", s.cfg.OutputDir, s.cfg.Id, eui64)
-			if err = os.RemoveAll(settingsFile); err != nil {
-				err = fmt.Errorf("remove OT settings file %s failed: %w", settingsFile, err)
-				return nil, err
-			}
+	}
+
+	// Create the node's data dir here, so that it is owned by the OTNS user even if the node process runs as root
+	// (OTBR). Root-owned files in it can then still be erased by OTNS, with its write permission on the dir.
+	if !cfg.IsExternal {
+		if err = os.MkdirAll(dataPath, 0775); err != nil {
+			err = fmt.Errorf("creating node's data dir '%s' failed: %w", dataPath, err)
+			return nil, err
 		}
-		// Note: OTBR files are owned by root - not touched here.
 	}
 
 	cmd := exec.CommandContext(context.Background(), exePath, args...)
 	cmd.Env = append(os.Environ(),
 		fmt.Sprintf("%s=%d", OtSimulationIdEnv, s.cfg.Id),
-		fmt.Sprintf("%s=%s", OtDataPathEnv, s.cfg.OutputDir),
+		fmt.Sprintf("%s=%s", OtDataPathEnv, dataPath),
 	)
 
 	node := &Node{
@@ -907,10 +912,13 @@ func (node *Node) onStart() {
 }
 
 // lineReaderStdErr reads the StdErr of any OT nodes and turns each line into a log event.
-// For RCP+Posix, OTNS status push lines will be detected, since these are routed as log entries.
-// Lines that are not OT log output (e.g. from perror()) are labeled to be logged at 'error' level.
+// For RCP+Posix, OTNS status push lines will be detected, since these are sent as log entries.
+// Lines that are not OT log output (e.g. from perror()) are labeled to be logged at 'error' level. This is not
+// done for an OTBR, which writes all its log output to stderr: its lines without an OT log level label, such as
+// chopped-up log lines, are logged at 'info' level.
 func (node *Node) lineReaderStdErr(reader io.Reader) {
 	syslogPrefix := ""
+	isOtBr := node.cfg.IsRcp && node.cfg.IsBorderRouter
 	scanner := bufio.NewScanner(reader)
 	scanner.Split(bufio.ScanLines)
 
@@ -920,15 +928,19 @@ func (node *Node) lineReaderStdErr(reader io.Reader) {
 
 		if node.cfg.IsRcp {
 			// ot-cli RCP hosts have a syslog prefix that is removed here.
-			if syslogPrefix == "" {
-				if prefix := logger.ParseSyslogPrefix(line); prefix != "" {
-					syslogPrefix = prefix // lazy init; prefix remains identical for node's lifetime
+			if !isOtBr {
+				if syslogPrefix == "" {
+					if prefix := logger.ParseSyslogPrefix(line); prefix != "" {
+						syslogPrefix = prefix // lazy init; prefix remains identical for node's lifetime
+					}
+				}
+				if syslogPrefix != "" && strings.HasPrefix(line, syslogPrefix) {
+					line = line[len(syslogPrefix):]
+					isOtLogLine = true
 				}
 			}
-			if syslogPrefix != "" && strings.HasPrefix(line, syslogPrefix) {
-				line = line[len(syslogPrefix):]
-				isOtLogLine = true
-			}
+
+			// OTNS status push is sent as a log entry.
 			if isStatusPush, status := logger.ParseOtnsStatusPush(line); isStatusPush {
 				ev := &event.Event{
 					Delay:  0,
@@ -940,7 +952,7 @@ func (node *Node) lineReaderStdErr(reader io.Reader) {
 				isOtLogLine = true
 			}
 		}
-		if !isOtLogLine {
+		if !isOtLogLine && !isOtBr {
 			// Raw stderr output (e.g. perror(), fprintf(stderr, ...)), not an OT log line: log at error level.
 			line = "[C] StdErr--------: " + line
 		}

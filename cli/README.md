@@ -51,12 +51,14 @@ NOTE: the below sections including header and contents are automatically read an
 Add a node to the simulation and get the node ID.
 
 ```shell
-add <type> [x <x>] [y <y>] [rr <radio-range>] [id <node-id>] [restore] [exe <path>] [v11|v12|v13|v14]
+add <type> [x <x>] [y <y>] [rr <radio-range>] [id <node-id>] [restore] [exe "<path>"] [if "<interface>"] [v11|v12|v13|v14]
 ```
 
-The `<type>` can be `router`, `fed`, `med`, `sed`, `ssed`, `br` (Border Router), `rcp`, `wifi` (for a Wi-Fi interferer node), or `matter`. Node ID can be specified using the `id` parameter, otherwise OTNS assigns the next available one. If the `restore` option is specified, the node restores its network configuration from persistent storage.
+The `<type>` can be `router`, `fed`, `med`, `sed`, `ssed`, `br` (Border Router), `otbr` (OpenThread Border Router, real-time mode only), `rcp`, `wifi` (for a Wi-Fi interferer node), or `matter`. Node ID can be specified using the `id` parameter, otherwise OTNS assigns the next available one. If the `restore` option is specified, the node restores its network configuration from persistent storage.
 
 The (advanced) `exe` option can be used to specify a node executable for the new node; either a name only which is then located in the default search paths, or a full abs or rel pathname pointing to the executable to use.
+
+The `if` option applies to `otbr` nodes only. It selects the backbone (AIL) network interface for the OTBR, overriding the default interface set by the OTNS `-otbr-if` command-line flag (default `lo`). See [GUIDE.md](../GUIDE.md) for running OTBRs.
 
 The options `v11`, `v12`, `v13` and `v14` are a quick way to add a Thread v1.x node. This uses the binaries prebuilt for these nodes the `ot-rfsim` submodule, `ot-versions` directory. See [GUIDE.md](../GUIDE.md) for details on this.
 
@@ -87,6 +89,12 @@ Done
 Done
 > add router exe "/home/user/my/path/to/ot-cli-ftd"
 8
+Done
+> add otbr
+9
+Done
+> add otbr if "wifi1"
+10
 Done
 ```
 
