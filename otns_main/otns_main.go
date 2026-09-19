@@ -53,27 +53,28 @@ import (
 )
 
 type MainArgs struct {
-	Speed          string
-	OtCliPath      string
-	OtCliMtdPath   string
-	InitScriptName string
-	AutoGo         bool
-	ReadOnly       bool
-	LogLevel       string
-	LogStderr      bool
-	LogNodeLevel   string
-	WatchLevel     string
-	OpenWeb        bool
-	Realtime       bool
-	ListenAddr     string
-	DispatcherHost string
-	DispatcherPort int
-	DumpPackets    bool
-	PcapType       string
-	Replay         bool
-	RandomSeed     int64
-	PhyTxStats     bool
-	OutputDir      string
+	Speed              string
+	OtCliPath          string
+	OtCliMtdPath       string
+	InitScriptName     string
+	AutoGo             bool
+	ReadOnly           bool
+	LogLevel           string
+	LogStderr          bool
+	LogNodeLevel       string
+	WatchLevel         string
+	OpenWeb            bool
+	Realtime           bool
+	ListenAddr         string
+	DispatcherHost     string
+	DispatcherPort     int
+	DumpPackets        bool
+	PcapType           string
+	Replay             bool
+	RandomSeed         int64
+	PhyTxStats         bool
+	OutputDir          string
+	OtBrBackboneIfName string
 }
 
 var (
@@ -111,6 +112,7 @@ func parseArgs() {
 	flag.Int64Var(&args.RandomSeed, "seed", 0, "set specific random-seed value (for reproducability)")
 	flag.BoolVar(&args.PhyTxStats, "phy-tx-stats", false, "generate PHY Tx statistics CSV file")
 	flag.StringVar(&args.OutputDir, "output", DefaultOutputDir, "specify output directory for simulation results and logs")
+	flag.StringVar(&args.OtBrBackboneIfName, "otbr-if", "lo", "specify default backbone interface name for OTBRs")
 	flag.Parse()
 }
 
@@ -319,6 +321,7 @@ func createSimulation(simId int, ctx *progctx.ProgCtx) (*simulation.Simulation, 
 		}
 	}
 	simcfg.RandomSeed = prng.GetRootSeed()
+	simcfg.NewNodeConfig.NetIfName = args.OtBrBackboneIfName
 
 	dispatcherCfg := dispatcher.DefaultConfig()
 	dispatcherCfg.PcapEnabled = args.PcapType != pcap.FrameTypeOffStr

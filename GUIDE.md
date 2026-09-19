@@ -268,3 +268,49 @@ Done
 This shows the "ext" type for node 2, and also the string "(external-node)" instead of the actual node's executable name, which is unknown to OTNS.
 
 In case the externally running node process is interrupted (e.g. by pressing Ctrl+C) or killed, the corresponding node automatically gets removed from the simulation and a warning is logged by OTNS.
+
+## Adding an OpenThread Border Router (OTBR) interfacing to a real network (Optional, for Advanced Use Only)
+
+In OTNS real-time mode, a real OpenThread Border Router (OTBR) can be added to the simulation. The OTBR can route IPv6 between the simulated network and a real network.
+
+Running an OTBR requires the binaries `otbr-agent` (daemon) and `ot-ctl` (CLI interface) to be built, from the project `openthread/ot-br-posix`. The current process for this includes two steps:
+
+1. Use Git to check out the project `openthread/ot-br-posix` into a local directory, located at `../ot-br-posix`. So this directory resides in the same parent directory as this `ot-ns` project directory.
+2. Use the build script to build the OTBR correctly (with parameters suitable for simulation):
+
+```bash
+cd ot-rfsim
+./script/build_otbr
+[... build output here ...]
+Build of 'otbr-agent' done.
+Copy otbr-agent to /usr/local/sbin for use by OTNS? [y/N]
+[... next question here ...]
+```
+
+Answer 'y' to the two questions to copy the build result. This requires entering your password (for sudo). It results in the two binaries being installed locally, to be used by OTNS.
+
+To run these, OTNS needs root access (sudo) for these binaries. When starting an OTBR node, OTNS will try to execute both using the `sudo -n` non-interactive invocation. To make this work, both binaries need to be added to the `/etc/sudoers` list by using `sudo visudo` and then adding the below two lines at the end of the file:
+
+```bash
+myusername ALL=(ALL) NOPASSWD: /usr/local/sbin/otbr-agent
+myusername ALL=(ALL) NOPASSWD: /usr/local/bin/ot-ctl
+```
+
+Alternatively, `sudo visudo -f /etc/sudoers.d/otns` puts these lines in a separate file, which is easier to remove later and isn't touched by package updates.
+
+The binaries are looked up by `sudo`, using its `secure_path` setting, not your `PATH`. On Debian/Ubuntu this includes `/usr/local/sbin` and `/usr/local/bin`, where `build_otbr` installs them. If you install them elsewhere, that directory must be in `secure_path`, and the paths in the sudoers lines must match.
+
+Note: the `otbr-agent` line effectively gives your user passwordless root access, because `otbr-agent` can be told (through its radio URL) to start any program. Only add it on a development machine where that is acceptable.
+
+Below are examples how OTNS should be run to enable OTBRs in the simulation.
+
+```bash
+otns -realtime -otbr-if eth0
+otns -realtime
+```
+
+The flag `-realtime` specifies that OTNS runs in real-time mode, required to support OTBR and other RCP/Posix based nodes.
+
+The parameter `-otbr-if` specifies the network interface (AIL) that the OTBR should use to connect to the real network. It can be your local Ethernet or Wi-Fi interface, or a virtual network interface set up with Linux network namespaces. If the parameter is omitted, the OTBR will connect to the loopback interface (`lo`) by default. In this case, no external IP communication is possible with the OTBR over a network, but the local host is able to communicate with and via the OTBR.
+
+Once OTNS is running, the CLI command to add an OTBR is `add otbr` to use the default backbone interface as specified above. To use a different interface, use `add otbr if "wifi1"` for example to pick the 'wifi1' interface. This is useful when adding multiple OTBRs in a simulation: each requires its own backbone interface then.
