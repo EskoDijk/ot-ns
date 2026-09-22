@@ -125,6 +125,9 @@ export default class PixiVisualizer extends VObject {
         this.addChild(this.nodeWindow);
         this._selectedNodeId = 0;
         this._selectAddedNode = false;
+        // current size of the drawing field, kept up to date by onResize()
+        this._fieldWidth = window.innerWidth;
+        this._fieldHeight = window.innerHeight;
 
         this.otVersion = "";
         this.otCommit = "";
@@ -177,7 +180,7 @@ export default class PixiVisualizer extends VObject {
         if (!this.logWindow) {
             this.logWindow = new LogWindow();
             this._logWindowStage.addChild(this.logWindow._root);
-            this._resetLogWindowPosition(window.screen.width, window.screen.height);
+            this._resetLogWindowPosition(this._fieldWidth, this._fieldHeight);
 
             this.log("Log window opened.")
         }
@@ -925,6 +928,8 @@ export default class PixiVisualizer extends VObject {
 
     onResize(width, height) {
         console.log("window resized to " + width + "," + height);
+        this._fieldWidth = width;
+        this._fieldHeight = height;
         this.actionBar.position.set(10, height - this.actionBar.height - 20 - 10);
         this._resetLogWindowPosition(width, height);
     }
