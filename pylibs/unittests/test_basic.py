@@ -355,6 +355,18 @@ class BasicTests(OTNSTestCase):
         for opt in ('broadcast_message', 'unicast_message', 'ack_message', 'router_table', 'child_table', 'partition_id'):
             self.assertFalse(vopts[opt])
 
+        # skin selection
+        self.assertEqual(vopts['skin'], 'thread')
+        vopts = ns.config_visualization(skin='classic')
+        self.assertEqual(vopts['skin'], 'classic')
+        self.assertFalse(vopts['partition_id'])  # other options are unchanged
+        vopts = ns.config_visualization(skin='thread', partition_id=True)
+        self.assertEqual(vopts['skin'], 'thread')
+        self.assertTrue(vopts['partition_id'])
+        with self.assertRaises(errors.OTNSCliError):
+            ns.config_visualization(skin='nonexistent')
+        self.assertEqual(ns.config_visualization()['skin'], 'thread')
+
     def testWithOTNS(self):
         """
         make sure OTNS works in with-statement

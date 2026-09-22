@@ -229,7 +229,8 @@ type ConfigVisualizationCmd struct {
 	AckMessage       *CVAckMessage       `| @@`    //nolint
 	RouterTable      *CVRouterTable      `| @@`    //nolint
 	ChildTable       *CVChildTable       `| @@`    //nolint
-	PartitionId      *CVPartitionId      `| @@ )*` //nolint
+	PartitionId      *CVPartitionId      `| @@`    //nolint
+	Skin             *CVSkin             `| @@ )*` //nolint
 }
 
 // noinspection GoVetStructTag
@@ -266,6 +267,12 @@ type CVChildTable struct {
 type CVPartitionId struct {
 	Flag    struct{}    `"pid"` //nolint
 	OnOrOff OnOrOffFlag `@@`    //nolint
+}
+
+// noinspection GoVetStructTag
+type CVSkin struct {
+	Flag struct{} `"skin"` //nolint
+	Name string   `@Ident` //nolint
 }
 
 // noinspection GoVetStructTag

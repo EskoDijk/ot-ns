@@ -266,6 +266,7 @@ message SetVisualizationOptionsEvent {
     bool router_table = 4;
     bool child_table = 5;
     bool partition_id = 6;
+    string skin = 7;
 }
 
 service VisualizeGrpcService {

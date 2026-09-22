@@ -100,7 +100,13 @@ Use a web browser to manage the simulated Thread network:
 - See some logged events
 - See nodes' energy usage (Beta feature - pending validation)
 
-The network visualization uses the common Thread network diagram style:
+### Network visualization skins
+
+The visual style (skin) of the network visualization is selected with the CLI command
+`cv skin <name>`. In all skins, the colored mark in the center of a node shows its partition;
+it can be switched off with `cv pid off`. Failed nodes get a cross drawn over them.
+
+The `thread` skin (default) uses the common Thread network diagram style:
 
 - Router: solid orange pentagon; Leader: solid grey pentagon
 - End Device: circle with white fill. The outline is orange for a router-capable device (REED)
@@ -110,8 +116,16 @@ The network visualization uses the common Thread network diagram style:
 - Border Router (BR): solid black square (with a grey outline when it is the Leader)
 - Thread links: orange lines between two Routers; dark grey, thinner lines between a Router and an
   End Device
-- The colored dot in the center of a node shows its partition; it can be switched off with the
-  CLI command `cv pid off`. Detached, disabled and failed nodes are drawn semi-transparent.
+- Detached, disabled and failed nodes are drawn semi-transparent.
+
+The `classic` skin uses the original OTNS style:
+
+- Nodes are solid shapes colored by role: Leader red, Router blue, Child green, Detached or
+  Disabled grey. Routers are hexagons, Border Routers squares and other nodes circles.
+- MTDs are dashed circles: 4 dashes = MED, 6 dashes = SSED, 8 dashes = SED.
+- Links: green lines between parent and child, blue lines for router-table links.
+
+New skins can be added in `web/site/js/vis/skins/`, see the notes in `Skin.js` there.
 
 ## Use OTNS CLI
 

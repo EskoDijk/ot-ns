@@ -70,6 +70,12 @@ function loadOk() {
     grpcServiceClient = new VisualizeGrpcServiceClient(server);
 
     vis = new PixiVisualizer(app, grpcServiceClient);
+    // for development: '?skin=<name>' in the page URL overrides the skin selected by the simulator.
+    let skinOverride = new URLSearchParams(window.location.search).get('skin');
+    if (skinOverride) {
+        vis.skinOverride = skinOverride;
+        vis.setSkin(skinOverride);
+    }
 
     let [w, h] = getDesiredFieldSize();
     vis.onResize(w, h);
@@ -185,6 +191,7 @@ function loadOk() {
                     routerTable: e.getRouterTable(),
                     childTable: e.getChildTable(),
                     partitionId: e.getPartitionId(),
+                    skin: e.getSkin(),
                 });
                 break;
             default:

@@ -30,15 +30,12 @@ import {NodeMode, OtDeviceRole} from '../proto/visualize_grpc_pb'
 import {Visualizer} from "./PixiVisualizer";
 import {Resources} from "./resources";
 import {NODE_ID_INVALID, NODE_LABEL_FONT_FAMILY, NODE_LABEL_FONT_SIZE, POWER_DBM_INVALID,
-        EXT_ADDR_INVALID, COLOR_NODE_SELECTION, COLOR_THREAD_GREY} from "./consts";
-import {NODE_MAX_RADIUS, getNodeVisualStyle, drawNodeShape} from "./nodeStyle";
+        EXT_ADDR_INVALID} from "./consts";
+import {Skin} from "./skins";
+import {clearContainer} from "./skins/Skin";
 
 const NODE_SELECTION_SCALE = 128;
-const NODE_SELECTION_BOX_SIZE = 105;
 const NODE_Z_SCALER = 2000;
-const NODE_LABEL_OFFSET = 26; // label starts just outside the node shape (bottom-right)
-const PARTITION_DOT_RADIUS = 10;
-const FAILED_MARK_SCALE = 0.85;
 
 let vis = Visualizer();
 
@@ -76,16 +73,16 @@ export default class Node extends VObject {
         this.z = z;
         this.position.set(x, y);
 
-        // the node body: its role/type dependent shape with a partition indicator dot on top.
+        // the node body: its role/type dependent shape with a partition indicator on top. Both
+        // are drawn by the active skin, see skins/Skin.js.
         let body = new PIXI.Container();
-        this._shape = new PIXI.Graphics();
+        this._shape = new PIXI.Container();
         body.addChild(this._shape);
-        this._partitionDot = new PIXI.Graphics();
-        this._partitionDot.visible = this.vis.visOptions.partitionId;
-        body.addChild(this._partitionDot);
+        this._partitionMark = new PIXI.Container();
+        this._partitionMark.visible = this.vis.visOptions.partitionId;
+        body.addChild(this._partitionMark);
         this._root.addChild(body);
         this._body = body;
-        this._redraw();
 
         let node = this;
         this._root.eventMode = 'static';
@@ -99,20 +96,18 @@ export default class Node extends VObject {
 
         this.setDraggable();
 
-        this._updateSize();
-
         let label = new PIXI.Text({text: "", style: {fontFamily: NODE_LABEL_FONT_FAMILY, fontSize: NODE_LABEL_FONT_SIZE, align: 'left'}});
-        label.position.set(NODE_LABEL_OFFSET, NODE_LABEL_OFFSET);
         this._root.addChild(label);
         this.label = label;
         this._updateLabel();
 
         let failedMask = new PIXI.Sprite(Resources().FailedNodeMark.texture);
         failedMask.anchor.set(0.5, 0.5);
-        failedMask.scale.set(FAILED_MARK_SCALE, FAILED_MARK_SCALE);
         failedMask.visible = false;
         this._root.addChild(failedMask);
-        this._failedMask = failedMask
+        this._failedMask = failedMask;
+
+        this.applySkin();
     }
 
     get failed() {
@@ -142,7 +137,7 @@ export default class Node extends VObject {
     set partition(v) {
         if (v !== this._partition) {
             this._partition = v;
-            this._redrawPartitionDot();
+            this._redrawPartitionMark();
         }
     }
 
@@ -151,24 +146,46 @@ export default class Node extends VObject {
     }
 
     /**
-     * Redraw the node shape after a change of role, mode or failed state. See nodeStyle.js
-     * for the visual style rules.
+     * @returns the node state that the skin uses to draw it, see skins/Skin.js.
      */
-    _redraw() {
-        let style = getNodeVisualStyle(this.type, this.role, this.nodeMode, this.failed);
-        drawNodeShape(this._shape, style);
-        this._body.alpha = style.alpha;
-        this._redrawPartitionDot();
+    _skinState() {
+        return {type: this.type, role: this.role, nodeMode: this.nodeMode, failed: this.failed};
     }
 
-    _redrawPartitionDot() {
-        this._partitionDot.clear();
-        this._partitionDot.circle(0, 0, PARTITION_DOT_RADIUS);
-        this._partitionDot.fill({color: this.vis.getPartitionColor(this._partition)});
+    /**
+     * (Re)build all skin-dependent parts of the node with the active skin: called after a skin
+     * change and after a change of role, mode or failed state.
+     */
+    applySkin() {
+        const skin = Skin();
+        this._redraw();
+        this._updateSize();
+        this.label.position.set(skin.labelOffset, skin.labelOffset);
+        this._failedMask.scale.set(skin.failedMarkScale);
+        if (this._selected) {
+            this.onUnselected();
+            this.onSelected();
+        }
+    }
+
+    /**
+     * Redraw the node shape after a change of role, mode or failed state.
+     */
+    _redraw() {
+        const state = this._skinState();
+        clearContainer(this._shape);
+        Skin().buildNodeBody(this._shape, state);
+        this._body.alpha = Skin().nodeAlpha(state);
+        this._redrawPartitionMark();
+    }
+
+    _redrawPartitionMark() {
+        clearContainer(this._partitionMark);
+        Skin().buildPartitionMark(this._partitionMark, this._skinState(), this.vis.getPartitionColor(this._partition));
     }
 
     setPartitionVisible(visible) {
-        this._partitionDot.visible = visible;
+        this._partitionMark.visible = visible;
     }
 
     setPosition(x, y, z) {
@@ -192,7 +209,7 @@ export default class Node extends VObject {
     _updateSize() {
         let heightScale = 1.0 + this.z / NODE_Z_SCALER;
         this._body.scale.set(heightScale);
-        this._root.hitArea = new PIXI.Circle(0, 0, NODE_MAX_RADIUS * heightScale);
+        this._root.hitArea = new PIXI.Circle(0, 0, Skin().nodeHitRadius(this._skinState()) * heightScale);
     }
 
     setRloc16(rloc16) {
@@ -270,10 +287,11 @@ export default class Node extends VObject {
     onSelected() {
         this._selected = true;
         if (!this._selbox) {
+            const style = Skin().selectionStyle();
             let selbox = new PIXI.Sprite(Resources().WhiteRoundedDashedSquare128.texture);
-            selbox.tint = COLOR_NODE_SELECTION;
-            selbox.alpha = 0.7;
-            selbox.scale.set(NODE_SELECTION_BOX_SIZE / NODE_SELECTION_SCALE, NODE_SELECTION_BOX_SIZE / NODE_SELECTION_SCALE);
+            selbox.tint = style.boxColor;
+            selbox.alpha = style.boxAlpha;
+            selbox.scale.set(style.boxSize / NODE_SELECTION_SCALE);
             selbox.anchor.set(0.5, 0.5);
             this.root.addChildAt(selbox, 0);
             this._selbox = selbox;
@@ -281,8 +299,8 @@ export default class Node extends VObject {
             const rangeCircleSize = this.radioRange;
             let rangeCircle = new PIXI.Graphics();
             rangeCircle.circle(0, 0, rangeCircleSize);
-            rangeCircle.fill({color: COLOR_THREAD_GREY, alpha: 0.12});
-            rangeCircle.stroke({width: 1, color: COLOR_THREAD_GREY, alpha: 0.7});
+            rangeCircle.fill({color: style.rangeFill, alpha: style.rangeFillAlpha});
+            rangeCircle.stroke({width: 1, color: style.rangeStroke, alpha: style.rangeStrokeAlpha});
             this.root.addChildAt(rangeCircle, 0);
             this._rangeCircle = rangeCircle;
         }

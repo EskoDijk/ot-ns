@@ -105,6 +105,7 @@ func newSetVisualizationOptionsEvent(opts VisualizationOptions) *pb.VisualizeEve
 		RouterTable:      opts.RouterTable,
 		ChildTable:       opts.ChildTable,
 		PartitionId:      opts.PartitionId,
+		Skin:             opts.Skin,
 	}}}
 }
 
