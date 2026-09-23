@@ -202,8 +202,10 @@ func TestParseBytes(t *testing.T) {
 	assert.True(t, cmd.ConfigVisualization != nil && cmd.ConfigVisualization.Skin == nil)
 	assert.Nil(t, parseBytes([]byte("cv skin classic"), &cmd))
 	assert.True(t, cmd.ConfigVisualization.Skin != nil && cmd.ConfigVisualization.Skin.Name == "classic")
-	assert.Nil(t, parseBytes([]byte("cv pid off skin thread ack on"), &cmd))
-	assert.True(t, cmd.ConfigVisualization.Skin.Name == "thread" && cmd.ConfigVisualization.PartitionId.OnOrOff.Off != nil)
+	assert.Nil(t, parseBytes([]byte("cv skin clas_ack"), &cmd))
+	assert.True(t, cmd.ConfigVisualization.Skin.Name == "clas_ack")
+	assert.Nil(t, parseBytes([]byte("cv pid off skin thread+ ack on"), &cmd))
+	assert.True(t, cmd.ConfigVisualization.Skin.Name == "thread+" && cmd.ConfigVisualization.PartitionId.OnOrOff.Off != nil)
 	assert.NotNil(t, parseBytes([]byte("cv skin"), &cmd))
 }
 

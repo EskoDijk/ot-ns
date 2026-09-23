@@ -26,6 +26,8 @@
 
 package types
 
+import "sort"
+
 // VisualizationOptions defines which items the visualizer(s) show, and in which style.
 type VisualizationOptions struct {
 	BroadcastMessage bool
@@ -35,6 +37,7 @@ type VisualizationOptions struct {
 	ChildTable       bool
 	PartitionId      bool   // show the partition ID of each node (as a colored dot)
 	Skin             string // visual style of the network visualization, one of VisualizationSkins
+	SkinPreset       string // name of the last selected skin preset, see VisualizationSkinPresets
 }
 
 const (
@@ -56,14 +59,92 @@ func IsVisualizationSkin(name string) bool {
 	return false
 }
 
+// VisualizationSkinPreset is a named combination of a skin and values of visualization options,
+// selectable with the CLI command 'cv skin <name>'. Selecting a preset applies its options; all
+// other options keep their current value.
+type VisualizationSkinPreset struct {
+	Name    string          // preset name, as used in 'cv skin <name>'
+	Skin    string          // one of VisualizationSkins
+	Options map[string]bool // option values to apply, keyed by the 'cv' option name: bro, uni, ack, rtb, ctb, pid
+}
+
+// VisualizationSkinPresets defines the available skin presets. To add one: append it here,
+// and document it in cli/README.md ('cv' command) and GUIDE.md.
+var VisualizationSkinPresets = []VisualizationSkinPreset{
+	{Name: "thread", Skin: VisualizationSkinThread, Options: map[string]bool{"pid": false}},
+	{Name: "thread+", Skin: VisualizationSkinThread, Options: map[string]bool{"pid": true}},
+	{Name: "classic", Skin: VisualizationSkinClassic, Options: map[string]bool{"pid": true}},
+	{Name: "clas_ack", Skin: VisualizationSkinClassic, Options: map[string]bool{"pid": true, "ack": true}},
+}
+
+const DefaultVisualizationSkinPreset = "thread"
+
+// FindVisualizationSkinPreset returns the preset with the given name, or nil if it doesn't exist.
+func FindVisualizationSkinPreset(name string) *VisualizationSkinPreset {
+	for i := range VisualizationSkinPresets {
+		if VisualizationSkinPresets[i].Name == name {
+			return &VisualizationSkinPresets[i]
+		}
+	}
+	return nil
+}
+
+// VisualizationSkinPresetNames returns the names of all presets, in definition order.
+func VisualizationSkinPresetNames() []string {
+	names := make([]string, 0, len(VisualizationSkinPresets))
+	for _, p := range VisualizationSkinPresets {
+		names = append(names, p.Name)
+	}
+	return names
+}
+
+// Apply sets the preset's skin and option values in opts.
+func (p *VisualizationSkinPreset) Apply(opts *VisualizationOptions) {
+	opts.Skin = p.Skin
+	opts.SkinPreset = p.Name
+	// apply in a fixed order, for reproducible results should an option ever be listed twice.
+	keys := make([]string, 0, len(p.Options))
+	for k := range p.Options {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		opts.SetOption(k, p.Options[k])
+	}
+}
+
+// SetOption sets the option with the given 'cv' option name (bro, uni, ack, rtb, ctb, pid).
+// It returns false if the name is unknown.
+func (opts *VisualizationOptions) SetOption(name string, on bool) bool {
+	switch name {
+	case "bro":
+		opts.BroadcastMessage = on
+	case "uni":
+		opts.UnicastMessage = on
+	case "ack":
+		opts.AckMessage = on
+	case "rtb":
+		opts.RouterTable = on
+	case "ctb":
+		opts.ChildTable = on
+	case "pid":
+		opts.PartitionId = on
+	default:
+		return false
+	}
+	return true
+}
+
 func DefaultVisualizationOptions() VisualizationOptions {
-	return VisualizationOptions{
+	opts := VisualizationOptions{
 		BroadcastMessage: true,
 		UnicastMessage:   true,
 		AckMessage:       false,
 		RouterTable:      true,
 		ChildTable:       true,
-		PartitionId:      true,
+		PartitionId:      false,
 		Skin:             DefaultVisualizationSkin,
 	}
+	FindVisualizationSkinPreset(DefaultVisualizationSkinPreset).Apply(&opts) // may override the above
+	return opts
 }

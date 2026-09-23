@@ -73,7 +73,8 @@ export default class PixiVisualizer extends VObject {
         // visualization options, see the 'cv' CLI command; defaults must match types.DefaultVisualizationOptions()
         this.visOptions = {
             broadcastMessage: true, unicastMessage: true, ackMessage: false,
-            routerTable: true, childTable: true, partitionId: true, skin: DEFAULT_SKIN_NAME,
+            routerTable: true, childTable: true, partitionId: false, skin: DEFAULT_SKIN_NAME,
+            skinPreset: "", skinPresets: [],
         };
         // if set, this skin is used instead of the one selected by the simulator (for development)
         this.skinOverride = null;
@@ -416,12 +417,28 @@ export default class PixiVisualizer extends VObject {
         this.nodes[nodeId].failed = true;
         this.logNode(nodeId, "Radio is OFF")
         this.onNodeUpdate(nodeId);
+        this._refreshActionBarIfSelected(nodeId);
     }
 
     visOnNodeRecover(nodeId) {
         this.nodes[nodeId].failed = false;
         this.logNode(nodeId, "Radio is ON")
         this.onNodeUpdate(nodeId);
+        this._refreshActionBarIfSelected(nodeId);
+    }
+
+    // the action bar shows state-dependent labels (e.g. the radio toggle) for the selected node.
+    _refreshActionBarIfSelected(nodeId) {
+        if (nodeId == this._selectedNodeId) {
+            this.actionBar.refresh();
+        }
+    }
+
+    /**
+     * @returns {Node|null} the selected node, if any
+     */
+    getSelectedNode() {
+        return this.nodes[this._selectedNodeId] || null;
     }
 
     visSetParent(nodeId, extAddr) {
@@ -522,6 +539,10 @@ export default class PixiVisualizer extends VObject {
         this.runCommand("speed " + speed)
     }
 
+    ctrlSetSkin(name) {
+        this.runCommand("cv skin " + name)
+    }
+
     runCommand(cmd, callback) {
         let req = new CommandRequest();
         req.setCommand(cmd);
@@ -560,6 +581,7 @@ export default class PixiVisualizer extends VObject {
             this.nodes[nodeid].setPartitionVisible(opts.partitionId);
         }
         this.setSkin(this.skinOverride || opts.skin);
+        this.actionBar.refresh(); // the skin button shows the selected skin preset
     }
 
     /**
@@ -578,6 +600,7 @@ export default class PixiVisualizer extends VObject {
             this.nodes[nodeid].applySkin();
         }
         this._drawNodeLinks();
+        this.actionBar.refresh(); // updates the skin button's label
     }
 
     getPartitionColor(parid) {
@@ -610,6 +633,64 @@ export default class PixiVisualizer extends VObject {
 
         this.nodeWindow.showNode(new_sel);
         this.actionBar.setContext(new_sel || "any");
+    }
+
+    /**
+     * Select the node that is `step` positions (+1 next, -1 previous) after the selected node in
+     * the order of node IDs, wrapping around. With no node selected, +1 selects the lowest and
+     * -1 the highest node ID.
+     */
+    selectAdjacentNode(step) {
+        const ids = Object.keys(this.nodes).map(Number).sort((a, b) => a - b);
+        if (ids.length === 0) {
+            return;
+        }
+        let idx = ids.indexOf(this._selectedNodeId);
+        if (idx < 0) {
+            idx = step > 0 ? 0 : ids.length - 1;
+        } else {
+            idx = (idx + step + ids.length) % ids.length;
+        }
+        this.setSelectedNode(ids[idx]);
+    }
+
+    /**
+     * Keyboard shortcuts: Tab / Shift+Tab select the next / previous node, Escape unselects,
+     * Delete deletes the selected node, Space pauses/resumes the simulation. Key combinations
+     * with Ctrl/Alt/Meta are left to the browser (e.g. Ctrl+R reload).
+     */
+    onKeyDown(e) {
+        const t = e.target;
+        if (t && (t.isContentEditable || t.tagName === 'INPUT' || (t.tagName === 'TEXTAREA' && !t.readOnly))) {
+            return; // don't take keys away from an editable element
+        }
+        if (e.ctrlKey || e.altKey || e.metaKey) {
+            return;
+        }
+        switch (e.key) {
+            case 'Escape':
+                this.setSelectedNode(0);
+                e.preventDefault();
+                break;
+            case 'Tab':
+                this.selectAdjacentNode(e.shiftKey ? -1 : 1);
+                e.preventDefault();
+                break;
+            case 'Delete':
+                if (this.actionBar.hasAbility("del")) {
+                    this.deleteSelectedNode();
+                    e.preventDefault();
+                }
+                break;
+            case ' ':
+                if (this.actionBar.hasAbility("speed")) { // not in -realtime mode
+                    this.actionBar.actionTogglePauseResume();
+                    e.preventDefault();
+                }
+                break;
+            default:
+                break;
+        }
     }
 
     setSpeed(speed) {

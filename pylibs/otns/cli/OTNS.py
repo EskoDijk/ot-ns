@@ -1255,7 +1255,8 @@ class OTNS(object):
         :param router_table: whether or not to visualize router tables
         :param child_table: whether or not to visualize child tables
         :param partition_id: whether or not to visualize the partition ID of nodes
-        :param skin: name of the visual style (skin) of the network visualization: 'thread' or 'classic'
+        :param skin: name of a skin preset for the network visualization, e.g. 'thread', 'thread+'
+                     or 'classic'; a preset selects a skin and applies its predefined option values
 
         :return: the active visualization options
         """

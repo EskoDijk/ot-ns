@@ -180,9 +180,16 @@ Visualization Options:
 - `rtb`: router table
 - `ctb`: child table
 - `pid`: partition ID of nodes (shown as a colored dot)
-- `skin`: visual style of the network visualization (see [GUIDE](../GUIDE.md#network-visualization-skins)):
-  - `thread`: Thread network diagram style (default)
-  - `classic`: the original OTNS style
+- `skin`: visual style of the network visualization (see [GUIDE](../GUIDE.md#network-visualization-skins)).
+  The value is a skin preset: a skin combined with predefined values of some of the above options.
+  Selecting a preset applies only those options; the others keep their value. Any options given in
+  the same command are applied after the preset. Presets:
+  - `thread`: Thread network diagram style, partition mark hidden (`pid off`) - the default
+  - `thread+`: Thread network diagram style, partition mark shown (`pid on`)
+  - `classic`: the original OTNS style, partition mark shown (`pid on`)
+  - `clas_ack`: `classic` with ACK messages shown (`pid on ack on`)
+
+  The `skin=` output line shows the last selected preset, also when options were changed afterwards.
 
 ```bash
 > cv
@@ -191,7 +198,7 @@ uni=on
 ack=off
 rtb=on
 ctb=on
-pid=on
+pid=off
 skin=thread
 Done
 > cv bro off
@@ -200,10 +207,19 @@ uni=on
 ack=off
 rtb=on
 ctb=on
-pid=on
+pid=off
 skin=thread
 Done
-> cv bro on uni on ack on rtb on ctb on pid on skin classic
+> cv skin thread+
+bro=off
+uni=on
+ack=off
+rtb=on
+ctb=on
+pid=on
+skin=thread+
+Done
+> cv bro on uni on ack on rtb on ctb on skin classic
 bro=on
 uni=on
 ack=on

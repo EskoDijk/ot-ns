@@ -1151,13 +1151,23 @@ func (rt *CmdRunner) executeScan(cc *CommandContext, cmd *ScanCmd) {
 func (rt *CmdRunner) executeConfigVisualization(cc *CommandContext, cmd *ConfigVisualizationCmd) {
 	var opts VisualizationOptions
 
-	if cmd.Skin != nil && !IsVisualizationSkin(cmd.Skin.Name) {
-		cc.errorf("unknown skin '%s', available skins: %s", cmd.Skin.Name, strings.Join(VisualizationSkins, ", "))
-		return
+	var preset *VisualizationSkinPreset
+	if cmd.Skin != nil {
+		preset = FindVisualizationSkinPreset(cmd.Skin.Name)
+		if preset == nil {
+			cc.errorf("unknown skin '%s', available skins: %s", cmd.Skin.Name,
+				strings.Join(VisualizationSkinPresetNames(), ", "))
+			return
+		}
 	}
 
 	rt.postAsyncWait(cc, func(sim *simulation.Simulation) {
 		opts = sim.Dispatcher().GetVisualizationOptions()
+
+		// a skin preset is applied first, so that the explicit options can still override it.
+		if preset != nil {
+			preset.Apply(&opts)
+		}
 
 		if cmd.BroadcastMessage != nil {
 			opts.BroadcastMessage = cmd.BroadcastMessage.OnOrOff.On != nil
@@ -1183,10 +1193,6 @@ func (rt *CmdRunner) executeConfigVisualization(cc *CommandContext, cmd *ConfigV
 			opts.PartitionId = cmd.PartitionId.OnOrOff.On != nil
 		}
 
-		if cmd.Skin != nil {
-			opts.Skin = cmd.Skin.Name
-		}
-
 		sim.Dispatcher().SetVisualizationOptions(opts)
 	})
 
@@ -1203,7 +1209,7 @@ func (rt *CmdRunner) executeConfigVisualization(cc *CommandContext, cmd *ConfigV
 	cc.outputf("rtb=%s\n", bool_to_onoroff(opts.RouterTable))
 	cc.outputf("ctb=%s\n", bool_to_onoroff(opts.ChildTable))
 	cc.outputf("pid=%s\n", bool_to_onoroff(opts.PartitionId))
-	cc.outputf("skin=%s\n", opts.Skin)
+	cc.outputf("skin=%s\n", opts.SkinPreset)
 }
 
 func (rt *CmdRunner) enterNodeContext(nodeId NodeId) bool {

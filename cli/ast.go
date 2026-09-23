@@ -271,8 +271,8 @@ type CVPartitionId struct {
 
 // noinspection GoVetStructTag
 type CVSkin struct {
-	Flag struct{} `"skin"` //nolint
-	Name string   `@Ident` //nolint
+	Flag struct{} `"skin"`       //nolint
+	Name string   `@Ident @"+"?` //nolint
 }
 
 // noinspection GoVetStructTag
