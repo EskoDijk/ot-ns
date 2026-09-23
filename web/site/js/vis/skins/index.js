@@ -23,6 +23,7 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
+//
 // Registry of the visualization skins, selectable with the CLI command 'cv skin <name>'.
 // The names must match types.VisualizationSkins on the Go side.
 
@@ -34,10 +35,10 @@ const SKINS = {
     classic: ClassicSkin,
 };
 
-export const DEFAULT_SKIN_NAME = 'thread';
+export const DEFAULT_SKIN_NAME = 'classic';
 
 let skinName = DEFAULT_SKIN_NAME;
-let skin = new ThreadSkin();
+let skin = new ClassicSkin();
 
 /**
  * @returns {Skin} the active skin

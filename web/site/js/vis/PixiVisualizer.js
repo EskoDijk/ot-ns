@@ -73,7 +73,7 @@ export default class PixiVisualizer extends VObject {
         // visualization options, see the 'cv' CLI command; defaults must match types.DefaultVisualizationOptions()
         this.visOptions = {
             broadcastMessage: true, unicastMessage: true, ackMessage: false,
-            routerTable: true, childTable: true, partitionId: false, skin: DEFAULT_SKIN_NAME,
+            routerTable: true, childTable: true, partitionId: true, skin: DEFAULT_SKIN_NAME,
             skinPreset: "", skinPresets: [],
         };
         // if set, this skin is used instead of the one selected by the simulator (for development)
@@ -584,34 +584,42 @@ export default class PixiVisualizer extends VObject {
             this.nodes[nodeid].setPartitionVisible(opts.partitionId);
         }
         this.setSkin(this.skinOverride || opts.skin);
-        this.actionBar.refresh(); // the skin button shows the selected skin preset
+        this.actionBar.refresh(); // the skin button shows the selected preset, which may change without a skin change
     }
 
     /**
-     * Activate the named skin (see skins/index.js) and redraw everything that depends on it.
-     * An unknown name keeps the active skin.
+     * Activate the named skin (see skins/index.js) and redraw the nodes and links.
+     * @returns {boolean} false if the name is unknown; the active skin is then kept. True otherwise.
      */
     setSkin(name) {
         if (name === SkinName()) {
-            return;
+            return true;
         }
         if (!SetSkin(name)) {
             console.error("unknown visualization skin '" + name + "', keeping skin '" + SkinName() + "'");
-            return;
+            return false;
         }
         for (let nodeid in this.nodes) {
             this.nodes[nodeid].applySkin();
         }
         this._drawNodeLinks();
-        this.actionBar.refresh(); // updates the skin button's label
+        return true;
     }
 
+    /**
+     * Map a 32-bit partition ID to a 24-bit RGB color (Pixi rejects larger color values). Black is
+     * reserved for 'no partition' (ID 0). Any other ID is hashed so that all 32 bits contribute to the
+     * color and the result is never so dark that it looks black.
+     */
     getPartitionColor(parid) {
         if (parid === 0) {
-            return 0x000000
+            return 0x000000;
         }
-        // map the 32-bit partition ID to a 24-bit RGB color (Pixi rejects larger color values)
-        return parid & 0xffffff
+        let color = Math.imul(parid, 0x9E3779B1) >>> 8; // 24-bit multiplicative hash
+        if ((color & 0xc0c0c0) === 0) { // all channels below 0x40: brighten
+            color |= 0x404040;
+        }
+        return color;
     }
 
     setSelectedNode(id) {
@@ -642,11 +650,12 @@ export default class PixiVisualizer extends VObject {
      * Select the node that is `step` positions (+1 next, -1 previous) after the selected node in
      * the order of node IDs, wrapping around. With no node selected, +1 selects the lowest and
      * -1 the highest node ID.
+     * @returns {boolean} true if a node was selected, false if there are no nodes.
      */
     selectAdjacentNode(step) {
         const ids = Object.keys(this.nodes).map(Number).sort((a, b) => a - b);
         if (ids.length === 0) {
-            return;
+            return false;
         }
         let idx = ids.indexOf(this._selectedNodeId);
         if (idx < 0) {
@@ -655,6 +664,7 @@ export default class PixiVisualizer extends VObject {
             idx = (idx + step + ids.length) % ids.length;
         }
         this.setSelectedNode(ids[idx]);
+        return true;
     }
 
     /**
@@ -675,10 +685,19 @@ export default class PixiVisualizer extends VObject {
                 this.setSelectedNode(0);
                 e.preventDefault();
                 break;
-            case 'Tab':
-                this.selectAdjacentNode(e.shiftKey ? -1 : 1);
-                e.preventDefault();
+            case 'Tab': {
+                // Tab is only taken over while no page element has the focus, and only when there is a
+                // node to select; otherwise the browser's own focus navigation (e.g. to the node window)
+                // keeps working.
+                const a = document.activeElement;
+                if (a && a.tagName !== 'BODY' && a.tagName !== 'CANVAS') {
+                    break;
+                }
+                if (this.selectAdjacentNode(e.shiftKey ? -1 : 1)) {
+                    e.preventDefault();
+                }
                 break;
+            }
             case 'Delete':
                 if (this.actionBar.hasAbility("del")) {
                     this.deleteSelectedNode();

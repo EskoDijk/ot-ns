@@ -43,7 +43,7 @@ import (
 const (
 	DefaultCslPeriod                  = 3 * 1000               // in units of 160 us
 	DefaultCslPeriodUs                = 160 * DefaultCslPeriod // MUST be multiple of 160 us
-	defaultRadioRange                 = 220
+	defaultRadioRange                 = 330
 	wifiCcaThreshold                  = 20.0 // in dBm above the noise floor
 	defaultWiFiTxInterfererPercentage = 10
 	versionLatestTag                  = "v14"

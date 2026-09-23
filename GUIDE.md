@@ -95,37 +95,26 @@ Use a web browser to manage the simulated Thread network:
 - Disable and recover node radios
 - Adjust simulation speed
 - Pause/start the simulation (button or `Space`; not available in `-realtime` mode)
-- Inspect properties and state of nodes (click a node; `Tab` and `Shift+Tab` select the next or
-  previous node, `Escape` unselects, `Delete` deletes the selected node)
+- Inspect properties and state of nodes (click a node; `Tab` and `Shift+Tab` select the next or previous node, `Escape` unselects, `Delete` deletes the selected node)
 - Open a graph showing node type/status statistics over time
 - See some logged events
 - See nodes' energy usage (Beta feature - pending validation)
 
 ### Network visualization skins
 
-The visual style (skin) of the network visualization is selected with the CLI command
-`cv skin <preset>`, or by clicking the `Skin` button in the web visualizer, which cycles through
-the available skin presets. A preset combines a skin with predefined values of some visualization
-options; see the [`cv` command](cli/README.md#cv) for the list. For example `thread+` is the
-`thread` skin with the colored partition mark in the center of each node shown, and `thread` is
-the same skin with the mark hidden. Failed nodes get a cross drawn over them.
+The visual style (skin) of the network visualization is selected with the CLI command `cv skin <preset>`, or by clicking the `Skin` button in the web visualizer, which cycles through the available skin presets. A preset combines a skin with predefined values of some visualization options; see the [`cv` command](cli/README.md#cv) for the list. For example `thread+` is the `thread` skin with the colored partition mark in the center of each node shown, and `thread` is the same skin with the mark hidden. Failed nodes get a cross drawn over them.
 
-The `thread` skin (default) uses the common Thread network diagram style:
+The `thread` skin uses the common Thread network diagram style:
 
 - Router: solid orange pentagon; Leader: solid grey pentagon
-- End Device: circle with white fill. The outline is orange for a router-capable device (REED)
-  and grey for a device that is not router-capable (FED, MED, SED, SSED). Full Thread Devices
-  (REED, FED) have a thick outline and MTDs a thin one; sleepy MTDs have a dashed outline:
-  6 dashes = SSED, 8 dashes = SED.
+- End Device: circle with white fill. The outline is orange for a router-capable device (REED) and grey for a device that is not router-capable (FED, MED, SED, SSED). Full Thread Devices (REED, FED) have a thick outline and MTDs a thin one; sleepy MTDs have a dashed outline: 6 dashes = SSED, 8 dashes = SED.
 - Border Router (BR): solid black square (with a grey outline when it is the Leader)
-- Thread links: orange lines between two Routers; dark grey, thinner lines between a Router and an
-  End Device
+- Thread links: orange lines between two Routers; dark grey, thinner lines between a Router and an End Device
 - Detached, disabled and failed nodes are drawn semi-transparent.
 
-The `classic` skin uses the original OTNS style:
+The `classic` skin (default) uses the original OTNS style:
 
-- Nodes are solid shapes colored by role: Leader red, Router blue, Child green, Detached or
-  Disabled grey. Routers are hexagons, Border Routers squares and other nodes circles.
+- Nodes are solid shapes colored by role: Leader red, Router blue, Child green, Detached or Disabled grey. Routers are hexagons, Border Routers squares and other nodes circles.
 - MTDs are dashed circles: 4 dashes = MED, 6 dashes = SSED, 8 dashes = SED.
 - Links: green lines between parent and child, blue lines for router-table links.
 

@@ -77,10 +77,10 @@ function loadOk() {
 
     vis = new PixiVisualizer(app, grpcServiceClient);
     // for development: '?skin=<name>' in the page URL overrides the skin selected by the simulator.
+    // An unknown name is ignored (setSkin() logs it), so that the simulator's skin selection still applies.
     let skinOverride = new URLSearchParams(window.location.search).get('skin');
-    if (skinOverride) {
+    if (skinOverride && vis.setSkin(skinOverride)) {
         vis.skinOverride = skinOverride;
-        vis.setSkin(skinOverride);
     }
 
     let [w, h] = getDesiredFieldSize();

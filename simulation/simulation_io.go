@@ -34,15 +34,12 @@ import (
 
 // ExportNetwork exports config info of network to a YAML-friendly object.
 func (s *Simulation) ExportNetwork() YamlNetworkConfig {
-	var rr *int = nil
+	// include radio-range most likely to be used per node
+	rr := s.cfg.NewNodeConfig.RadioRange
 
-	// include radio-range if non-default
-	if s.cfg.NewNodeConfig.RadioRange != DefaultNodeConfig().RadioRange {
-		rr = &s.cfg.NewNodeConfig.RadioRange
-	}
 	res := YamlNetworkConfig{
-		Position:   [3]int{0, 0, 0}, // when exporting, always a 0-offset is used.
-		RadioRange: rr,
+		Position:   [3]int{0, 0, 0}, // when exporting, always a 0-offset (node pos shift) is used.
+		RadioRange: &rr,
 	}
 	return res
 }
@@ -58,9 +55,8 @@ func (s *Simulation) ExportNodes(nwConfig *YamlNetworkConfig) []YamlNodeConfig {
 		var rr *int = nil
 		var ver *string = nil
 
-		// include radio-range if non-default
-		if (nwConfig.RadioRange != nil && node.cfg.RadioRange != *nwConfig.RadioRange) ||
-			(nwConfig.RadioRange == nil && node.cfg.RadioRange != defaultRadioRange) {
+		// include radio-range for node, if different from network-wide setting
+		if nwConfig.RadioRange == nil || node.cfg.RadioRange != *nwConfig.RadioRange {
 			rr = &node.cfg.RadioRange
 		}
 
