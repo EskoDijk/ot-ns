@@ -23,6 +23,7 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
+//
 // The 'classic' skin: the original OTNS look. Nodes are solid shapes colored by role
 // (Leader red, Router blue, Child green, Detached/Disabled grey) with a smaller copy of
 // the shape on top in the partition color:

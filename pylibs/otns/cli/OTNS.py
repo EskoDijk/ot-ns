@@ -756,7 +756,7 @@ class OTNS(object):
                 if '=' not in kv:
                     continue
                 k, v = kv.split('=', 1)
-                if k in ('id', 'x', 'y', 'z'):
+                if k in ('id', 'x', 'y', 'z', 'rr'):
                     v = int(v)
                 elif k in ('extaddr', 'rloc16'):
                     v = int(v, 16)
@@ -1243,9 +1243,14 @@ class OTNS(object):
         timeout_s = f" {timeout}" if timeout is not None else ""
         self.node_cmd(nodeid, f"commissioner joiner add {usr} CCMCCM{timeout_s}")
 
-    def config_visualization(self, broadcast_message: bool = None, unicast_message: bool = None,
-                             ack_message: bool = None, router_table: bool = None, child_table: bool = None,
-                             partition_id: bool = None, skin: str = None) -> Dict[str, Union[bool, str]]:
+    def config_visualization(self,
+                             broadcast_message: bool = None,
+                             unicast_message: bool = None,
+                             ack_message: bool = None,
+                             router_table: bool = None,
+                             child_table: bool = None,
+                             partition_id: bool = None,
+                             skin: str = None) -> Dict[str, Union[bool, str]]:
         """
         Configure the visualization options.
 

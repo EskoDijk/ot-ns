@@ -159,7 +159,6 @@ export default class Node extends VObject {
     applySkin() {
         const skin = Skin();
         this._redraw();
-        this._updateSize();
         this.label.position.set(skin.labelOffset, skin.labelOffset);
         this._failedMask.scale.set(skin.failedMarkScale);
         if (this._selected) {
@@ -169,7 +168,8 @@ export default class Node extends VObject {
     }
 
     /**
-     * Redraw the node shape after a change of role, mode or failed state.
+     * Redraw the node shape after a change of skin, role, mode or failed state. This includes the
+     * hit area, since a skin's nodeHitRadius() may depend on the node state.
      */
     _redraw() {
         const state = this._skinState();
@@ -177,6 +177,7 @@ export default class Node extends VObject {
         Skin().buildNodeBody(this._shape, state);
         this._body.alpha = Skin().nodeAlpha(state);
         this._redrawPartitionMark();
+        this._updateSize();
     }
 
     _redrawPartitionMark() {

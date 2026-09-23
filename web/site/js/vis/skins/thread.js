@@ -23,6 +23,7 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
+//
 // The 'thread' skin: nodes and links are drawn following the common Thread network
 // diagram conventions:
 //   - Router: solid orange pentagon. Leader: solid grey pentagon.
@@ -34,7 +35,7 @@
 //   - Wi-Fi interferer node: solid grey circle.
 //   - Detached, disabled and failed nodes are drawn semi-transparent.
 //   - Links: orange between two Routers, thinner dark grey between a Router and an End Device.
-//   - The partition of a node is shown as a colored dot in its center.
+//   - The partition of a node, if enabled to show it, is shown as a colored dot in its center.
 
 import * as PIXI from "pixi.js";
 import {OtDeviceRole} from '../../proto/visualize_grpc_pb'
@@ -54,9 +55,9 @@ const LINK_WIDTH_PARENT_CHILD = 1;
 const LINK_WIDTH_ROUTER = 2;
 const LINK_WIDTH_SELECTED_EXTRA = 2;           // added to links of the selected node
 
-export const CIRCULAR_SHAPE_RADIUS = 35;
-export const PENTAGON_SHAPE_RADIUS = 38;
-export const SQUARE_SHAPE_RADIUS = 33; // half of the square's side
+const CIRCULAR_SHAPE_RADIUS = 35;
+const PENTAGON_SHAPE_RADIUS = 38;
+const SQUARE_SHAPE_RADIUS = 33; // half of the square's side
 const NODE_MAX_RADIUS = PENTAGON_SHAPE_RADIUS;
 const OUTLINE_WIDTH_MTD = 4;
 const OUTLINE_WIDTH_FTD = 6;
@@ -76,7 +77,7 @@ const MESSAGE_SIZE = 16;
 const ROUTER_CAPABLE_TYPES = ['router', 'reed', 'ftd', 'br', 'otbr', 'matter'];
 const NOT_ROUTER_CAPABLE_TYPES = ['fed', 'wifi', 'med', 'mtd', 'sed', 'ssed'];
 
-export function isRouterCapable(nodeType, nodeMode) {
+function isRouterCapable(nodeType, nodeMode) {
     if (ROUTER_CAPABLE_TYPES.includes(nodeType)) {
         return true;
     }
@@ -92,7 +93,7 @@ export function isRouterCapable(nodeType, nodeMode) {
  * @returns {{shape: string, radius: number, fill: number, outline: (number|null), outlineWidth: number,
  *            dashes: number, alpha: number}}
  */
-export function getNodeVisualStyle(nodeType, role, nodeMode, failed) {
+function getNodeVisualStyle(nodeType, role, nodeMode, failed) {
     const isLeader = role === OtDeviceRole.OT_DEVICE_ROLE_LEADER;
     const isRouterRole = isLeader || role === OtDeviceRole.OT_DEVICE_ROLE_ROUTER;
     let style = {
@@ -146,7 +147,7 @@ export function getNodeVisualStyle(nodeType, role, nodeMode, failed) {
  * Draw the node shape described by `style` (see getNodeVisualStyle) into `graphics`, centered
  * at (0,0). The caller is responsible for applying style.alpha.
  */
-export function drawNodeShape(graphics, style) {
+function drawNodeShape(graphics, style) {
     graphics.clear();
     const hasOutline = style.outline !== null;
     // the stroke is centered on the path, so inset the path to keep the outer size at style.radius.

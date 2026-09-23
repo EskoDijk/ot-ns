@@ -26,8 +26,6 @@
 
 package types
 
-import "sort"
-
 // VisualizationOptions defines which items the visualizer(s) show, and in which style.
 type VisualizationOptions struct {
 	BroadcastMessage bool
@@ -43,7 +41,7 @@ type VisualizationOptions struct {
 const (
 	VisualizationSkinThread  = "thread"  // Thread network diagram style
 	VisualizationSkinClassic = "classic" // the original OTNS style
-	DefaultVisualizationSkin = VisualizationSkinThread
+	DefaultVisualizationSkin = VisualizationSkinClassic
 )
 
 // VisualizationSkins lists the skins of the web visualization; each must be implemented in
@@ -71,13 +69,13 @@ type VisualizationSkinPreset struct {
 // VisualizationSkinPresets defines the available skin presets. To add one: append it here,
 // and document it in cli/README.md ('cv' command) and GUIDE.md.
 var VisualizationSkinPresets = []VisualizationSkinPreset{
-	{Name: "thread", Skin: VisualizationSkinThread, Options: map[string]bool{"pid": false}},
-	{Name: "thread+", Skin: VisualizationSkinThread, Options: map[string]bool{"pid": true}},
-	{Name: "classic", Skin: VisualizationSkinClassic, Options: map[string]bool{"pid": true}},
+	{Name: "thread", Skin: VisualizationSkinThread, Options: map[string]bool{"pid": false, "ack": false}},
+	{Name: "thread+", Skin: VisualizationSkinThread, Options: map[string]bool{"pid": true, "ack": false}},
+	{Name: "classic", Skin: VisualizationSkinClassic, Options: map[string]bool{"pid": true, "ack": false}},
 	{Name: "clas_ack", Skin: VisualizationSkinClassic, Options: map[string]bool{"pid": true, "ack": true}},
 }
 
-const DefaultVisualizationSkinPreset = "thread"
+const DefaultVisualizationSkinPreset = "classic"
 
 // FindVisualizationSkinPreset returns the preset with the given name, or nil if it doesn't exist.
 func FindVisualizationSkinPreset(name string) *VisualizationSkinPreset {
@@ -98,18 +96,12 @@ func VisualizationSkinPresetNames() []string {
 	return names
 }
 
-// Apply sets the preset's skin and option values in opts.
+// Apply writes the preset's skin and option values into opts.
 func (p *VisualizationSkinPreset) Apply(opts *VisualizationOptions) {
 	opts.Skin = p.Skin
 	opts.SkinPreset = p.Name
-	// apply in a fixed order, for reproducible results should an option ever be listed twice.
-	keys := make([]string, 0, len(p.Options))
-	for k := range p.Options {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	for _, k := range keys {
-		opts.SetOption(k, p.Options[k])
+	for k, v := range p.Options {
+		opts.SetOption(k, v)
 	}
 }
 

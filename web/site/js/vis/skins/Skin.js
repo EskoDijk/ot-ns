@@ -23,10 +23,11 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
+//
 // A skin defines the visual style of the network visualization: how nodes, their partition
 // indicator, links and messages are drawn. Everything else (state tracking, gRPC handling,
 // dragging, hit testing, windows) is skin-independent. See ./index.js for the registry of
-// available skins and ./thread.js for the default skin.
+// available skins.
 //
 // To add a skin: create skins/<name>.js with a class that extends Skin (or an existing skin)
 // and overrides the hooks below, register it in skins/index.js, and on the Go side add the name
@@ -120,9 +121,6 @@ export default class Skin {
 }
 
 /**
- * Helper for skins: remove and destroy all children of `container`.
- */
-/**
  * @returns {boolean} whether the OTNS node type is a Border Router type: the simulated 'br' or
  * the real-time 'otbr'. Both are drawn as a BR.
  */
@@ -130,6 +128,9 @@ export function isBorderRouter(nodeType) {
     return nodeType === 'br' || nodeType === 'otbr';
 }
 
+/**
+ * Helper for skins: remove and destroy all children of `container`.
+ */
 export function clearContainer(container) {
     container.removeChildren().forEach(child => child.destroy());
 }

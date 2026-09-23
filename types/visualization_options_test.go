@@ -45,9 +45,9 @@ func TestVisualizationSkinPresets(t *testing.T) {
 	assert.Equal(t, len(VisualizationSkinPresets), len(VisualizationSkinPresetNames()))
 
 	opts := DefaultVisualizationOptions()
-	assert.Equal(t, "thread", opts.SkinPreset)
-	assert.Equal(t, VisualizationSkinThread, opts.Skin)
-	assert.False(t, opts.PartitionId)
+	assert.Equal(t, "classic", opts.SkinPreset)
+	assert.Equal(t, VisualizationSkinClassic, opts.Skin)
+	assert.True(t, opts.PartitionId)
 	assert.False(t, opts.AckMessage)
 
 	FindVisualizationSkinPreset("clas_ack").Apply(&opts)
@@ -56,10 +56,12 @@ func TestVisualizationSkinPresets(t *testing.T) {
 	assert.True(t, opts.PartitionId)
 	assert.True(t, opts.AckMessage)
 
+	opts.RouterTable = false
 	FindVisualizationSkinPreset("thread").Apply(&opts)
 	assert.Equal(t, VisualizationSkinThread, opts.Skin)
 	assert.False(t, opts.PartitionId)
-	assert.True(t, opts.AckMessage) // not part of the preset: unchanged
+	assert.False(t, opts.AckMessage)  // every preset sets 'ack', so it doesn't linger from clas_ack
+	assert.False(t, opts.RouterTable) // not part of the preset: unchanged
 
 	assert.False(t, opts.SetOption("nope", true))
 }
