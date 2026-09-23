@@ -1,4 +1,4 @@
-// Copyright (c) 2020-2023, The OTNS Authors.
+// Copyright (c) 2020-2026, The OTNS Authors.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -197,6 +197,16 @@ func TestParseBytes(t *testing.T) {
 	assert.True(t, parseBytes([]byte("unwatch all"), &cmd) == nil && cmd.Unwatch != nil)
 
 	assert.True(t, parseBytes([]byte("web"), &cmd) == nil && cmd.Web != nil)
+
+	assert.Nil(t, parseBytes([]byte("cv"), &cmd))
+	assert.True(t, cmd.ConfigVisualization != nil && cmd.ConfigVisualization.Skin == nil)
+	assert.Nil(t, parseBytes([]byte("cv skin classic"), &cmd))
+	assert.True(t, cmd.ConfigVisualization.Skin != nil && cmd.ConfigVisualization.Skin.Name == "classic")
+	assert.Nil(t, parseBytes([]byte("cv skin clas_ack"), &cmd))
+	assert.True(t, cmd.ConfigVisualization.Skin.Name == "clas_ack")
+	assert.Nil(t, parseBytes([]byte("cv pid off skin thread+ ack on"), &cmd))
+	assert.True(t, cmd.ConfigVisualization.Skin.Name == "thread+" && cmd.ConfigVisualization.PartitionId.OnOrOff.Off != nil)
+	assert.NotNil(t, parseBytes([]byte("cv skin"), &cmd))
 }
 
 func TestContextlessCommandPat(t *testing.T) {

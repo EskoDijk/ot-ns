@@ -1,4 +1,4 @@
-// Copyright (c) 2020-2024, The OTNS Authors.
+// Copyright (c) 2020-2026, The OTNS Authors.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -65,6 +65,7 @@ message VisualizeEvent {
         SetNodeModeEvent set_node_mode = 22;
         SetNetworkInfoEvent set_network_info = 23;
         NodeStatsInfoEvent node_stats_info = 24;
+        SetVisualizationOptionsEvent set_visualization_options = 25;
     }
 }
 
@@ -256,6 +257,18 @@ message CommandResponse {
 message ReplayEntry {
     uint64 timestamp = 1;
     VisualizeEvent event = 2;
+}
+
+message SetVisualizationOptionsEvent {
+    bool broadcast_message = 1;
+    bool unicast_message = 2;
+    bool ack_message = 3;
+    bool router_table = 4;
+    bool child_table = 5;
+    bool partition_id = 6;
+    string skin = 7;               // active skin (browser-side implementation name)
+    string skin_preset = 8;        // name of the selected skin preset, see 'cv skin'
+    repeated string skin_presets = 9; // names of all skin presets, in cycling order
 }
 
 service VisualizeGrpcService {

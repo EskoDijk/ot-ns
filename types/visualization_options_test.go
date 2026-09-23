@@ -1,4 +1,4 @@
-// Copyright (c) 2020-2026, The OTNS Authors.
+// Copyright (c) 2026, The OTNS Authors.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -24,28 +24,44 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-// nodes and numbering
-export const NODE_ID_INVALID = 0xffff;
-export const EXT_ADDR_INVALID = 0xFFFFFFFFFFFFFFFF;
+package types
 
-// simulation speed controls
-export const PAUSE_SPEED = 0;
-export const MAX_SPEED = 1000000;
-export const TUNE_SPEED_SETTINGS = [0.000001, 0.000005, 0.00001, 0.00005, 0.0001, 0.0005, 0.001, 0.005, 0.01,
-                                0.05, 0.1, 0.25, 0.5, 1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, MAX_SPEED];
+import (
+	"testing"
 
-// radio frame and power info
-export const FRAME_CONTROL_MASK_FRAME_TYPE = 0x7;
-export const FRAME_TYPE_ACK = 2;
-export const POWER_DBM_INVALID = 127;
+	"github.com/stretchr/testify/assert"
+)
 
-// fonts (colors of nodes, links and messages are defined per skin, see skins/)
-export const BUTTON_LABEL_FONT_FAMILY = 'verdana, helvetica, sans-serif';
-export const NODE_LABEL_FONT_FAMILY = 'helvetica, arial, monospace, sans-serif';
-export const NODE_LABEL_FONT_SIZE = 13;
-export const STATUS_MSG_FONT_FAMILY = 'consolas, monaco, monospace';
-export const STATUS_MSG_FONT_SIZE = 13;
+func TestVisualizationSkinPresets(t *testing.T) {
+	for _, p := range VisualizationSkinPresets {
+		assert.True(t, IsVisualizationSkin(p.Skin), p.Name)
+		for k := range p.Options {
+			var opts VisualizationOptions
+			assert.True(t, opts.SetOption(k, true), p.Name+": unknown option "+k)
+		}
+	}
+	assert.NotNil(t, FindVisualizationSkinPreset(DefaultVisualizationSkinPreset))
+	assert.Nil(t, FindVisualizationSkinPreset("nonexistent"))
+	assert.Equal(t, len(VisualizationSkinPresets), len(VisualizationSkinPresetNames()))
 
-export const LOG_WINDOW_FONT_FAMILY = 'verdana, helvetica, sans-serif';
-export const LOG_WINDOW_FONT_SIZE = 11.5;
-export const LOG_WINDOW_FONT_COLOR = "Blue";
+	opts := DefaultVisualizationOptions()
+	assert.Equal(t, "classic", opts.SkinPreset)
+	assert.Equal(t, VisualizationSkinClassic, opts.Skin)
+	assert.True(t, opts.PartitionId)
+	assert.False(t, opts.AckMessage)
+
+	FindVisualizationSkinPreset("clas_ack").Apply(&opts)
+	assert.Equal(t, "clas_ack", opts.SkinPreset)
+	assert.Equal(t, VisualizationSkinClassic, opts.Skin)
+	assert.True(t, opts.PartitionId)
+	assert.True(t, opts.AckMessage)
+
+	opts.RouterTable = false
+	FindVisualizationSkinPreset("thread").Apply(&opts)
+	assert.Equal(t, VisualizationSkinThread, opts.Skin)
+	assert.False(t, opts.PartitionId)
+	assert.False(t, opts.AckMessage)  // every preset sets 'ack', so it doesn't linger from clas_ack
+	assert.False(t, opts.RouterTable) // not part of the preset: unchanged
+
+	assert.False(t, opts.SetOption("nope", true))
+}

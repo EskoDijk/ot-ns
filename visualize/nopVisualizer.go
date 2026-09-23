@@ -1,4 +1,4 @@
-// Copyright (c) 2022-2024, The OTNS Authors.
+// Copyright (c) 2022-2026, The OTNS Authors.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -115,6 +115,10 @@ func (nv *NopVisualizer) SetNodeMode(nodeid NodeId, mode NodeMode) {
 }
 
 func (nv *NopVisualizer) SetNodePartitionId(nodeid NodeId, parid uint32) {
+
+}
+
+func (nv *NopVisualizer) SetVisualizationOptions(opts VisualizationOptions) {
 
 }
 

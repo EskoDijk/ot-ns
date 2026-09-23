@@ -1,4 +1,4 @@
-// Copyright (c) 2020-2024, The OTNS Authors.
+// Copyright (c) 2020-2026, The OTNS Authors.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -55,6 +55,12 @@ function getDesiredFieldSize() {
     return [window.innerWidth - 20, window.innerHeight - 20]
 }
 
+window.addEventListener("keydown", function (e) {
+    if (vis !== null) {
+        vis.onKeyDown(e);
+    }
+});
+
 window.addEventListener("resize", function () {
     let [w, h] = getDesiredFieldSize();
     if (app.renderer) {
@@ -70,6 +76,12 @@ function loadOk() {
     grpcServiceClient = new VisualizeGrpcServiceClient(server);
 
     vis = new PixiVisualizer(app, grpcServiceClient);
+    // for development: '?skin=<name>' in the page URL overrides the skin selected by the simulator.
+    // An unknown name is ignored (setSkin() logs it), so that the simulator's skin selection still applies.
+    let skinOverride = new URLSearchParams(window.location.search).get('skin');
+    if (skinOverride && vis.setSkin(skinOverride)) {
+        vis.skinOverride = skinOverride;
+    }
 
     let [w, h] = getDesiredFieldSize();
     vis.onResize(w, h);
@@ -175,6 +187,20 @@ function loadOk() {
             case VisualizeEvent.TypeCase.SET_NETWORK_INFO:
                 e = resp.getSetNetworkInfo();
                 vis.visSetNetworkInfo(e.getVersion(), e.getCommit(), e.getReal(), e.getNodeId(), e.getThreadVersion());
+                break;
+            case VisualizeEvent.TypeCase.SET_VISUALIZATION_OPTIONS:
+                e = resp.getSetVisualizationOptions();
+                vis.visSetVisualizationOptions({
+                    broadcastMessage: e.getBroadcastMessage(),
+                    unicastMessage: e.getUnicastMessage(),
+                    ackMessage: e.getAckMessage(),
+                    routerTable: e.getRouterTable(),
+                    childTable: e.getChildTable(),
+                    partitionId: e.getPartitionId(),
+                    skin: e.getSkin(),
+                    skinPreset: e.getSkinPreset(),
+                    skinPresets: e.getSkinPresetsList(),
+                });
                 break;
             default:
                 break

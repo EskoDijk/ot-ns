@@ -62,6 +62,7 @@ type Visualizer interface {
 	OnExtAddrChange(id NodeId, extaddr uint64)
 	SetTitle(titleInfo TitleInfo)
 	SetNetworkInfo(networkInfo NetworkInfo)
+	SetVisualizationOptions(opts VisualizationOptions)
 	UpdateNodesEnergy(node []*energy.NodeEnergy, timestamp uint64, updateView bool)
 	SetEnergyAnalyser(ea *energy.EnergyAnalyser)
 	UpdateNodeStats(statsInfo *NodeStatsInfo)

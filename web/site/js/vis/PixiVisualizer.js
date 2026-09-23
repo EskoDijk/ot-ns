@@ -40,6 +40,7 @@ import {
     NODE_LABEL_FONT_FAMILY
 } from "./consts";
 import Node from "./Node"
+import {Skin, SkinName, SetSkin, DEFAULT_SKIN_NAME} from "./skins";
 import {AckMessage, BroadcastMessage, UnicastMessage} from "./message";
 import LogWindow, {LOG_WINDOW_WIDTH} from "./LogWindow";
 import * as fmt from "./format_text"
@@ -69,6 +70,14 @@ export default class PixiVisualizer extends VObject {
         this.nodes = {};
         this._messages = {};
         this.newNodePos = null;
+        // visualization options, see the 'cv' CLI command; defaults must match types.DefaultVisualizationOptions()
+        this.visOptions = {
+            broadcastMessage: true, unicastMessage: true, ackMessage: false,
+            routerTable: true, childTable: true, partitionId: true, skin: DEFAULT_SKIN_NAME,
+            skinPreset: "", skinPresets: [],
+        };
+        // if set, this skin is used instead of the one selected by the simulator (for development)
+        this.skinOverride = null;
 
         this.root = new PIXI.Container();
         // this.root.width =
@@ -116,6 +125,9 @@ export default class PixiVisualizer extends VObject {
         this.addChild(this.nodeWindow);
         this._selectedNodeId = 0;
         this._selectAddedNode = false;
+        // current size of the drawing field, kept up to date by onResize()
+        this._fieldWidth = window.innerWidth;
+        this._fieldHeight = window.innerHeight;
 
         this.otVersion = "";
         this.otCommit = "";
@@ -168,7 +180,7 @@ export default class PixiVisualizer extends VObject {
         if (!this.logWindow) {
             this.logWindow = new LogWindow();
             this._logWindowStage.addChild(this.logWindow._root);
-            this._resetLogWindowPosition(window.screen.width, window.screen.height);
+            this._resetLogWindowPosition(this._fieldWidth, this._fieldHeight);
 
             this.log("Log window opened.")
         }
@@ -408,12 +420,28 @@ export default class PixiVisualizer extends VObject {
         this.nodes[nodeId].failed = true;
         this.logNode(nodeId, "Radio is OFF")
         this.onNodeUpdate(nodeId);
+        this._refreshActionBarIfSelected(nodeId);
     }
 
     visOnNodeRecover(nodeId) {
         this.nodes[nodeId].failed = false;
         this.logNode(nodeId, "Radio is ON")
         this.onNodeUpdate(nodeId);
+        this._refreshActionBarIfSelected(nodeId);
+    }
+
+    // the action bar shows state-dependent labels (e.g. the radio toggle) for the selected node.
+    _refreshActionBarIfSelected(nodeId) {
+        if (nodeId == this._selectedNodeId) {
+            this.actionBar.refresh();
+        }
+    }
+
+    /**
+     * @returns {Node|null} the selected node, if any
+     */
+    getSelectedNode() {
+        return this.nodes[this._selectedNodeId] || null;
     }
 
     visSetParent(nodeId, extAddr) {
@@ -514,6 +542,10 @@ export default class PixiVisualizer extends VObject {
         this.runCommand("speed " + speed)
     }
 
+    ctrlSetSkin(name) {
+        this.runCommand("cv skin " + name)
+    }
+
     runCommand(cmd, callback) {
         let req = new CommandRequest();
         req.setCommand(cmd);
@@ -546,12 +578,48 @@ export default class PixiVisualizer extends VObject {
         )
     }
 
+    visSetVisualizationOptions(opts) {
+        this.visOptions = opts;
+        for (let nodeid in this.nodes) {
+            this.nodes[nodeid].setPartitionVisible(opts.partitionId);
+        }
+        this.setSkin(this.skinOverride || opts.skin);
+        this.actionBar.refresh(); // the skin button shows the selected preset, which may change without a skin change
+    }
+
+    /**
+     * Activate the named skin (see skins/index.js) and redraw the nodes and links.
+     * @returns {boolean} false if the name is unknown; the active skin is then kept. True otherwise.
+     */
+    setSkin(name) {
+        if (name === SkinName()) {
+            return true;
+        }
+        if (!SetSkin(name)) {
+            console.error("unknown visualization skin '" + name + "', keeping skin '" + SkinName() + "'");
+            return false;
+        }
+        for (let nodeid in this.nodes) {
+            this.nodes[nodeid].applySkin();
+        }
+        this._drawNodeLinks();
+        return true;
+    }
+
+    /**
+     * Map a 32-bit partition ID to a 24-bit RGB color (Pixi rejects larger color values). Black is
+     * reserved for 'no partition' (ID 0). Any other ID is hashed so that all 32 bits contribute to the
+     * color and the result is never so dark that it looks black.
+     */
     getPartitionColor(parid) {
         if (parid === 0) {
-            return 0x000000
+            return 0x000000;
         }
-
-        return parid
+        let color = Math.imul(parid, 0x9E3779B1) >>> 8; // 24-bit multiplicative hash
+        if ((color & 0xc0c0c0) === 0) { // all channels below 0x40: brighten
+            color |= 0x404040;
+        }
+        return color;
     }
 
     setSelectedNode(id) {
@@ -576,6 +644,75 @@ export default class PixiVisualizer extends VObject {
 
         this.nodeWindow.showNode(new_sel);
         this.actionBar.setContext(new_sel || "any");
+    }
+
+    /**
+     * Select the node that is `step` positions (+1 next, -1 previous) after the selected node in
+     * the order of node IDs, wrapping around. With no node selected, +1 selects the lowest and
+     * -1 the highest node ID.
+     * @returns {boolean} true if a node was selected, false if there are no nodes.
+     */
+    selectAdjacentNode(step) {
+        const ids = Object.keys(this.nodes).map(Number).sort((a, b) => a - b);
+        if (ids.length === 0) {
+            return false;
+        }
+        let idx = ids.indexOf(this._selectedNodeId);
+        if (idx < 0) {
+            idx = step > 0 ? 0 : ids.length - 1;
+        } else {
+            idx = (idx + step + ids.length) % ids.length;
+        }
+        this.setSelectedNode(ids[idx]);
+        return true;
+    }
+
+    /**
+     * Keyboard shortcuts: Tab / Shift+Tab select the next / previous node, Escape unselects,
+     * Delete deletes the selected node, Space pauses/resumes the simulation. Key combinations
+     * with Ctrl/Alt/Meta are left to the browser (e.g. Ctrl+R reload).
+     */
+    onKeyDown(e) {
+        const t = e.target;
+        if (t && (t.isContentEditable || t.tagName === 'INPUT' || (t.tagName === 'TEXTAREA' && !t.readOnly))) {
+            return; // don't take keys away from an editable element
+        }
+        if (e.ctrlKey || e.altKey || e.metaKey) {
+            return;
+        }
+        switch (e.key) {
+            case 'Escape':
+                this.setSelectedNode(0);
+                e.preventDefault();
+                break;
+            case 'Tab': {
+                // Tab is only taken over while no page element has the focus, and only when there is a
+                // node to select; otherwise the browser's own focus navigation (e.g. to the node window)
+                // keeps working.
+                const a = document.activeElement;
+                if (a && a.tagName !== 'BODY' && a.tagName !== 'CANVAS') {
+                    break;
+                }
+                if (this.selectAdjacentNode(e.shiftKey ? -1 : 1)) {
+                    e.preventDefault();
+                }
+                break;
+            }
+            case 'Delete':
+                if (this.actionBar.hasAbility("del")) {
+                    this.deleteSelectedNode();
+                    e.preventDefault();
+                }
+                break;
+            case ' ':
+                if (this.actionBar.hasAbility("speed")) { // not in -realtime mode
+                    this.actionBar.actionTogglePauseResume();
+                    e.preventDefault();
+                }
+                break;
+            default:
+                break;
+        }
     }
 
     setSpeed(speed) {
@@ -614,59 +751,64 @@ export default class PixiVisualizer extends VObject {
     }
 
     _drawNodeLinks() {
-        let linkLineWidth = 1;
         // this._bgStage.removeChildAt(0)
         this._bgStage.removeChildren().forEach(child => child.destroy());
 
         const graphics = new PIXI.Graphics();
 
+        // The active skin determines color and width of a link from its kind ('child' for
+        // parent-child links, 'router' for router-table links between two Routers, 'neighbor' for
+        // other router-table links, see skins/Skin.js) and whether it touches the selected node.
+        // Note that FTD children (FED/REED) also report router-table entries for the Routers
+        // they hear, so a router-table link is only a Router-to-Router link if both ends are Routers.
         // Pixi v8 strokes the whole current path with a single style, so group
         // segments by (color, width) and stroke each group as its own path.
-        // Green = parent/child tree links, blue = neighbor links; links touching
-        // the selected node are drawn 3x thicker.
-        const GREEN = 0x8bc34a, BLUE = 0x1976d2;
-        const greenThin = [], greenThick = [], blueThin = [], blueThick = [];
+        const skin = Skin();
+        const groups = {};
+        const addLink = (kind, selected, from, to) => {
+            const style = skin.linkStyle(kind, selected);
+            const key = style.color + ":" + style.width;
+            if (!(key in groups)) {
+                groups[key] = {style: style, segments: []};
+            }
+            groups[key].segments.push([from, to]);
+        };
+        const isRouter = (n) => n.role === OtDeviceRole.OT_DEVICE_ROLE_ROUTER || n.role === OtDeviceRole.OT_DEVICE_ROLE_LEADER;
 
         for (let nodeid in this.nodes) {
             let node = this.nodes[nodeid];
             if (node.parent) {
                 let parent = this.findNodeByExtAddr(node.parent);
                 if (parent !== null) {
-                    let thick = nodeid == this._selectedNodeId || parent.id == this._selectedNodeId;
-                    (thick ? greenThick : greenThin).push([node.position, parent.position]);
+                    let selected = nodeid == this._selectedNodeId || parent.id == this._selectedNodeId;
+                    addLink('child', selected, node.position, parent.position);
                 }
             }
             for (let extaddr in node._children) {
                 let child = this.findNodeByExtAddr(extaddr);
                 if (child) {
-                    let thick = nodeid == this._selectedNodeId || child.id == this._selectedNodeId;
-                    (thick ? greenThick : greenThin).push([node.position, child.position]);
+                    let selected = nodeid == this._selectedNodeId || child.id == this._selectedNodeId;
+                    addLink('child', selected, node.position, child.position);
                 }
             }
             for (let extaddr in node._neighbors) {
                 let neighbor = this.findNodeByExtAddr(extaddr);
                 if (neighbor) {
-                    let thick = nodeid == this._selectedNodeId;
-                    (thick ? blueThick : blueThin).push([node.position, neighbor.position]);
+                    let selected = nodeid == this._selectedNodeId;
+                    let kind = isRouter(node) && isRouter(neighbor) ? 'router' : 'neighbor';
+                    addLink(kind, selected, node.position, neighbor.position);
                 }
             }
         }
 
-        const strokeGroup = (segments, width, color) => {
-            if (segments.length === 0) {
-                return;
-            }
+        for (let key in groups) {
+            const {style, segments} = groups[key];
             graphics.beginPath();
             for (let [from, to] of segments) {
                 graphics.moveTo(from.x, from.y).lineTo(to.x, to.y);
             }
-            graphics.stroke({width: width, color: color, alpha: 1});
-        };
-
-        strokeGroup(greenThin, linkLineWidth, GREEN);
-        strokeGroup(greenThick, linkLineWidth * 3, GREEN);
-        strokeGroup(blueThin, linkLineWidth, BLUE);
-        strokeGroup(blueThick, linkLineWidth * 3, BLUE);
+            graphics.stroke({width: style.width, color: style.color, alpha: 1});
+        }
 
         this._bgStage.addChild(graphics)
     }
@@ -805,6 +947,8 @@ export default class PixiVisualizer extends VObject {
 
     onResize(width, height) {
         console.log("window resized to " + width + "," + height);
+        this._fieldWidth = width;
+        this._fieldHeight = height;
         this.actionBar.position.set(10, height - this.actionBar.height - 20 - 10);
         this._resetLogWindowPosition(width, height);
     }
