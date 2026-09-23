@@ -94,8 +94,9 @@ Use a web browser to manage the simulated Thread network:
 - Add, delete, and move various types of OpenThread nodes
 - Disable and recover node radios
 - Adjust simulation speed
-- Pause/start the simulation
-- Inspect properties and state of nodes
+- Pause/start the simulation (button or `Space`; not available in `-realtime` mode)
+- Inspect properties and state of nodes (click a node; `Tab` and `Shift+Tab` select the next or
+  previous node, `Escape` unselects, `Delete` deletes the selected node)
 - Open a graph showing node type/status statistics over time
 - See some logged events
 - See nodes' energy usage (Beta feature - pending validation)
@@ -103,8 +104,11 @@ Use a web browser to manage the simulated Thread network:
 ### Network visualization skins
 
 The visual style (skin) of the network visualization is selected with the CLI command
-`cv skin <name>`. In all skins, the colored mark in the center of a node shows its partition;
-it can be switched off with `cv pid off`. Failed nodes get a cross drawn over them.
+`cv skin <preset>`, or by clicking the `Skin` button in the web visualizer, which cycles through
+the available skin presets. A preset combines a skin with predefined values of some visualization
+options; see the [`cv` command](cli/README.md#cv) for the list. For example `thread+` is the
+`thread` skin with the colored partition mark in the center of each node shown, and `thread` is
+the same skin with the mark hidden. Failed nodes get a cross drawn over them.
 
 The `thread` skin (default) uses the common Thread network diagram style:
 

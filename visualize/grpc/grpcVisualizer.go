@@ -106,6 +106,8 @@ func newSetVisualizationOptionsEvent(opts VisualizationOptions) *pb.VisualizeEve
 		ChildTable:       opts.ChildTable,
 		PartitionId:      opts.PartitionId,
 		Skin:             opts.Skin,
+		SkinPreset:       opts.SkinPreset,
+		SkinPresets:      VisualizationSkinPresetNames(),
 	}}}
 }
 

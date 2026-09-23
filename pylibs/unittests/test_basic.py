@@ -355,17 +355,30 @@ class BasicTests(OTNSTestCase):
         for opt in ('broadcast_message', 'unicast_message', 'ack_message', 'router_table', 'child_table', 'partition_id'):
             self.assertFalse(vopts[opt])
 
-        # skin selection
-        self.assertEqual(vopts['skin'], 'thread')
+        # skin presets: a preset selects a skin and applies its own option values only.
+        self.assertEqual(vopts['skin'], 'thread')  # the default; unchanged by setting options
         vopts = ns.config_visualization(skin='classic')
         self.assertEqual(vopts['skin'], 'classic')
-        self.assertFalse(vopts['partition_id'])  # other options are unchanged
-        vopts = ns.config_visualization(skin='thread', partition_id=True)
-        self.assertEqual(vopts['skin'], 'thread')
         self.assertTrue(vopts['partition_id'])
+        self.assertFalse(vopts['ack_message'])  # not part of the preset: unchanged
+        vopts = ns.config_visualization(skin='clas_ack')
+        self.assertEqual(vopts['skin'], 'clas_ack')
+        self.assertTrue(vopts['partition_id'])
+        self.assertTrue(vopts['ack_message'])
+        vopts = ns.config_visualization(skin='thread')
+        self.assertEqual(vopts['skin'], 'thread')
+        self.assertFalse(vopts['partition_id'])
+        self.assertTrue(vopts['ack_message'])  # not part of the preset: unchanged
+        vopts = ns.config_visualization(skin='thread+', ack_message=False)  # explicit options override
+        self.assertEqual(vopts['skin'], 'thread+')
+        self.assertTrue(vopts['partition_id'])
+        self.assertFalse(vopts['ack_message'])
+        vopts = ns.config_visualization(partition_id=False)  # changing an option keeps the preset name
+        self.assertEqual(vopts['skin'], 'thread+')
+        self.assertFalse(vopts['partition_id'])
         with self.assertRaises(errors.OTNSCliError):
             ns.config_visualization(skin='nonexistent')
-        self.assertEqual(ns.config_visualization()['skin'], 'thread')
+        self.assertEqual(ns.config_visualization()['skin'], 'thread+')
 
     def testWithOTNS(self):
         """

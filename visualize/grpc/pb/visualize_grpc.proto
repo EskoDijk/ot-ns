@@ -266,7 +266,9 @@ message SetVisualizationOptionsEvent {
     bool router_table = 4;
     bool child_table = 5;
     bool partition_id = 6;
-    string skin = 7;
+    string skin = 7;               // active skin (browser-side implementation name)
+    string skin_preset = 8;        // name of the selected skin preset, see 'cv skin'
+    repeated string skin_presets = 9; // names of all skin presets, in cycling order
 }
 
 service VisualizeGrpcService {

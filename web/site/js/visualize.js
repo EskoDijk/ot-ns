@@ -55,6 +55,12 @@ function getDesiredFieldSize() {
     return [window.innerWidth - 20, window.innerHeight - 20]
 }
 
+window.addEventListener("keydown", function (e) {
+    if (vis !== null) {
+        vis.onKeyDown(e);
+    }
+});
+
 window.addEventListener("resize", function () {
     let [w, h] = getDesiredFieldSize();
     if (app.renderer) {
@@ -192,6 +198,8 @@ function loadOk() {
                     childTable: e.getChildTable(),
                     partitionId: e.getPartitionId(),
                     skin: e.getSkin(),
+                    skinPreset: e.getSkinPreset(),
+                    skinPresets: e.getSkinPresetsList(),
                 });
                 break;
             default:

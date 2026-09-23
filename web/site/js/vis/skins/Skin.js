@@ -29,8 +29,9 @@
 // available skins and ./thread.js for the default skin.
 //
 // To add a skin: create skins/<name>.js with a class that extends Skin (or an existing skin)
-// and overrides the hooks below, register it in skins/index.js, and add the name to
-// types.VisualizationSkins on the Go side so that the CLI command 'cv skin <name>' accepts it.
+// and overrides the hooks below, register it in skins/index.js, and on the Go side add the name
+// to types.VisualizationSkins and a preset using it to types.VisualizationSkinPresets, so that
+// the CLI command 'cv skin <preset>' can select it.
 
 import * as PIXI from "pixi.js";
 
