@@ -28,6 +28,8 @@ package simulation
 
 import (
 	"fmt"
+	"gopkg.in/yaml.v3"
+	"os"
 
 	"github.com/openthread/ot-ns/logger"
 )
@@ -120,4 +122,26 @@ func (s *Simulation) ImportNodes(nwConfig YamlNetworkConfig, nodes []YamlNodeCon
 		return fmt.Errorf("not all nodes could be imported - see error log above")
 	}
 	return nil
+}
+
+// LoadTopologyFile loads the nodes of a YAML topology file (see etc/mesh-topologies) into the
+// simulation. With add=true, node IDs from the file are shifted above the existing node IDs.
+// Must be called from the simulation goroutine (e.g. via PostAsync()).
+func (s *Simulation) LoadTopologyFile(filename string, add bool) error {
+	b, err := os.ReadFile(filename)
+	if err != nil {
+		return fmt.Errorf("could not load file '%s': %w", filename, err)
+	}
+	cfgFile := YamlConfigFile{}
+	if err = yaml.Unmarshal(b, &cfgFile); err != nil {
+		return fmt.Errorf("error in YAML file '%s': %w", filename, err)
+	}
+	if len(cfgFile.NodesList) == 0 {
+		return fmt.Errorf("no nodes defined in YAML file '%s'", filename)
+	}
+	if add {
+		nodeIdOffset := s.MaxNodeId() + 1 - cfgFile.MinNodeId()
+		cfgFile.NetworkConfig.BaseId = &nodeIdOffset
+	}
+	return s.ImportNodes(cfgFile.NetworkConfig, cfgFile.NodesList)
 }

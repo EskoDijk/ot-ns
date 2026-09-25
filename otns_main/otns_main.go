@@ -27,10 +27,12 @@
 package otns_main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
@@ -113,7 +115,7 @@ func parseArgs() {
 	flag.Int64Var(&args.RandomSeed, "seed", 0, "set specific random-seed value (for reproducability)")
 	flag.BoolVar(&args.PhyTxStats, "phy-tx-stats", false, "generate PHY Tx statistics CSV file")
 	flag.StringVar(&args.OutputDir, "output", DefaultOutputDir, "specify output directory for simulation results and logs")
-	flag.StringVar(&args.FloorPlanFile, "floorplan", "", "specify a floor plan JSON file for the 3D web visualization skin (see etc/floorplans)")
+	flag.StringVar(&args.FloorPlanFile, "floorplan", "", "specify a floor plan JSON file for the 3D web visualization skin; a topology file named in it is loaded at startup (see etc/floorplans)")
 	flag.StringVar(&args.OtBrBackboneIfName, "otbr-if", "lo", "specify default backbone interface name for OTBRs")
 	flag.Parse()
 }
@@ -240,6 +242,15 @@ func Main(ctx *progctx.ProgCtx, cliOptions *cli.CliOptions) {
 		})
 	}
 
+	if topology := floorPlanTopology(args.FloorPlanFile); topology != "" {
+		sim.PostAsync(func() {
+			logger.Infof("loading topology %s of the floor plan", topology)
+			if err := sim.LoadTopologyFile(topology, false); err != nil {
+				logger.Errorf("floor plan topology: %v", err)
+			}
+		})
+	}
+
 	ctx.WaitAdd("autogo", 1)
 	go sim.AutoGoRoutine(ctx, sim)
 
@@ -250,6 +261,29 @@ func Main(ctx *progctx.ProgCtx, cliOptions *cli.CliOptions) {
 	cli.Cli.Stop()
 	webSite.StopServe()
 	ctx.Wait()
+}
+
+// floorPlanTopology returns the YAML topology file named by the 'topology' entry of the floor plan
+// JSON file (see etc/floorplans/README.md), resolved relative to the plan file; "" if none.
+func floorPlanTopology(planFile string) string {
+	if planFile == "" {
+		return ""
+	}
+	data, err := os.ReadFile(planFile)
+	if err != nil {
+		return "" // already reported at startup
+	}
+	var plan struct {
+		Topology string `json:"topology"`
+	}
+	if err := json.Unmarshal(data, &plan); err != nil {
+		logger.Errorf("floor plan file %s: %v", planFile, err)
+		return ""
+	}
+	if plan.Topology == "" || filepath.IsAbs(plan.Topology) {
+		return plan.Topology
+	}
+	return filepath.Join(filepath.Dir(planFile), plan.Topology)
 }
 
 func handleSignals(ctx *progctx.ProgCtx) {

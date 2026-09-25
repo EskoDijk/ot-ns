@@ -1,5 +1,6 @@
 {
   "name": "Small office, two floors",
+  "topology": "office-small.yaml",
   "unitsPerMeter": 10,
   "origin": [
     100,

@@ -7,6 +7,7 @@
 #             cmds.txt (otns CLI commands), optional done.js and action.js (see headless-run.mjs)
 #   OTNS_BIN  otns executable (default: otns on PATH)
 #   E2E_SPEED simulation speed (default 20), E2E_WAIT seconds before the first screenshot (default 12)
+#   E2E_FLOORPLAN floor plan file for 'otns -floorplan' (its topology is then loaded at startup)
 # Ports: otns -listen localhost:9100 (gRPC 9099, grpcwebproxy 9098), pages on 9150.
 E=${E2E_DIR:-/tmp/otns-e2e}
 REPO=$(cd "$(dirname "$0")/../../.." && pwd)
@@ -14,7 +15,7 @@ cd $REPO || exit 1
 pkill -f "otns-bin/otns" 2>/dev/null; pkill -f "grpcwebproxy.*9098" 2>/dev/null; pkill -f "http.server 9150" 2>/dev/null
 rm -rf $E/out; mkdir -p $E/out
 # otns keeps running while its stdin stays open
-( cat $E/cmds.txt; sleep 150 ) | ${OTNS_BIN:-otns} -web=false -speed ${E2E_SPEED:-20} -listen localhost:9100 -output $E/out -log warn > $E/otns.log 2>&1 &
+( cat $E/cmds.txt; sleep 150 ) | ${OTNS_BIN:-otns} -web=false -speed ${E2E_SPEED:-20} ${E2E_FLOORPLAN:+-floorplan $E2E_FLOORPLAN} -listen localhost:9100 -output $E/out -log warn > $E/otns.log 2>&1 &
 OTNS_PID=$!
 grpcwebproxy --backend_addr=localhost:9099 --run_tls_server=false --allow_all_origins \
     --server_http_max_read_timeout=1h --server_http_max_write_timeout=1h \

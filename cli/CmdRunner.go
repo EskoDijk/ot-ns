@@ -1457,31 +1457,8 @@ func (rt *CmdRunner) executeLoad(cc *CommandContext, cmd *LoadCmd) {
 	}
 
 	rt.postAsyncWait(cc, func(sim *simulation.Simulation) {
-		b, err := os.ReadFile(safeFilename)
-		if err != nil {
-			cc.errorf("Could not load file '%s': %v", safeFilename, err)
-			return
-		}
-		cfgFile := simulation.YamlConfigFile{}
-		err = yaml.Unmarshal(b, &cfgFile)
-		if err != nil {
-			cc.errorf("Error in YAML file: %v", err)
-			return
-		}
-		if len(cfgFile.NodesList) == 0 {
-			cc.errorf("No nodes defined in YAML file")
-			return
-		}
-
-		if cmd.Add != nil {
-			yamlMinNodeId := cfgFile.MinNodeId()
-			nodeIdOffset := sim.MaxNodeId() + 1 - yamlMinNodeId
-			cfgFile.NetworkConfig.BaseId = &nodeIdOffset
-		}
-
-		err = sim.ImportNodes(cfgFile.NetworkConfig, cfgFile.NodesList)
-		if err != nil {
-			cc.warnf("%v", err)
+		if err := sim.LoadTopologyFile(safeFilename, cmd.Add != nil); err != nil {
+			cc.errorf("%v", err)
 		}
 	})
 }
