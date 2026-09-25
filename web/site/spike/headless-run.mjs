@@ -4,6 +4,10 @@
 //
 //   node spike/headless-run.mjs <url> <screenshot.png> [timeoutSeconds]
 //
+// Environment: DONE_EXPR overrides the JS expression that is polled until it is true (default
+// 'window.spikeDone === true'); ACTION_EXPR is an expression (may return a promise) evaluated once
+// after that, its value is printed; SETTLE_MS is the wait after that before the screenshot (default 0).
+//
 // Exit code 0 when the page finished and its results contain no 'FAIL' line, 1 otherwise.
 import {spawn} from 'node:child_process';
 import {writeFileSync} from 'node:fs';
@@ -73,13 +77,18 @@ try {
     await send('Page.navigate', {url}, sessionId);
     const deadline = Date.now() + Number(timeoutSec) * 1000;
     while (Date.now() < deadline) {
-        const r = await send('Runtime.evaluate', {expression: 'window.spikeDone === true', returnByValue: true}, sessionId);
+        const r = await send('Runtime.evaluate', {expression: process.env.DONE_EXPR || 'window.spikeDone === true', returnByValue: true}, sessionId);
         if (r.result.value === true) {
             done = true;
             break;
         }
         await new Promise((resolve) => setTimeout(resolve, 250));
     }
+    if (done && process.env.ACTION_EXPR) {
+        const a = await send('Runtime.evaluate', {expression: process.env.ACTION_EXPR, awaitPromise: true, returnByValue: true}, sessionId);
+        consoleLines.push('---- action result: ' + JSON.stringify(a.exceptionDetails ? a.exceptionDetails : a.result.value));
+    }
+    await new Promise((resolve) => setTimeout(resolve, Number(process.env.SETTLE_MS || 0)));
     const r = await send('Runtime.evaluate', {
         expression: "(document.getElementById('results') || {}).textContent || ''", returnByValue: true,
     }, sessionId);
