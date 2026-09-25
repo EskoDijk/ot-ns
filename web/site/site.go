@@ -29,6 +29,7 @@ package web_site
 import (
 	"html"
 	"html/template"
+	"mime"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
@@ -46,7 +47,8 @@ var floorPlanFile string // path of the floor plan JSON file served at /floorpla
 
 // SetFloorPlanFile sets the floor plan JSON file (see etc/floorplans) that the 3D visualization
 // skin loads from /floorplan.json. The file is read at each request, so it may be edited while
-// OTNS runs; a page reload shows the result. Call before Serve().
+// OTNS runs; a page reload shows the result. Files in the same directory (e.g. a glTF model that
+// the plan refers to) are served under /floorplan/. Call before Serve().
 func SetFloorPlanFile(path string) {
 	floorPlanFile = path
 }
@@ -103,6 +105,19 @@ func Serve(listenAddr string) error {
 		writer.Header().Set("Content-Type", "application/json")
 		writer.Header().Set("Cache-Control", "no-cache")
 		_, _ = writer.Write(data)
+	})
+
+	// files next to the floor plan, e.g. its glTF model; http.FileServer keeps requests inside the dir.
+	_ = mime.AddExtensionType(".glb", "model/gltf-binary")
+	_ = mime.AddExtensionType(".gltf", "model/gltf+json")
+	http.HandleFunc("/floorplan/", func(writer http.ResponseWriter, request *http.Request) {
+		if floorPlanFile == "" {
+			http.NotFound(writer, request)
+			return
+		}
+		writer.Header().Set("Cache-Control", "no-cache")
+		dir := http.Dir(filepath.Dir(floorPlanFile))
+		http.StripPrefix("/floorplan/", http.FileServer(dir)).ServeHTTP(writer, request)
 	})
 
 	http.HandleFunc("/visualize", func(writer http.ResponseWriter, request *http.Request) {
