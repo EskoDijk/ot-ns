@@ -42,6 +42,14 @@ var httpServer *http.Server = nil
 var canServe bool = true
 var httpServerMutex sync.Mutex
 var Started = make(chan struct{})
+var floorPlanFile string // path of the floor plan JSON file served at /floorplan.json, "" if none
+
+// SetFloorPlanFile sets the floor plan JSON file (see etc/floorplans) that the 3D visualization
+// skin loads from /floorplan.json. The file is read at each request, so it may be edited while
+// OTNS runs; a page reload shows the result. Call before Serve().
+func SetFloorPlanFile(path string) {
+	floorPlanFile = path
+}
 
 func Serve(listenAddr string) error {
 	defer logger.Debugf("webserver exit.")
@@ -80,6 +88,22 @@ func Serve(listenAddr string) error {
 
 	fs := http.FileServer(http.Dir(filepath.Join(assetDir, "static")))
 	http.Handle("/static/", http.StripPrefix("/static/", fs))
+
+	http.HandleFunc("/floorplan.json", func(writer http.ResponseWriter, request *http.Request) {
+		if floorPlanFile == "" {
+			http.NotFound(writer, request)
+			return
+		}
+		data, err := os.ReadFile(floorPlanFile)
+		if err != nil {
+			logger.Warnf("floor plan file: %v", err)
+			http.NotFound(writer, request)
+			return
+		}
+		writer.Header().Set("Content-Type", "application/json")
+		writer.Header().Set("Cache-Control", "no-cache")
+		_, _ = writer.Write(data)
+	})
 
 	http.HandleFunc("/visualize", func(writer http.ResponseWriter, request *http.Request) {
 		addr := html.EscapeString(request.URL.Query()["addr"][0])
