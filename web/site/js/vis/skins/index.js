@@ -29,10 +29,12 @@
 
 import ThreadSkin from "./thread";
 import ClassicSkin from "./classic";
+import Office3DSkin from "./office3d";
 
 const SKINS = {
     thread: ThreadSkin,
     classic: ClassicSkin,
+    office3d: Office3DSkin,
 };
 
 export const DEFAULT_SKIN_NAME = 'classic';

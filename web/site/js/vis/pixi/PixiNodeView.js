@@ -142,13 +142,13 @@ export default class PixiNodeView extends VObject {
 
     onDraggingTimer() {
         let pos = this.position;
-        this.vis.ctrlMoveNodeTo(this.state.id, pos.x, pos.y, (err, resp) => {
+        this.vis.ctrlMoveNodeTo(this.state.id, pos.x, pos.y, null, (err, resp) => {
         })
     }
 
     onDraggingDone() {
         let pos = this.position;
-        this.vis.ctrlMoveNodeTo(this.state.id, pos.x, pos.y, (err, resp) => {
+        this.vis.ctrlMoveNodeTo(this.state.id, pos.x, pos.y, null, (err, resp) => {
             if (err !== null) {
                 this.position.set(this.state.x, this.state.y)
             }

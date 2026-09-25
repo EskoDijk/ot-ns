@@ -118,6 +118,13 @@ The `classic` skin (default) uses the original OTNS style:
 - MTDs are dashed circles: 4 dashes = MED, 6 dashes = SSED, 8 dashes = SED.
 - Links: green lines between parent and child, blue lines for router-table links.
 
+The `office3d` skin (preset `space`) shows the field in 3D, using the node positions' `z` coordinate as the height above a floor grid:
+
+- Node shapes follow the `classic` skin: Routers are hexagonal prisms, Border Routers cubes and other nodes spheres. MTDs are smaller spheres: a MED translucent, a SED or SSED as a wireframe. The partition color is a band around the node.
+- Node colors follow the `thread` skin: Routers Thread orange, the Leader Thread grey, Border Routers black (grey when Leader), router-capable End Devices (REED) light orange-red, other End Devices (FED, MED, SED, SSED) light grey; detached, disabled and failed nodes dark grey.
+- Drag on empty space to orbit the camera, right-drag to pan, use the mouse wheel to zoom. Keys: `t` top view (the same picture as the 2D skins), `r` reset to the default view, `f` frame all nodes.
+- Drag a node to move it in its horizontal plane; its height is kept. Hold `Alt` while dragging to change only the height. The `move` command sets all three coordinates.
+
 New skins can be added in `web/site/js/vis/skins/`, see the notes in `Skin.js` there.
 
 ## Use OTNS CLI

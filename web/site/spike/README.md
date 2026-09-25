@@ -10,8 +10,11 @@ connection. Delete a spike once the feature it explored has landed.
 page variants in `$E2E_DIR/site` (default `/tmp/otns-e2e`), runs the CLI commands of
 `$E2E_DIR/cmds.txt`, and screenshots each `visualize-<variant>.html` with `headless-run.mjs` once
 `done.js` (an expression polled in the page, e.g. "all nodes attached, then select node 2") is
-true, after evaluating `action.js` (e.g. a synthetic pointer drag of a node). The page bundle
-exposes `window.otnsVis` for this. Used to verify the field-renderer refactor (step 2 of the 3D
+true, after evaluating `action.js` (e.g. a synthetic pointer drag of a node). Per-variant
+`done-<variant>.js` / `action-<variant>.js` take precedence. The page bundle exposes
+`window.otnsVis` for this; the 3D renderer's `screenPositionOf(state)` gives pointer targets.
+Note that SwiftShader drops lines of which one endpoint is behind the camera, so a 3D scene
+must not rely on long lines (the floor grid is segmented per cell for that reason). Used to verify the field-renderer refactor (step 2 of the 3D
 study) against the committed bundle: same drawing, and a drag of node 1 produced the expected
 `move` commands.
 

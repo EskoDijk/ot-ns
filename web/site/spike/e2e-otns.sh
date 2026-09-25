@@ -23,8 +23,11 @@ PROXY_PID=$!
 HTTP_PID=$!
 sleep 12  # let the nodes form a network at 20x speed
 for v in "$@"; do
+  unset ACTION_EXPR DONE_EXPR
   [ -f $E/done.js ] && DONE_EXPR=$(cat $E/done.js)
+  [ -f $E/done-$v.js ] && DONE_EXPR=$(cat $E/done-$v.js)
   [ -f $E/action.js ] && ACTION_EXPR=$(cat $E/action.js)
+  [ -f $E/action-$v.js ] && ACTION_EXPR=$(cat $E/action-$v.js)
   export ACTION_EXPR
   DONE_EXPR=${DONE_EXPR:-'(window.otnsVis && Object.keys(otnsVis.nodes).length >= 6 && Object.values(otnsVis.nodes).every(n => n.rloc16 !== 0xfffe && n.role !== 0)) ? (otnsVis.showLogWindow(), otnsVis.setSelectedNode(2), true) : false'} \
   SETTLE_MS=1500 HEADLESS_PROFILE=$E node $REPO/web/site/spike/headless-run.mjs "http://localhost:9150/visualize-$v.html" $E/shot-$v.png 60 > $E/run-$v.log 2>&1

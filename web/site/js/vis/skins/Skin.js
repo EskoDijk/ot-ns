@@ -33,6 +33,9 @@
 // and overrides the hooks below, register it in skins/index.js, and on the Go side add the name
 // to types.VisualizationSkins and a preset using it to types.VisualizationSkinPresets, so that
 // the CLI command 'cv skin <preset>' can select it.
+//
+// A skin also names the field renderer that draws with it (see FieldRenderer.js): 'pixi' for the
+// 2D skins, 'three' for a 3D skin such as office3d.js, which must then implement node3DStyle().
 
 import * as PIXI from "pixi.js";
 
@@ -43,6 +46,22 @@ import * as PIXI from "pixi.js";
  * Containers handed to the hooks are empty and centered at the node position (0,0).
  */
 export default class Skin {
+    /**
+     * @returns {string} the field renderer this skin is drawn by: 'pixi' (2D) or 'three' (3D).
+     */
+    get renderer() {
+        return 'pixi';
+    }
+
+    /**
+     * 3D skins only: how the 'three' renderer draws a node.
+     * @returns {{shape: string, radius: number, color: number, opacity: number, wireframe: boolean}}
+     *          `shape` is 'sphere', 'hexprism' or 'cube'; `radius` its size in OTNS units.
+     */
+    node3DStyle(state) {
+        throw new Error("Skin.node3DStyle() not implemented");
+    }
+
     /**
      * Build the node's shape into `container`, for the given node state.
      */

@@ -36,6 +36,7 @@ import {Skin} from "../skins";
 export default class PixiFieldRenderer extends FieldRenderer {
     constructor(vis) {
         super(vis);
+        this.kind = 'pixi';
         this._views = {};        // node ID -> PixiNodeView
         this._messages = {};     // message ID -> message view
         this._partitionVisible = vis.visOptions.partitionId;

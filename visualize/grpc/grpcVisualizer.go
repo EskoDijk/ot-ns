@@ -531,6 +531,7 @@ func (gv *grpcVisualizer) prepareStream(stream *grpcStream) error {
 				NodeId:     int32(nodeid),
 				X:          int32(node.x),
 				Y:          int32(node.y),
+				Z:          int32(node.z),
 				RadioRange: int32(node.radioRange),
 				NodeType:   node.nodeType,
 			}}}

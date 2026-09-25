@@ -26,8 +26,11 @@ module.exports = {
     },
 
     performance: {
-        maxAssetSize: 1048576,
-        maxEntrypointSize: 1048576,
+        // Size warning thresholds only (no hard limit): the bundles are served over loopback and
+        // embedded in the otns binary, so this just flags an accidental large dependency.
+        // visualize.js is ~1.4 MiB with Pixi and three.js.
+        maxAssetSize: 4194304,
+        maxEntrypointSize: 4194304,
     },
 
     resolve: {
