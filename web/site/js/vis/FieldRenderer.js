@@ -29,7 +29,9 @@
 // PixiVisualizer, which owns the node states (NodeState) and everything else: gRPC handling, the
 // selection, the action bar, the log and node windows, and keyboard handling.
 //
-// Renderers: pixi/PixiFieldRenderer.js draws the 2D field with the active Skin (skins/Skin.js).
+// Renderers: pixi/PixiFieldRenderer.js draws the 2D field with the active Skin (skins/Skin.js),
+// three/ThreeFieldRenderer.js draws it in 3D. The active skin names its renderer (Skin.renderer),
+// and PixiVisualizer.setSkin() switches renderers when needed.
 // A renderer keeps its own per-node view objects, keyed by node ID, and is the only place where
 // node positions are turned into screen coordinates.
 
@@ -39,6 +41,7 @@ export default class FieldRenderer {
      */
     constructor(vis) {
         this.vis = vis;
+        this.kind = ''; // 'pixi' or 'three', see Skin.renderer
     }
 
     /**
@@ -154,6 +157,30 @@ export default class FieldRenderer {
      */
     update(dt) {
         throw new Error("FieldRenderer.update() not implemented");
+    }
+
+    /**
+     * The drawing field was resized.
+     */
+    onResize(width, height) {
+    }
+
+    /**
+     * A key was pressed while no editable element has the focus and no modifier is held.
+     * @returns {boolean} true if the renderer handled the key
+     */
+    onKeyDown(e) {
+        return false;
+    }
+
+    /**
+     * Hit test for a tap that reached the visualizer's root, i.e. that no view handled itself.
+     * @param global pointer position in canvas coordinates
+     * @returns {NodeState|null} the node at that position, for renderers whose nodes are not
+     *          Pixi objects; null otherwise.
+     */
+    nodeAt(global) {
+        return null;
     }
 
     /**

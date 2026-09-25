@@ -41,6 +41,7 @@ import {
 } from "./consts";
 import NodeState from "./NodeState"
 import PixiFieldRenderer from "./pixi/PixiFieldRenderer";
+import ThreeFieldRenderer from "./three/ThreeFieldRenderer";
 import {Skin, SkinName, SetSkin, DEFAULT_SKIN_NAME} from "./skins";
 import LogWindow, {LOG_WINDOW_WIDTH} from "./LogWindow";
 import * as fmt from "./format_text"
@@ -93,7 +94,7 @@ export default class PixiVisualizer extends VObject {
         app.stage.addChild(this.root);
 
         this.setOnTap((e) => {
-            this.onTapedStage()
+            this.onTapedStage(e)
         });
 
         this.nodeLogColor = {};
@@ -522,11 +523,16 @@ export default class PixiVisualizer extends VObject {
         }
     }
 
-    // 2D interface can only move x, y of node - not z.
-    ctrlMoveNodeTo(nodeId, x, y, cb) {
-        x = Math.floor(x);
-        y = Math.floor(y);
-        this.runCommand("move " + nodeId + " " + x + " " + y, cb);
+    /**
+     * Move a node in the simulator.
+     * @param z {number|null} the height; null keeps the node's current height (2D renderer)
+     */
+    ctrlMoveNodeTo(nodeId, x, y, z, cb) {
+        let cmd = "move " + nodeId + " " + Math.floor(x) + " " + Math.floor(y);
+        if (z !== null) {
+            cmd += " " + Math.floor(z);
+        }
+        this.runCommand(cmd, cb);
     }
 
     ctrlDeleteNode(nodeId) {
@@ -585,7 +591,8 @@ export default class PixiVisualizer extends VObject {
     }
 
     /**
-     * Activate the named skin (see skins/index.js) and redraw the nodes and links.
+     * Activate the named skin (see skins/index.js) and redraw the nodes and links, switching to
+     * the skin's field renderer if it differs from the active one.
      * @returns {boolean} false if the name is unknown; the active skin is then kept. True otherwise.
      */
     setSkin(name) {
@@ -596,8 +603,35 @@ export default class PixiVisualizer extends VObject {
             console.error("unknown visualization skin '" + name + "', keeping skin '" + SkinName() + "'");
             return false;
         }
-        this.field.applySkin();
+        if (Skin().renderer !== this.field.kind) {
+            this._switchFieldRenderer(Skin().renderer);
+        } else {
+            this.field.applySkin();
+        }
         return true;
+    }
+
+    /**
+     * Replace the field renderer by one of the given kind ('pixi' or 'three'), re-adding all
+     * nodes to it. Its layers take the place of the old ones in the drawing order.
+     */
+    _switchFieldRenderer(kind) {
+        const old = this.field;
+        const backIndex = this._root.getChildIndex(old.backLayer);
+        const frontIndex = this._root.getChildIndex(old.frontLayer);
+        this.removeChild(old.backLayer);
+        this.removeChild(old.frontLayer);
+        old.destroy();
+
+        this.field = kind === 'three' ? new ThreeFieldRenderer(this) : new PixiFieldRenderer(this);
+        this.addChildAt(this.field.backLayer, backIndex);
+        this.addChildAt(this.field.frontLayer, frontIndex);
+        for (let nodeid in this.nodes) {
+            this.field.addNode(this.nodes[nodeid]);
+        }
+        this.field.setSelectedNode(this.getSelectedNode());
+        this.field.onResize(this._fieldWidth, this._fieldHeight);
+        this.log(`Field renderer: ${kind}`);
     }
 
     /**
@@ -670,6 +704,10 @@ export default class PixiVisualizer extends VObject {
         if (e.ctrlKey || e.altKey || e.metaKey) {
             return;
         }
+        if (this.field.onKeyDown(e)) { // renderer-specific keys, e.g. camera views in 3D
+            e.preventDefault();
+            return;
+        }
         switch (e.key) {
             case 'Escape':
                 this.setSelectedNode(0);
@@ -736,8 +774,12 @@ export default class PixiVisualizer extends VObject {
         }
     }
 
-    onTapedStage() {
-        this.setSelectedNode(0)
+    // a tap that no node view handled: on empty space it unselects; a 3D renderer's nodes are
+    // not Pixi objects, so ask it whether a node was tapped.
+    onTapedStage(e) {
+        if (this.field.nodeAt(e.global) === null) {
+            this.setSelectedNode(0)
+        }
     }
 
     /**
@@ -893,6 +935,7 @@ export default class PixiVisualizer extends VObject {
         this._fieldHeight = height;
         this.actionBar.position.set(10, height - this.actionBar.height - 20 - 10);
         this._resetLogWindowPosition(width, height);
+        this.field.onResize(width, height);
     }
 
 }

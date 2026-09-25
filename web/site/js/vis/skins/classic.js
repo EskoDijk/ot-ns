@@ -65,7 +65,7 @@ const LINK_WIDTH_SELECTED = 3;
 const BROADCAST_MESSAGE_BEGIN_RADIUS = 32;
 const MESSAGE_SIZE = 10;
 
-function isRouterRole(role) {
+export function isRouterRole(role) {
     return role === OtDeviceRole.OT_DEVICE_ROLE_LEADER || role === OtDeviceRole.OT_DEVICE_ROLE_ROUTER;
 }
 
@@ -103,7 +103,7 @@ function partitionTexture(state) {
     return isRouterRole(state.role) ? res.WhiteSolidHexagon64.texture : res.WhiteSolidCircle64.texture;
 }
 
-function roleColor(state) {
+export function roleColor(state) {
     if (state.failed) {
         return COLOR_FAILED;
     }

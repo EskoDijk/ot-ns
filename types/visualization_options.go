@@ -39,14 +39,15 @@ type VisualizationOptions struct {
 }
 
 const (
-	VisualizationSkinThread  = "thread"  // Thread network diagram style
-	VisualizationSkinClassic = "classic" // the original OTNS style
-	DefaultVisualizationSkin = VisualizationSkinClassic
+	VisualizationSkinThread   = "thread"   // Thread network diagram style
+	VisualizationSkinClassic  = "classic"  // the original OTNS style
+	VisualizationSkinOffice3D = "office3d" // 3D view of the field, classic node colors
+	DefaultVisualizationSkin  = VisualizationSkinClassic
 )
 
 // VisualizationSkins lists the skins of the web visualization; each must be implemented in
 // web/site/js/vis/skins/ and registered in web/site/js/vis/skins/index.js.
-var VisualizationSkins = []string{VisualizationSkinThread, VisualizationSkinClassic}
+var VisualizationSkins = []string{VisualizationSkinThread, VisualizationSkinClassic, VisualizationSkinOffice3D}
 
 func IsVisualizationSkin(name string) bool {
 	for _, s := range VisualizationSkins {
@@ -73,6 +74,7 @@ var VisualizationSkinPresets = []VisualizationSkinPreset{
 	{Name: "thread+", Skin: VisualizationSkinThread, Options: map[string]bool{"pid": true, "ack": false}},
 	{Name: "classic", Skin: VisualizationSkinClassic, Options: map[string]bool{"pid": true, "ack": false}},
 	{Name: "clas_ack", Skin: VisualizationSkinClassic, Options: map[string]bool{"pid": true, "ack": true}},
+	{Name: "space", Skin: VisualizationSkinOffice3D, Options: map[string]bool{"pid": true, "ack": false}},
 }
 
 const DefaultVisualizationSkinPreset = "classic"

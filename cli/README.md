@@ -186,6 +186,7 @@ Visualization Options:
   - `thread+`: Thread network diagram style, partition mark shown (`pid on ack off`)
   - `classic`: the original OTNS style, partition mark shown (`pid on ack off`) - the default
   - `clas_ack`: `classic` with ACK messages shown (`pid on ack on`)
+  - `space`: 3D view of the field with `classic` node shapes and `thread` node colors, partition mark shown (`pid on ack off`); drag on empty space to orbit, wheel to zoom, drag a node to move it, `Alt`+drag to change its height; keys `t` (top view), `r` (reset view), `f` (frame all nodes)
 
   The `skin=` output line shows the last selected preset, also when options were changed afterwards.
 

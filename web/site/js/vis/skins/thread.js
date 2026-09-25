@@ -41,9 +41,9 @@ import * as PIXI from "pixi.js";
 import {OtDeviceRole} from '../../proto/visualize_grpc_pb'
 import Skin, {isBorderRouter} from "./Skin";
 
-const COLOR_THREAD_ORANGE = 0xfd4f27;   // Routers, router-capable End Devices, Thread links
-const COLOR_THREAD_GREY = 0x8499b0;     // Leader, End Devices that are not router-capable
-const COLOR_BR_BLACK = 0x363636;        // Border Routers
+export const COLOR_THREAD_ORANGE = 0xfd4f27;   // Routers, router-capable End Devices, Thread links
+export const COLOR_THREAD_GREY = 0x8499b0;     // Leader, End Devices that are not router-capable
+export const COLOR_BR_BLACK = 0x363636;        // Border Routers
 const COLOR_NODE_FILL = 0xffffff;       // fill of End Device shapes
 const COLOR_NODE_SELECTION = 0x363636;
 const COLOR_LINK_ROUTER = COLOR_THREAD_ORANGE; // router-to-router links
@@ -77,7 +77,7 @@ const MESSAGE_SIZE = 16;
 const ROUTER_CAPABLE_TYPES = ['router', 'reed', 'ftd', 'br', 'otbr', 'matter'];
 const NOT_ROUTER_CAPABLE_TYPES = ['fed', 'wifi', 'med', 'mtd', 'sed', 'ssed'];
 
-function isRouterCapable(nodeType, nodeMode) {
+export function isRouterCapable(nodeType, nodeMode) {
     if (ROUTER_CAPABLE_TYPES.includes(nodeType)) {
         return true;
     }
