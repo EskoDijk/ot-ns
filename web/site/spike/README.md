@@ -4,6 +4,17 @@ Throw-away experiments for the web visualizer. Nothing here is embedded into the
 binary (`script/pack-web` packs only `templates/` and `static/`), and the pages have no gRPC
 connection. Delete a spike once the feature it explored has landed.
 
+## e2e-otns: the real visualizer page against a live simulation
+
+`e2e-otns.sh <variant>...` starts `otns` (`OTNS_BIN`), `grpcwebproxy` and a static server for
+page variants in `$E2E_DIR/site` (default `/tmp/otns-e2e`), runs the CLI commands of
+`$E2E_DIR/cmds.txt`, and screenshots each `visualize-<variant>.html` with `headless-run.mjs` once
+`done.js` (an expression polled in the page, e.g. "all nodes attached, then select node 2") is
+true, after evaluating `action.js` (e.g. a synthetic pointer drag of a node). The page bundle
+exposes `window.otnsVis` for this. Used to verify the field-renderer refactor (step 2 of the 3D
+study) against the committed bundle: same drawing, and a drag of node 1 produced the expected
+`move` commands.
+
 ## pixi-three: Pixi 8 and three.js on one canvas
 
 Step 1 of `studies/office-3d-skin-feasibility.md`: verify that a three.js 3D scene and the

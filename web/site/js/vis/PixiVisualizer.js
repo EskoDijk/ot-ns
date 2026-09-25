@@ -39,9 +39,9 @@ import {
     NODE_ID_INVALID,
     NODE_LABEL_FONT_FAMILY
 } from "./consts";
-import Node from "./Node"
+import NodeState from "./NodeState"
+import PixiFieldRenderer from "./pixi/PixiFieldRenderer";
 import {Skin, SkinName, SetSkin, DEFAULT_SKIN_NAME} from "./skins";
-import {AckMessage, BroadcastMessage, UnicastMessage} from "./message";
 import LogWindow, {LOG_WINDOW_WIDTH} from "./LogWindow";
 import * as fmt from "./format_text"
 import NodeWindow from "./NodeWindow";
@@ -57,6 +57,13 @@ export function Visualizer() {
     return vis;
 }
 
+/**
+ * The visualizer: keeps the state of the simulation as reported by the gRPC event stream (the
+ * NodeState objects in `nodes`, time, speed, options), sends commands back to the simulator,
+ * owns the selection, the HUD (status line, action bar, log window, node window) and keyboard
+ * handling. Drawing of the field (nodes, links, messages) is delegated to `field`, a
+ * FieldRenderer (see FieldRenderer.js).
+ */
 export default class PixiVisualizer extends VObject {
     constructor(app, grpcServiceClient) {
         super();
@@ -67,8 +74,7 @@ export default class PixiVisualizer extends VObject {
         this.speed = 1;
         this.curTime = 0;
         this.curSpeed = 1;
-        this.nodes = {};
-        this._messages = {};
+        this.nodes = {}; // node ID -> NodeState
         this.newNodePos = null;
         // visualization options, see the 'cv' CLI command; defaults must match types.DefaultVisualizationOptions()
         this.visOptions = {
@@ -92,20 +98,15 @@ export default class PixiVisualizer extends VObject {
 
         this.nodeLogColor = {};
 
-        this._bgStage = new PIXI.Container();
-        this.addChild(this._bgStage);
-
-        this._broadcastMessagesStage = new PIXI.Container();
-        this.addChild(this._broadcastMessagesStage);
+        // the field renderer draws the nodes, links and messages; its back layer is behind the
+        // log window, its front layer in front of it.
+        this.field = new PixiFieldRenderer(this);
+        this.addChild(this.field.backLayer);
 
         this._logWindowStage = new PIXI.Container();
         this.addChild(this._logWindowStage);
 
-        this._nodesStage = new PIXI.Container();
-        this.addChild(this._nodesStage);
-
-        this._unicastMessagesStage = new PIXI.Container();
-        this.addChild(this._unicastMessagesStage);
+        this.addChild(this.field.frontLayer);
 
         this.statusMsg = new PIXI.Text({text: "", style: {
             fontFamily: STATUS_MSG_FONT_FAMILY,
@@ -162,18 +163,8 @@ export default class PixiVisualizer extends VObject {
 
     update(dt) {
         super.update(dt);
-
-        this._drawNodeLinks();
-
-        for (let id in this.nodes) {
-            let node = this.nodes[id];
-            node.update(dt)
-        }
-
-        for (let id in this._messages) {
-            let msg = this._messages[id];
-            msg.update(dt)
-        }
+        this.field.drawLinks(this._computeLinks());
+        this.field.update(dt);
     }
 
     showLogWindow() {
@@ -319,9 +310,9 @@ export default class PixiVisualizer extends VObject {
     }
 
     visAddNode(nodeId, x, y, z, radioRange, nodeType) {
-        let node = new Node(nodeId, x, y, z, radioRange, nodeType);
+        let node = new NodeState(nodeId, x, y, z, radioRange, nodeType);
         this.nodes[nodeId] = node;
-        this._nodesStage.addChild(node._root);
+        this.field.addNode(node);
         if (this._selectAddedNode) {
             this.setSelectedNode(nodeId);
             this._selectAddedNode = false;
@@ -338,24 +329,29 @@ export default class PixiVisualizer extends VObject {
         let oldRloc16 = node.rloc16;
         node.setRloc16(rloc16);
         if (oldRloc16 != rloc16) {
+            this.field.updateNode(node);
             this.logNode(nodeId, `RLOC16 changed from ${fmt.formatRloc16(oldRloc16)} to ${fmt.formatRloc16(rloc16)}`)
             this.onNodeUpdate(nodeId);
         }
     }
 
     visSetNodeRole(nodeId, role) {
-        let oldRole = this.nodes[nodeId].role;
-        this.nodes[nodeId].setRole(role);
+        let node = this.nodes[nodeId];
+        let oldRole = node.role;
+        node.setRole(role);
         if (oldRole != role) {
+            this.field.updateNode(node);
             this.logNode(nodeId, `Role changed from ${fmt.roleToString(oldRole)} to ${fmt.roleToString(role)}`)
             this.onNodeUpdate(nodeId);
         }
     }
 
     visSetNodeMode(nodeId, mode) {
-        let oldMode = this.nodes[nodeId].nodeMode;
-        this.nodes[nodeId].setMode(mode);
+        let node = this.nodes[nodeId];
+        let oldMode = node.nodeMode;
+        node.setMode(mode);
         if (oldMode != mode) {
+            this.field.updateNode(node);
             this.logNode(nodeId, `Mode changed from ${fmt.modeToString(oldMode)} to ${fmt.modeToString(mode)}`);
             this.onNodeUpdate(nodeId);
         }
@@ -381,7 +377,7 @@ export default class PixiVisualizer extends VObject {
     visDeleteNode(nodeId) {
         let node = this.nodes[nodeId];
         delete this.nodes[nodeId];
-        node.destroy();
+        this.field.removeNode(node);
         if (nodeId === this._selectedNodeId) {
             this.setSelectedNode(0);
         }
@@ -405,7 +401,9 @@ export default class PixiVisualizer extends VObject {
     }
 
     visSetNodePos(nodeId, x, y, z) {
-        this.nodes[nodeId].setPosition(x, y, z);
+        let node = this.nodes[nodeId];
+        node.setPosition(x, y, z);
+        this.field.moveNode(node);
         this.logNode(nodeId, `Moved to (${x},${y},${z})`)
         this.onNodeUpdate(nodeId);
     }
@@ -418,6 +416,7 @@ export default class PixiVisualizer extends VObject {
 
     visOnNodeFail(nodeId) {
         this.nodes[nodeId].failed = true;
+        this.field.updateNode(this.nodes[nodeId]);
         this.logNode(nodeId, "Radio is OFF")
         this.onNodeUpdate(nodeId);
         this._refreshActionBarIfSelected(nodeId);
@@ -425,6 +424,7 @@ export default class PixiVisualizer extends VObject {
 
     visOnNodeRecover(nodeId) {
         this.nodes[nodeId].failed = false;
+        this.field.updateNode(this.nodes[nodeId]);
         this.logNode(nodeId, "Radio is ON")
         this.onNodeUpdate(nodeId);
         this._refreshActionBarIfSelected(nodeId);
@@ -438,7 +438,7 @@ export default class PixiVisualizer extends VObject {
     }
 
     /**
-     * @returns {Node|null} the selected node, if any
+     * @returns {NodeState|null} the selected node, if any
      */
     getSelectedNode() {
         return this.nodes[this._selectedNodeId] || null;
@@ -478,14 +478,11 @@ export default class PixiVisualizer extends VObject {
 
         let frameType = mvInfo.getFrameControl() & FRAME_CONTROL_MASK_FRAME_TYPE;
         if (frameType === FRAME_TYPE_ACK) {
-            // ACK
-            this.createAckMessage(src, mvInfo);
+            this.field.showAck(src, mvInfo);
         } else if (dstId == -1) {
-            // broadcast
-            this.createBroadcastMessage(src, mvInfo);
+            this.field.showBroadcast(src, mvInfo);
         } else {
-            let dst = this.nodes[dstId];
-            this.createUnicastMessage(src, dst, mvInfo);
+            this.field.showUnicast(src, this.nodes[dstId] || null, mvInfo);
         }
 
         if (src.txPowerLast != mvInfo.getPowerDbm() || src.channelLast != mvInfo.getChannel()) {
@@ -496,9 +493,11 @@ export default class PixiVisualizer extends VObject {
     }
 
     visSetNodePartitionId(nodeId, partitionId) {
-        let oldPartitionId = this.nodes[nodeId].partition;
-        this.nodes[nodeId].partition = partitionId;
+        let node = this.nodes[nodeId];
+        let oldPartitionId = node.partition;
+        node.partition = partitionId;
         if (oldPartitionId != partitionId) {
+            this.field.updateNode(node);
             this.logNode(nodeId, `Partition changed from ${fmt.formatPartitionId(oldPartitionId)} to ${fmt.formatPartitionId(partitionId)}`)
             this.onNodeUpdate(nodeId);
         }
@@ -580,9 +579,7 @@ export default class PixiVisualizer extends VObject {
 
     visSetVisualizationOptions(opts) {
         this.visOptions = opts;
-        for (let nodeid in this.nodes) {
-            this.nodes[nodeid].setPartitionVisible(opts.partitionId);
-        }
+        this.field.setPartitionVisible(opts.partitionId);
         this.setSkin(this.skinOverride || opts.skin);
         this.actionBar.refresh(); // the skin button shows the selected preset, which may change without a skin change
     }
@@ -599,10 +596,7 @@ export default class PixiVisualizer extends VObject {
             console.error("unknown visualization skin '" + name + "', keeping skin '" + SkinName() + "'");
             return false;
         }
-        for (let nodeid in this.nodes) {
-            this.nodes[nodeid].applySkin();
-        }
-        this._drawNodeLinks();
+        this.field.applySkin();
         return true;
     }
 
@@ -627,21 +621,17 @@ export default class PixiVisualizer extends VObject {
             return;
         }
 
-        let old_sel = this.nodes[this._selectedNodeId];
-        if (old_sel) {
-            old_sel.onUnselected();
-        }
         this._selectedNodeId = 0; // unselect
 
         let new_sel = this.nodes[id];
         if (new_sel) {
             this._selectedNodeId = id;
-            new_sel.onSelected();
             this.displayOTVersion(new_sel.otVersion, new_sel.otCommit);
         }else{
             this.displayOTVersion(this.otVersion, this.otCommit); // back to default
         }
 
+        this.field.setSelectedNode(new_sel || null);
         this.nodeWindow.showNode(new_sel);
         this.actionBar.setContext(new_sel || "any");
     }
@@ -750,73 +740,48 @@ export default class PixiVisualizer extends VObject {
         this.setSelectedNode(0)
     }
 
-    _drawNodeLinks() {
-        // this._bgStage.removeChildAt(0)
-        this._bgStage.removeChildren().forEach(child => child.destroy());
-
-        const graphics = new PIXI.Graphics();
-
-        // The active skin determines color and width of a link from its kind ('child' for
-        // parent-child links, 'router' for router-table links between two Routers, 'neighbor' for
-        // other router-table links, see skins/Skin.js) and whether it touches the selected node.
-        // Note that FTD children (FED/REED) also report router-table entries for the Routers
-        // they hear, so a router-table link is only a Router-to-Router link if both ends are Routers.
-        // Pixi v8 strokes the whole current path with a single style, so group
-        // segments by (color, width) and stroke each group as its own path.
-        const skin = Skin();
-        const groups = {};
-        const addLink = (kind, selected, from, to) => {
-            const style = skin.linkStyle(kind, selected);
-            const key = style.color + ":" + style.width;
-            if (!(key in groups)) {
-                groups[key] = {style: style, segments: []};
-            }
-            groups[key].segments.push([from, to]);
+    /**
+     * The links to draw, from the parent/child relations and router tables of the nodes.
+     * @returns {Array<{kind: string, selected: boolean, from: NodeState, to: NodeState}>} see
+     *          FieldRenderer.drawLinks(). `kind` is 'child' for a parent-child link, 'router' for
+     *          a router-table link between two Routers, or 'neighbor' for another router-table
+     *          link: FTD children (FED/REED) also report router-table entries for the Routers
+     *          they hear.
+     */
+    _computeLinks() {
+        const links = [];
+        const addLink = (kind, from, to) => {
+            const selected = from.id === this._selectedNodeId || to.id === this._selectedNodeId;
+            links.push({kind: kind, selected: selected, from: from, to: to});
         };
-        const isRouter = (n) => n.role === OtDeviceRole.OT_DEVICE_ROLE_ROUTER || n.role === OtDeviceRole.OT_DEVICE_ROLE_LEADER;
-
         for (let nodeid in this.nodes) {
             let node = this.nodes[nodeid];
             if (node.parent) {
                 let parent = this.findNodeByExtAddr(node.parent);
                 if (parent !== null) {
-                    let selected = nodeid == this._selectedNodeId || parent.id == this._selectedNodeId;
-                    addLink('child', selected, node.position, parent.position);
+                    addLink('child', node, parent);
                 }
             }
-            for (let extaddr in node._children) {
+            for (let extaddr in node.children) {
                 let child = this.findNodeByExtAddr(extaddr);
                 if (child) {
-                    let selected = nodeid == this._selectedNodeId || child.id == this._selectedNodeId;
-                    addLink('child', selected, node.position, child.position);
+                    addLink('child', node, child);
                 }
             }
-            for (let extaddr in node._neighbors) {
+            for (let extaddr in node.neighbors) {
                 let neighbor = this.findNodeByExtAddr(extaddr);
                 if (neighbor) {
-                    let selected = nodeid == this._selectedNodeId;
-                    let kind = isRouter(node) && isRouter(neighbor) ? 'router' : 'neighbor';
-                    addLink(kind, selected, node.position, neighbor.position);
+                    addLink(node.isRouter() && neighbor.isRouter() ? 'router' : 'neighbor', node, neighbor);
                 }
             }
         }
-
-        for (let key in groups) {
-            const {style, segments} = groups[key];
-            graphics.beginPath();
-            for (let [from, to] of segments) {
-                graphics.moveTo(from.x, from.y).lineTo(to.x, to.y);
-            }
-            graphics.stroke({width: style.width, color: style.color, alpha: 1});
-        }
-
-        this._bgStage.addChild(graphics)
+        return links;
     }
 
     /**
-     * find a Node by extended address
+     * find a node by extended address
      * @param extaddr
-     * @returns Node
+     * @returns {NodeState|null}
      */
     findNodeByExtAddr(extaddr) {
         for (let nodeid in this.nodes) {
@@ -920,29 +885,6 @@ export default class PixiVisualizer extends VObject {
         }else {
             return "    " + this.curSpeed.toFixed(6).toString();
         }
-    }
-
-    createUnicastMessage(src, dst, mvInfo) {
-        let msg = new UnicastMessage(src, dst, mvInfo);
-        this._unicastMessagesStage.addChild(msg._root);
-        this._messages[msg.id] = msg;
-    }
-
-    deleteMessage(msg) {
-        delete this._messages[msg.id];
-        msg._root.destroy()
-    }
-
-    createBroadcastMessage(src, mvInfo) {
-        let msg = new BroadcastMessage(src, mvInfo);
-        this._broadcastMessagesStage.addChild(msg._root);
-        this._messages[msg.id] = msg;
-    }
-
-    createAckMessage(src, mvInfo) {
-        let msg = new AckMessage(src, mvInfo);
-        this._unicastMessagesStage.addChild(msg._root);
-        this._messages[msg.id] = msg;
     }
 
     onResize(width, height) {
