@@ -1,7 +1,7 @@
 #
 # OTNS YAML topology: Routers hanging from the ceilings of the two-floor office of
-# etc/floorplans/office-small.json (one luminaire per office and corridor section, 0.3 m
-# below each 3 m ceiling; 1 unit = 0.1 m). Use with: otns -floorplan etc/floorplans/office-small.json
+# office-small.json (one luminaire per office and corridor section, 0.3 m
+# below each 3 m ceiling; 1 unit = 0.1 m). Loaded at startup by: otns -floorplan etc/floorplans/office-small.json
 #
 network:
     pos-shift: [0, 0, 0]

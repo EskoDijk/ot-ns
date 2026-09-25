@@ -15,6 +15,7 @@ JSON, with all building dimensions in meters:
 ```json
 {
   "name": "Small office, two floors",
+  "topology": "office-small.yaml",
   "unitsPerMeter": 10,
   "origin": [100, 100],
   "nodeScale": 0.25,
@@ -37,6 +38,7 @@ JSON, with all building dimensions in meters:
 
 | Key | Meaning |
 |---|---|
+| `topology` | Optional YAML topology file (the format of the `load` command, see `../mesh-topologies`), relative to the plan file, that OTNS loads at startup when started with `-floorplan`. |
 | `unitsPerMeter` | OTNS position units per meter. The default radio model uses 0.1 m per unit, i.e. 10 units per meter (`radioparam MeterPerUnit`). |
 | `origin` | OTNS `[x, y]` position of the building's `(0, 0)` corner. |
 | `nodeScale` | Scale factor for the node shapes in the 3D view (default 1), so that nodes look right at the building's scale: 0.25 makes a Router prism 4 units, i.e. 0.4 m, wide. |
@@ -68,9 +70,26 @@ named like a plan floor (ignoring case, spaces and punctuation) is hidden with t
 Translucent materials of the model (glTF `BLEND`) are drawn without depth writes, like the plan's
 walls, so that they don't hide each other depending on the camera angle.
 
-A model of a real building can be made from an IFC file with IfcOpenShell's `IfcConvert` (to
-OBJ or glTF) and Blender's glTF export, or assembled from a CC0 kit such as Kenney's Building Kit.
-Check the license of any model before committing it; CC0 and CC-BY are fine, NoDerivatives is not.
+### From an IFC building model
+
+`ifc2glb.py` converts an IFC (BIM) file to a model and a matching plan, using the
+[ifcopenshell](https://ifcopenshell.org) Python package:
+
+```
+pip install ifcopenshell
+./ifc2glb.py building.ifc building.glb building.json [--no-openings]
+```
+
+It converts walls, slabs, roofs, stairs, columns, beams, railings, curtain walls, windows and
+doors (`--no-openings` leaves out windows and doors; walls keep their openings either way) with
+the IFC surface colors and a translucency per element type, one glTF node per storey named after
+it, and writes a plan with the storeys as floors (elevation and height from the IFC) and the walls'
+axis lines as plan walls, ready for a future wall-aware radio model. The building is placed with
+its bounding box corner at plan `(0, 0)`, seen from above with IFC north up.
+
+Other routes: IfcOpenShell's `IfcConvert` command (to OBJ or glTF) followed by Blender's glTF
+export, or assembling a building from a CC0 kit such as Kenney's Building Kit. Check the license
+of any model before committing it; CC0 and CC-BY are fine, NoDerivatives is not.
 
 `make_glb.py <plan.json> <model.glb>` writes a test model from a plan (the same slabs, walls and
 doors as boxes, one node per floor), used for `office-small.glb`.
@@ -83,12 +102,24 @@ for a height `h` above that floor.
 
 - `office-small.json`: a 40 x 16 m office on two floors, a corridor along the middle with
   offices on both sides and a 16 m meeting room on the ground floor. `office-small-model.json`
-  is the same plan shown with the glTF model `office-small.glb`. Companion topology:
-  `../mesh-topologies/office-small-3d.yaml` with 30 Routers as ceiling luminaires. Run:
+  is the same plan shown with the glTF model `office-small.glb`. Both load the topology
+  `office-small.yaml` at startup: 30 Routers as ceiling luminaires. Run:
 
   ```
   otns -floorplan etc/floorplans/office-small.json
-  > load "etc/mesh-topologies/office-small-3d.yaml"
+  > cv skin space
+  ```
+
+- `institute.json` and `institute.glb`: a real four-storey office building (44 x 19 m, with a
+  basement, a stair tower and a roof) converted with `ifc2glb.py` from the IFC 4 example
+  `AC20-Institute-Var-2.ifc` of the Institute for Automation and Applied Informatics (IAI),
+  Karlsruhe Institute of Technology (KIT), available for unrestricted use from the
+  [KIT IFC examples](https://www.ifcwiki.org/index.php?title=KIT_IFC_Examples); KIT asks that
+  publications using it cite that source. Its topology `institute.yaml`, loaded at startup, has
+  18 Routers under the ceilings of the three main storeys:
+
+  ```
+  otns -floorplan etc/floorplans/institute.json
   > cv skin space
   ```
 

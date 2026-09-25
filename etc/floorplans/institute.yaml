@@ -1,0 +1,61 @@
+#
+# OTNS YAML topology: 18 Routers under the ceilings of the three main storeys of the KIT
+# 'AC20-Institute-Var-2' IFC example building (institute.json, 1 unit = 0.1 m); loaded at startup by: otns -floorplan etc/floorplans/institute.json.
+#
+network:
+    pos-shift: [0, 0, 0]
+nodes:
+    - id: 1
+      type: router
+      pos: [180, 150, 27]
+    - id: 2
+      type: router
+      pos: [320, 150, 27]
+    - id: 3
+      type: router
+      pos: [460, 150, 27]
+    - id: 4
+      type: router
+      pos: [180, 240, 27]
+    - id: 5
+      type: router
+      pos: [320, 240, 27]
+    - id: 6
+      type: router
+      pos: [460, 240, 27]
+    - id: 7
+      type: router
+      pos: [180, 150, 57]
+    - id: 8
+      type: router
+      pos: [320, 150, 57]
+    - id: 9
+      type: router
+      pos: [460, 150, 57]
+    - id: 10
+      type: router
+      pos: [180, 240, 57]
+    - id: 11
+      type: router
+      pos: [320, 240, 57]
+    - id: 12
+      type: router
+      pos: [460, 240, 57]
+    - id: 13
+      type: router
+      pos: [180, 150, 87]
+    - id: 14
+      type: router
+      pos: [320, 150, 87]
+    - id: 15
+      type: router
+      pos: [460, 150, 87]
+    - id: 16
+      type: router
+      pos: [180, 240, 87]
+    - id: 17
+      type: router
+      pos: [320, 240, 87]
+    - id: 18
+      type: router
+      pos: [460, 240, 87]
