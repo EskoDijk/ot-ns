@@ -67,6 +67,7 @@ const COLOR_DROP_LINE = 0x9e9e9e;
 const DROP_LINE_DASH = 3;      // units; dash and gap length of the dotted height line
 const UP = new THREE.Vector3(0, 1, 0);
 const FLOOR_PLAN_URL = '/floorplan.json';
+const FLOOR_PLAN_FILES_URL = '/floorplan/'; // files next to the plan, e.g. its glTF model
 
 function toThree(x, y, z, target) {
     return target.set(x, z, y);
@@ -413,8 +414,15 @@ export default class ThreeFieldRenderer extends FieldRenderer {
             if (plan === null || this._destroyed) {
                 return;
             }
-            this.setBuilding(new Building(plan));
-            this.vis.log(`Floor plan loaded: ${this.building.name} (${this.building.floors.length} floors)`);
+            const building = new Building(plan);
+            this.setBuilding(building);
+            this.vis.log(`Floor plan loaded: ${building.name} (${building.floors.length} floors)`);
+            return building.loadModel(new URL(FLOOR_PLAN_FILES_URL, window.location.href).href).then((loaded) => {
+                if (loaded && !this._destroyed && this.building === building) {
+                    this._framed = false; // re-frame including the model
+                    this.vis.log(`Building model loaded: ${plan.model.url}`);
+                }
+            });
         }).catch((err) => {
             console.error("floor plan: " + err);
             this.vis.log("Floor plan could not be loaded, see the console");
@@ -637,7 +645,8 @@ export default class ThreeFieldRenderer extends FieldRenderer {
 
     /**
      * Keys: 't' top view (the same picture as the 2D skins), 'r' reset to the default 3D view,
-     * 'f' frame all nodes; with a building: '1'..'9' toggle a floor, '0' shows all floors.
+     * 'f' frame all nodes; with a building: '1'..'9' toggle a floor, '0' shows all floors,
+     * 'w' toggles the plan's own walls (hidden by default when the plan has a glTF model).
      */
     onKeyDown(e) {
         switch (e.key) {
@@ -654,6 +663,12 @@ export default class ThreeFieldRenderer extends FieldRenderer {
                 if (this.building !== null) {
                     this.building.showAllFloors();
                     this._applyFloorVisibility();
+                    return true;
+                }
+                return false;
+            case 'w':
+                if (this.building !== null) {
+                    this.building.setPlanVisible(!this.building.planVisible);
                     return true;
                 }
                 return false;

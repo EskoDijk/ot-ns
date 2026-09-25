@@ -45,6 +45,36 @@ JSON, with all building dimensions in meters:
 | `floors[].outline` | `[width, depth]` of the rectangular footprint from `(0, 0)`. It gives the floor slab and the four exterior walls. |
 | `floors[].walls` | Interior walls: segments `from`/`to` in meters, an optional `thickness`, and optional `openings` (doors): each a gap of `width` centered at distance `at` along the wall from its `from` point, with a lintel above `doorHeight`. |
 
+### glTF model for the looks
+
+Instead of the procedural slabs and walls, a plan can show a glTF model of the building:
+
+```json
+  "model": {"url": "office-small.glb", "position": [0, 0, 0], "rotation": 0, "scale": 1}
+```
+
+| Key | Meaning |
+|---|---|
+| `url` | The model file (`.glb` or `.gltf`), relative to the plan file's directory, which OTNS serves under `/floorplan/`; an absolute URL also works. |
+| `position` | `[x, y, z]` meters: where the model's origin lies on the plan (`z` up). Default `[0, 0, 0]`. |
+| `rotation` | Degrees, clockwise seen from above, about the model's origin. Default 0. |
+| `scale` | Extra scale factor if the model is not in meters. Default 1. |
+
+The model is expected in meters with y up and its z axis along the plan's y axis, which is the
+glTF convention for a model exported from a plan-like drawing. With a model, the plan's own slabs
+and walls are hidden; key `w` shows them over the model to check the alignment. The plan's floors
+are still used for the height of the nodes' floors and for hiding floors: a top-level model node
+named like a plan floor (ignoring case, spaces and punctuation) is hidden with that floor.
+Translucent materials of the model (glTF `BLEND`) are drawn without depth writes, like the plan's
+walls, so that they don't hide each other depending on the camera angle.
+
+A model of a real building can be made from an IFC file with IfcOpenShell's `IfcConvert` (to
+OBJ or glTF) and Blender's glTF export, or assembled from a CC0 kit such as Kenney's Building Kit.
+Check the license of any model before committing it; CC0 and CC-BY are fine, NoDerivatives is not.
+
+`make_glb.py <plan.json> <model.glb>` writes a test model from a plan (the same slabs, walls and
+doors as boxes, one node per floor), used for `office-small.glb`.
+
 Node positions are OTNS units: a point `(x, y)` meters on floor `f` is at
 `[origin.x + x * unitsPerMeter, origin.y + y * unitsPerMeter, (f.elevation + h) * unitsPerMeter]`
 for a height `h` above that floor.
@@ -52,7 +82,8 @@ for a height `h` above that floor.
 ## Files
 
 - `office-small.json`: a 40 x 16 m office on two floors, a corridor along the middle with
-  offices on both sides and a 16 m meeting room on the ground floor. Companion topology:
+  offices on both sides and a 16 m meeting room on the ground floor. `office-small-model.json`
+  is the same plan shown with the glTF model `office-small.glb`. Companion topology:
   `../mesh-topologies/office-small-3d.yaml` with 30 Routers as ceiling luminaires. Run:
 
   ```

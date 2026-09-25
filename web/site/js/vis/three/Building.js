@@ -28,8 +28,13 @@
 // drawn by ThreeFieldRenderer as floor slabs and translucent walls. All plan dimensions are in
 // meters; they are converted to OTNS units with the plan's unitsPerMeter and origin, and to
 // three.js coordinates like the nodes: OTNS (x, y, z) -> three.js (x, z, y).
+//
+// A plan may name a glTF model ('model' entry) for the looks of the building; the plan's own
+// slabs and walls are then hidden by default (key 'w' shows them, to check the alignment). The
+// model is in meters, y up, with its z axis along the plan's y axis, like the plan itself.
 
 import * as THREE from 'three';
+import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 
 const DEFAULT_UNITS_PER_METER = 10;
 const DEFAULT_WALL_THICKNESS = 0.2; // m
@@ -58,7 +63,11 @@ export default class Building {
         this.group = new THREE.Group();
         this.floors = []; // one Group per floor, in the order of the plan
         this._floorRanges = []; // [bottom, top] in three.js y (OTNS z units) per floor
+        this._floorVisible = [];
         this.bounds = new THREE.Box3();
+        this.model = null;            // the glTF scene, once loaded
+        this.modelFloors = [];        // glTF nodes matched to the plan's floors by name (or null)
+        this.planVisible = !plan.model; // the plan's own slabs and walls are hidden when a model is used
 
         // Translucent parts must not write depth: three.js sorts transparent objects by distance,
         // and a depth-writing slab drawn before a wall behind it would hide that wall, depending
@@ -104,9 +113,73 @@ export default class Building {
         for (let wall of floor.walls || []) {
             this._addWall(group, wall.from, wall.to, wall.thickness || this.wallThickness, wall.height || height, elevation, wall.openings || []);
         }
+        group.visible = this.planVisible;
         this.floors.push(group);
+        this._floorVisible.push(true);
         this._floorRanges.push([elevation * this.unitsPerMeter, (elevation + height) * this.unitsPerMeter]);
         this.group.add(group);
+    }
+
+    /**
+     * Load the plan's glTF model, if any, and add it to the building.
+     * @param baseUrl URL that a relative model URL is resolved against
+     * @returns {Promise<boolean>} true if a model was loaded, false if the plan has none
+     */
+    loadModel(baseUrl) {
+        const spec = this.plan.model;
+        if (!spec || !spec.url) {
+            return Promise.resolve(false);
+        }
+        const url = new URL(spec.url, baseUrl).href;
+        return new Promise((resolve, reject) => {
+            new GLTFLoader().load(url, (gltf) => {
+                const model = gltf.scene;
+                const u = this.unitsPerMeter * (spec.scale || 1);
+                const pos = spec.position || [0, 0, 0];
+                model.scale.set(u, u, u);
+                model.rotation.y = -(spec.rotation || 0) * Math.PI / 180;
+                model.position.copy(this.toScene(pos[0], pos[1], pos[2]));
+                model.traverse((obj) => {
+                    if (obj.isMesh) { // translucent parts must not write depth, see the plan materials
+                        const materials = Array.isArray(obj.material) ? obj.material : [obj.material];
+                        materials.forEach((m) => {
+                            if (m.transparent) {
+                                m.depthWrite = false;
+                            }
+                        });
+                    }
+                });
+                // top-level model nodes named like a plan floor follow that floor's visibility.
+                // GLTFLoader sanitizes node names (e.g. spaces become '_'), so compare loosely.
+                const key = (name) => name.toLowerCase().replace(/[^a-z0-9]/g, '');
+                this.modelFloors = (this.plan.floors || []).map((floor) => {
+                    const name = key(floor.name || "");
+                    return name ? (model.children.find((c) => key(c.name) === name) || null) : null;
+                });
+                this.model = model;
+                this.group.add(model);
+                this.bounds.union(new THREE.Box3().setFromObject(model));
+                this._applyVisibility();
+                resolve(true);
+            }, undefined, (err) => reject(new Error("glTF model " + url + ": " + (err.message || err))));
+        });
+    }
+
+    _applyVisibility() {
+        this.floors.forEach((g, i) => g.visible = this.planVisible && this._floorVisible[i]);
+        this.modelFloors.forEach((node, i) => {
+            if (node !== null) {
+                node.visible = this._floorVisible[i];
+            }
+        });
+    }
+
+    /**
+     * Show or hide the plan's own slabs and walls (relevant when a model is shown).
+     */
+    setPlanVisible(visible) {
+        this.planVisible = visible;
+        this._applyVisibility();
     }
 
     /**
@@ -128,7 +201,7 @@ export default class Building {
      */
     isHeightVisible(y) {
         const i = this.floorIndexAtHeight(y);
-        return i < 0 || this.floors[i].visible;
+        return i < 0 || this._floorVisible[i];
     }
 
     /**
@@ -192,7 +265,8 @@ export default class Building {
         if (index < 0 || index >= this.floors.length) {
             return false;
         }
-        this.floors[index].visible = visible;
+        this._floorVisible[index] = visible;
+        this._applyVisibility();
         return true;
     }
 
@@ -200,17 +274,25 @@ export default class Building {
         if (index < 0 || index >= this.floors.length) {
             return false;
         }
-        this.floors[index].visible = !this.floors[index].visible;
-        return true;
+        return this.setFloorVisible(index, !this._floorVisible[index]);
     }
 
     showAllFloors() {
-        this.floors.forEach((f) => f.visible = true);
+        this._floorVisible.fill(true);
+        this._applyVisibility();
     }
 
     dispose() {
         this._geometries.forEach((g) => g.dispose());
         this._wallMaterial.dispose();
         this._slabMaterial.dispose();
+        if (this.model !== null) {
+            this.model.traverse((obj) => {
+                if (obj.isMesh) {
+                    obj.geometry.dispose();
+                    (Array.isArray(obj.material) ? obj.material : [obj.material]).forEach((m) => m.dispose());
+                }
+            });
+        }
     }
 }
