@@ -74,6 +74,7 @@ type MainArgs struct {
 	RandomSeed         int64
 	PhyTxStats         bool
 	OutputDir          string
+	FloorPlanFile      string
 	OtBrBackboneIfName string
 }
 
@@ -112,6 +113,7 @@ func parseArgs() {
 	flag.Int64Var(&args.RandomSeed, "seed", 0, "set specific random-seed value (for reproducability)")
 	flag.BoolVar(&args.PhyTxStats, "phy-tx-stats", false, "generate PHY Tx statistics CSV file")
 	flag.StringVar(&args.OutputDir, "output", DefaultOutputDir, "specify output directory for simulation results and logs")
+	flag.StringVar(&args.FloorPlanFile, "floorplan", "", "specify a floor plan JSON file for the 3D web visualization skin (see etc/floorplans)")
 	flag.StringVar(&args.OtBrBackboneIfName, "otbr-if", "lo", "specify default backbone interface name for OTBRs")
 	flag.Parse()
 }
@@ -188,6 +190,12 @@ func Main(ctx *progctx.ProgCtx, cliOptions *cli.CliOptions) {
 		vis.AddVisualizer(visualizeStatslog.NewStatslogVisualizer(sim.GetConfig().OutputDir, simId, visualizeStatslog.ChanSampleCountStatsType))
 	}
 
+	if args.FloorPlanFile != "" {
+		if _, err := os.Stat(args.FloorPlanFile); err != nil {
+			logger.Errorf("floor plan file not readable: %v", err)
+		}
+		webSite.SetFloorPlanFile(args.FloorPlanFile)
+	}
 	ctx.WaitAdd("webserver", 1)
 	go func() {
 		defer ctx.WaitDone("webserver")

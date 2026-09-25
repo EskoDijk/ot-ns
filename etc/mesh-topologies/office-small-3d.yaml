@@ -1,0 +1,99 @@
+#
+# OTNS YAML topology: Routers hanging from the ceilings of the two-floor office of
+# etc/floorplans/office-small.json (one luminaire per office and corridor section, 0.3 m
+# below each 3 m ceiling; 1 unit = 0.1 m). Use with: otns -floorplan etc/floorplans/office-small.json
+#
+network:
+    pos-shift: [0, 0, 0]
+    radio-range: 80
+nodes:
+    - id: 1
+      type: router
+      pos: [140, 135, 27]
+    - id: 2
+      type: router
+      pos: [220, 135, 27]
+    - id: 3
+      type: router
+      pos: [300, 135, 27]
+    - id: 4
+      type: router
+      pos: [380, 135, 27]
+    - id: 5
+      type: router
+      pos: [460, 135, 27]
+    - id: 6
+      type: router
+      pos: [140, 225, 27]
+    - id: 7
+      type: router
+      pos: [220, 225, 27]
+    - id: 8
+      type: router
+      pos: [300, 225, 27]
+    - id: 9
+      type: router
+      pos: [380, 225, 27]
+    - id: 10
+      type: router
+      pos: [460, 225, 27]
+    - id: 11
+      type: router
+      pos: [140, 180, 27]
+    - id: 12
+      type: router
+      pos: [220, 180, 27]
+    - id: 13
+      type: router
+      pos: [300, 180, 27]
+    - id: 14
+      type: router
+      pos: [380, 180, 27]
+    - id: 15
+      type: router
+      pos: [460, 180, 27]
+    - id: 16
+      type: router
+      pos: [140, 135, 57]
+    - id: 17
+      type: router
+      pos: [220, 135, 57]
+    - id: 18
+      type: router
+      pos: [300, 135, 57]
+    - id: 19
+      type: router
+      pos: [380, 135, 57]
+    - id: 20
+      type: router
+      pos: [460, 135, 57]
+    - id: 21
+      type: router
+      pos: [140, 225, 57]
+    - id: 22
+      type: router
+      pos: [220, 225, 57]
+    - id: 23
+      type: router
+      pos: [300, 225, 57]
+    - id: 24
+      type: router
+      pos: [380, 225, 57]
+    - id: 25
+      type: router
+      pos: [460, 225, 57]
+    - id: 26
+      type: router
+      pos: [140, 180, 57]
+    - id: 27
+      type: router
+      pos: [220, 180, 57]
+    - id: 28
+      type: router
+      pos: [300, 180, 57]
+    - id: 29
+      type: router
+      pos: [380, 180, 57]
+    - id: 30
+      type: router
+      pos: [460, 180, 57]

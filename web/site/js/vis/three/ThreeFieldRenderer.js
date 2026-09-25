@@ -33,6 +33,10 @@
 // "down the screen" (+y) is the depth axis and three.js's y axis is up. A top view (key 't') then
 // shows the same picture as the 2D skins.
 //
+// A building (floor plan) is fetched from /floorplan.json of the site server, which serves the
+// file given with 'otns -floorplan'; see etc/floorplans/README.md. Its nodeScale shrinks the node
+// shapes (and marks and messages) to the building's scale; node positions are not affected.
+//
 // Pointer handling: Pixi delivers pointer events to the visualizer's root container when no HUD
 // element handles them; this renderer listens there, raycasts into the scene to select and drag
 // nodes, and lets OrbitControls rotate/pan only for a press on empty space. A node is dragged in
@@ -43,6 +47,7 @@ import * as THREE from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import * as PIXI from "pixi.js";
 import FieldRenderer from "../FieldRenderer";
+import Building from "./Building";
 import Lifetime from "../Lifetime";
 import {Resources} from "../resources";
 import {Skin} from "../skins";
@@ -61,6 +66,7 @@ const COLOR_GRID = 0xdddddd;
 const COLOR_DROP_LINE = 0x9e9e9e;
 const DROP_LINE_DASH = 3;      // units; dash and gap length of the dotted height line
 const UP = new THREE.Vector3(0, 1, 0);
+const FLOOR_PLAN_URL = '/floorplan.json';
 
 function toThree(x, y, z, target) {
     return target.set(x, z, y);
@@ -136,22 +142,25 @@ class ThreeNodeView {
     redraw() {
         const skin = Skin();
         const style = skin.node3DStyle(this.state);
+        const radius = style.radius * this.renderer.nodeScale;
         if (this.body !== null) {
             this.group.remove(this.body);
             this.body.material.dispose();
         }
-        this.body = new THREE.Mesh(this.renderer.bodyGeometry(style.shape, style.radius), new THREE.MeshLambertMaterial({
+        this.body = new THREE.Mesh(this.renderer.bodyGeometry(style.shape, radius), new THREE.MeshLambertMaterial({
             color: style.color, transparent: style.opacity < 1, opacity: style.opacity, wireframe: style.wireframe,
         }));
         this.body.userData.nodeId = this.state.id;
         this.group.add(this.body);
-        this.radius = style.radius;
+        this.radius = radius;
+        const markSize = FAILED_MARK_SIZE * this.renderer.nodeScale;
+        this.failedMark.scale.set(markSize, markSize, 1);
 
         if (this.partitionBand !== null) {
             this.group.remove(this.partitionBand);
             this.partitionBand.material.dispose();
         }
-        this.partitionBand = new THREE.Mesh(this.renderer.bandGeometry(style.radius),
+        this.partitionBand = new THREE.Mesh(this.renderer.bandGeometry(radius),
             new THREE.MeshLambertMaterial({color: this.renderer.vis.getPartitionColor(this.state.partition)}));
         this.partitionBand.rotation.x = Math.PI / 2;
         this.partitionBand.visible = this.renderer.partitionVisible;
@@ -205,7 +214,8 @@ class ThreeNodeView {
         const style = Skin().selectionStyle();
         const sel = new THREE.Group();
         // dashed box around the node
-        const box = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(style.boxSize, style.boxSize, style.boxSize)),
+        const boxSize = style.boxSize * this.renderer.nodeScale;
+        const box = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(boxSize, boxSize, boxSize)),
             new THREE.LineDashedMaterial({color: style.boxColor, dashSize: 6, gapSize: 4, transparent: true, opacity: style.boxAlpha}));
         box.computeLineDistances();
         sel.add(box);
@@ -264,7 +274,7 @@ class BroadcastMessage extends ThreeMessageView {
         mesh.rotation.x = -Math.PI / 2;
         super(renderer, mvInfo, mesh);
         this.src = src;
-        this.beginRadius = style.size;
+        this.beginRadius = style.size * renderer.nodeScale;
         this.targetRadius = src.state.radioRange;
     }
 
@@ -282,7 +292,7 @@ class BroadcastMessage extends ThreeMessageView {
 class UnicastMessage extends ThreeMessageView {
     constructor(renderer, src, dst, mvInfo) {
         const style = Skin().messageStyle('unicast');
-        super(renderer, mvInfo, new THREE.Mesh(renderer.bodyGeometry('hexprism', style.size / 2),
+        super(renderer, mvInfo, new THREE.Mesh(renderer.bodyGeometry('hexprism', style.size / 2 * renderer.nodeScale),
             new THREE.MeshLambertMaterial({color: style.color})));
         this.src = src;
         this.dst = dst;
@@ -303,7 +313,7 @@ class UnicastMessage extends ThreeMessageView {
 class AckMessage extends ThreeMessageView {
     constructor(renderer, src, mvInfo) {
         const style = Skin().messageStyle('ack');
-        super(renderer, mvInfo, new THREE.Mesh(new THREE.TetrahedronGeometry(style.size / 2 + 2),
+        super(renderer, mvInfo, new THREE.Mesh(new THREE.TetrahedronGeometry((style.size / 2 + 2) * renderer.nodeScale),
             new THREE.MeshLambertMaterial({color: style.color})));
         this.src = src;
         this.mesh.position.copy(src.group.position);
@@ -314,7 +324,7 @@ class AckMessage extends ThreeMessageView {
             return false;
         }
         this.mesh.position.copy(this.src.group.position);
-        this.mesh.position.y += ACK_RISE * this.lifetime.progress();
+        this.mesh.position.y += ACK_RISE * this.renderer.nodeScale * this.lifetime.progress();
         return true;
     }
 
@@ -334,6 +344,9 @@ export default class ThreeFieldRenderer extends FieldRenderer {
         this._geometries = {}; // cache of shared geometries, see bodyGeometry()
         this._selected = null;
         this._framed = false;
+        this._destroyed = false;
+        this.building = null;  // Building, once the floor plan is loaded
+        this.nodeScale = 1.0;  // scale of node shapes, from the floor plan
 
         const pixi = vis.app.renderer;
         this._pixi = pixi;
@@ -381,6 +394,58 @@ export default class ThreeFieldRenderer extends FieldRenderer {
 
         this.resetView();
         this._framed = false; // frame the nodes once they are added, see update()
+        this._loadBuilding();
+    }
+
+    /**
+     * Fetch the floor plan from the site server, if it serves one, and add the building.
+     */
+    _loadBuilding() {
+        if (typeof fetch !== 'function' || !window.location.protocol.startsWith('http')) {
+            return;
+        }
+        fetch(FLOOR_PLAN_URL, {cache: 'no-cache'}).then((response) => {
+            if (!response.ok) {
+                return null; // 404: no floor plan configured
+            }
+            return response.json();
+        }).then((plan) => {
+            if (plan === null || this._destroyed) {
+                return;
+            }
+            this.setBuilding(new Building(plan));
+            this.vis.log(`Floor plan loaded: ${this.building.name} (${this.building.floors.length} floors)`);
+        }).catch((err) => {
+            console.error("floor plan: " + err);
+            this.vis.log("Floor plan could not be loaded, see the console");
+        });
+    }
+
+    /**
+     * Nodes on a hidden floor of the building are hidden too (their links as well, see drawLinks).
+     */
+    _applyFloorVisibility() {
+        for (let id in this._views) {
+            const view = this._views[id];
+            view.group.visible = this.building === null || this.building.isHeightVisible(view.group.position.y);
+        }
+    }
+
+    /**
+     * Show `building` (a Building, or null for none), scaling the node shapes to it.
+     */
+    setBuilding(building) {
+        if (this.building !== null) {
+            this._scene.remove(this.building.group);
+            this.building.dispose();
+        }
+        this.building = building;
+        this.nodeScale = building !== null ? building.nodeScale : 1.0;
+        if (building !== null) {
+            this._scene.add(building.group);
+        }
+        this.applySkin(); // redraw the nodes at the new scale
+        this._framed = false; // re-frame including the building, see update()
     }
 
     get backLayer() {
@@ -419,7 +484,7 @@ export default class ThreeFieldRenderer extends FieldRenderer {
     bandGeometry(radius) {
         const key = "band:" + radius;
         if (!(key in this._geometries)) {
-            this._geometries[key] = new THREE.TorusGeometry(radius * 1.05, PARTITION_BAND_TUBE, 8, 32);
+            this._geometries[key] = new THREE.TorusGeometry(radius * 1.05, PARTITION_BAND_TUBE * this.nodeScale, 8, 32);
         }
         return this._geometries[key];
     }
@@ -446,6 +511,9 @@ export default class ThreeFieldRenderer extends FieldRenderer {
 
     addNode(state) {
         const view = new ThreeNodeView(this, state);
+        if (this.building !== null) {
+            view.group.visible = this.building.isHeightVisible(view.group.position.y);
+        }
         this._views[state.id] = view;
         this._nodesGroup.add(view.group);
         this._labelsLayer.addChild(view.label);
@@ -466,7 +534,11 @@ export default class ThreeFieldRenderer extends FieldRenderer {
     }
 
     moveNode(state) {
-        this._views[state.id].onPositionChanged();
+        const view = this._views[state.id];
+        view.onPositionChanged();
+        if (this.building !== null) {
+            view.group.visible = this.building.isHeightVisible(view.group.position.y);
+        }
     }
 
     setSelectedNode(state) {
@@ -502,7 +574,7 @@ export default class ThreeFieldRenderer extends FieldRenderer {
         for (let link of links) {
             const from = this._views[link.from.id];
             const to = this._views[link.to.id];
-            if (!from || !to) {
+            if (!from || !to || !from.group.visible || !to.group.visible) {
                 continue;
             }
             const style = skin.linkStyle(link.kind, link.selected);
@@ -538,7 +610,7 @@ export default class ThreeFieldRenderer extends FieldRenderer {
     }
 
     update(dt) {
-        if (!this._framed && Object.keys(this._views).length > 0) {
+        if (!this._framed && (Object.keys(this._views).length > 0 || this.building !== null)) {
             this.resetView();
         }
         this._updateDrag(dt);
@@ -565,7 +637,7 @@ export default class ThreeFieldRenderer extends FieldRenderer {
 
     /**
      * Keys: 't' top view (the same picture as the 2D skins), 'r' reset to the default 3D view,
-     * 'f' frame all nodes.
+     * 'f' frame all nodes; with a building: '1'..'9' toggle a floor, '0' shows all floors.
      */
     onKeyDown(e) {
         switch (e.key) {
@@ -578,7 +650,21 @@ export default class ThreeFieldRenderer extends FieldRenderer {
             case 'f':
                 this.frameNodes();
                 return true;
+            case '0':
+                if (this.building !== null) {
+                    this.building.showAllFloors();
+                    this._applyFloorVisibility();
+                    return true;
+                }
+                return false;
             default:
+                if (this.building !== null && e.key >= '1' && e.key <= '9') {
+                    if (!this.building.toggleFloor(Number(e.key) - 1)) {
+                        return false;
+                    }
+                    this._applyFloorVisibility();
+                    return true;
+                }
                 return false;
         }
     }
@@ -589,6 +675,7 @@ export default class ThreeFieldRenderer extends FieldRenderer {
     }
 
     destroy() {
+        this._destroyed = true;
         const root = this.vis.root;
         root.off('pointerdown', this._onPointerDown);
         root.off('globalpointermove', this._onPointerMove);
@@ -607,6 +694,9 @@ export default class ThreeFieldRenderer extends FieldRenderer {
         if (this._failedMarkTexture) {
             this._failedMarkTexture.dispose();
         }
+        if (this.building !== null) {
+            this.building.dispose();
+        }
         this._three.dispose();
         this._pixi.background.clearBeforeRender = true;
         this._pixi.resetState();
@@ -623,6 +713,9 @@ export default class ThreeFieldRenderer extends FieldRenderer {
         const box = new THREE.Box3();
         for (let id in this._views) {
             box.expandByPoint(this._views[id].group.position);
+        }
+        if (this.building !== null && !this.building.bounds.isEmpty()) {
+            box.union(this.building.bounds);
         }
         if (box.isEmpty()) {
             box.set(new THREE.Vector3(0, 0, 0), new THREE.Vector3(1000, 0, 1000));
@@ -688,7 +781,7 @@ export default class ThreeFieldRenderer extends FieldRenderer {
             const view = this._views[id];
             const s = this.screenPositionOf(view.state);
             view.label.position.set(s.x - root.x + labelOffset, s.y - root.y + labelOffset);
-            view.label.visible = s.visible;
+            view.label.visible = s.visible && view.group.visible;
         }
     }
 
