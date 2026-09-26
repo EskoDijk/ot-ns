@@ -123,4 +123,8 @@ for a height `h` above that floor.
   > cv skin space
   ```
 
-In the 3D view, keys `1`..`9` toggle the visibility of a floor (from the bottom), `0` shows all.
+In the 3D view, keys `1`..`9` toggle the visibility of a floor (from the bottom), `0` shows all,
+and `g` enters walk mode: first-person navigation inside the building (W/A/S/D or arrows, mouse
+look, Shift runs), drawn opaque with ceilings; the plan's slabs and walls or the model's meshes are
+the collision geometry, so walls block and modelled stairs can be climbed. A plan floor without a
+floor above gets a ceiling in walk mode.
