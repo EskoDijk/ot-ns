@@ -37,6 +37,10 @@
 // file given with 'otns -floorplan'; see etc/floorplans/README.md. Its nodeScale shrinks the node
 // shapes (and marks and messages) to the building's scale; node positions are not affected.
 //
+// Walk mode (key 'g'): first-person navigation inside the building with WalkController; the
+// building is drawn opaque with ceilings, all floors are shown, and node selection/dragging and
+// the camera keys are off. Escape (leaving the pointer lock) or 'g' returns to the orbit view.
+//
 // Pointer handling: Pixi delivers pointer events to the visualizer's root container when no HUD
 // element handles them; this renderer listens there, raycasts into the scene to select and drag
 // nodes, and lets OrbitControls rotate/pan only for a press on empty space. A node is dragged in
@@ -48,6 +52,7 @@ import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import * as PIXI from "pixi.js";
 import FieldRenderer from "../FieldRenderer";
 import Building from "./Building";
+import WalkController from "./WalkController";
 import Lifetime from "../Lifetime";
 import {Resources} from "../resources";
 import {Skin} from "../skins";
@@ -68,6 +73,8 @@ const DROP_LINE_DASH = 3;      // units; dash and gap length of the dotted heigh
 const UP = new THREE.Vector3(0, 1, 0);
 const FLOOR_PLAN_URL = '/floorplan.json';
 const FLOOR_PLAN_FILES_URL = '/floorplan/'; // files next to the plan, e.g. its glTF model
+const WALK_FOV = 70;
+const DEFAULT_UNITS_PER_METER = 10;
 
 function toThree(x, y, z, target) {
     return target.set(x, z, y);
@@ -348,6 +355,8 @@ export default class ThreeFieldRenderer extends FieldRenderer {
         this._destroyed = false;
         this.building = null;  // Building, once the floor plan is loaded
         this.nodeScale = 1.0;  // scale of node shapes, from the floor plan
+        this._walk = null;     // WalkController while in walk mode
+        this._savedView = null; // orbit camera state to restore after walk mode
 
         const pixi = vis.app.renderer;
         this._pixi = pixi;
@@ -621,6 +630,9 @@ export default class ThreeFieldRenderer extends FieldRenderer {
         if (!this._framed && (Object.keys(this._views).length > 0 || this.building !== null)) {
             this.resetView();
         }
+        if (this._walk !== null) {
+            this._walk.update(dt);
+        }
         this._updateDrag(dt);
         this._messages = this._messages.filter((msg) => {
             if (msg.update(dt)) {
@@ -630,7 +642,9 @@ export default class ThreeFieldRenderer extends FieldRenderer {
             msg.destroy();
             return false;
         });
-        this._controls.update();
+        if (this._walk === null) {
+            this._controls.update();
+        }
         this._three.resetState();
         this._three.render(this._scene, this._camera);
         this._pixi.resetState();
@@ -649,7 +663,17 @@ export default class ThreeFieldRenderer extends FieldRenderer {
      * 'w' toggles the plan's own walls (hidden by default when the plan has a glTF model).
      */
     onKeyDown(e) {
+        if (this._walk !== null) {
+            if (e.key === 'g') {
+                this.exitWalk();
+                return true;
+            }
+            return WalkController.isMoveKey(e); // consumed here, handled by the WalkController
+        }
         switch (e.key) {
+            case 'g':
+                this.enterWalk();
+                return true;
             case 't':
                 this.topView();
                 return true;
@@ -685,12 +709,76 @@ export default class ThreeFieldRenderer extends FieldRenderer {
     }
 
     nodeAt(global) {
+        if (this._walk !== null) {
+            return null;
+        }
         const hit = this._pick(global);
         return hit !== null ? hit.state : null;
     }
 
+    // ---------------------------------------------------------------- walk mode
+
+    get walking() {
+        return this._walk !== null;
+    }
+
+    /**
+     * Enter walk mode: opaque building with all floors shown, first-person camera at the start
+     * position (center of the building's ground floor, or the field center), pointer lock.
+     */
+    enterWalk() {
+        if (this._walk !== null) {
+            return;
+        }
+        this._savedView = {position: this._camera.position.clone(), target: this._controls.target.clone(), fov: this._camera.fov};
+        this._controls.enabled = false;
+        this._press = null;
+        this._drag = null;
+        let start, unitsPerMeter = DEFAULT_UNITS_PER_METER, collision = null;
+        if (this.building !== null) {
+            this.building.showAllFloors();
+            this._applyFloorVisibility();
+            this.building.setOpaque(true);
+            start = this.building.walkStart();
+            unitsPerMeter = this.building.unitsPerMeter;
+            collision = this.building.group;
+        } else {
+            const {center} = this._nodeBounds();
+            start = new THREE.Vector3(center.x, 0, center.z);
+        }
+        this._camera.fov = WALK_FOV;
+        this._camera.updateProjectionMatrix();
+        this._walk = new WalkController(this._camera, this._pixi.canvas, unitsPerMeter, collision, start);
+        this._camera.lookAt(this._camera.position.x + 1, this._camera.position.y, this._camera.position.z); // level, along +x
+        this._walk.onExit = () => this.exitWalk();
+        this._walk.lock().catch((err) => {
+            this.vis.log("Mouse look not available (" + err.message + "); press 'g' again after a click, or use the keys");
+        });
+        this.vis.log("Walk mode: W/A/S/D or arrows move, mouse looks, Shift runs; Esc or 'g' returns to the orbit view");
+    }
+
+    exitWalk() {
+        if (this._walk === null) {
+            return;
+        }
+        this._walk.dispose();
+        this._walk = null;
+        if (this.building !== null) {
+            this.building.setOpaque(false);
+        }
+        this._camera.fov = this._savedView.fov;
+        this._camera.updateProjectionMatrix();
+        this._camera.position.copy(this._savedView.position);
+        this._controls.target.copy(this._savedView.target);
+        this._controls.enabled = true;
+        this._controls.update();
+        this._savedView = null;
+        this.vis.log("Walk mode ended");
+    }
+
     destroy() {
         this._destroyed = true;
+        this.exitWalk();
         const root = this.vis.root;
         root.off('pointerdown', this._onPointerDown);
         root.off('globalpointermove', this._onPointerMove);
@@ -818,8 +906,8 @@ export default class ThreeFieldRenderer extends FieldRenderer {
     // ---------------------------------------------------------------- pointer: select, drag, orbit
 
     _pointerDown(e) {
-        if (e.target !== this.vis.root) {
-            return; // a HUD element
+        if (e.target !== this.vis.root || this._walk !== null) {
+            return; // a HUD element, or walking (no selection or dragging)
         }
         const view = this._pick(e.global);
         if (view === null) {

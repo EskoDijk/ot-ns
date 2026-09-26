@@ -47,6 +47,7 @@ const COLOR_SLAB = 0xcfd8dc;
 const SLAB_OPACITY = 0.9;
 const RENDER_ORDER_SLAB = 1;        // transparent parts: slabs first, then walls (both after the nodes)
 const RENDER_ORDER_WALL = 2;
+const GLASS_MAX_OPACITY = 0.5;      // model materials at most this translucent stay so in opaque mode (glass)
 
 export default class Building {
     /**
@@ -68,6 +69,8 @@ export default class Building {
         this.model = null;            // the glTF scene, once loaded
         this.modelFloors = [];        // glTF nodes matched to the plan's floors by name (or null)
         this.planVisible = !plan.model; // the plan's own slabs and walls are hidden when a model is used
+        this.opaque = false;          // walk mode: opaque walls and slabs, ceilings shown
+        this._ceilings = [];          // per floor: ceiling mesh of a floor with no floor above, or null
 
         // Translucent parts must not write depth: three.js sorts transparent objects by distance,
         // and a depth-writing slab drawn before a wall behind it would hide that wall, depending
@@ -83,6 +86,82 @@ export default class Building {
         for (let floor of plan.floors || []) {
             this._addFloor(floor);
         }
+        this._addCeilings(plan.floors || []);
+    }
+
+    /**
+     * A ceiling slab for each floor that has no floor directly above it (only shown in opaque mode;
+     * elsewhere the next floor's slab is the ceiling).
+     */
+    _addCeilings(floors) {
+        floors.forEach((floor, i) => {
+            const [w, d] = floor.outline || [0, 0];
+            const elevation = floor.elevation || 0;
+            const top = elevation + (floor.height || DEFAULT_WALL_HEIGHT);
+            const hasFloorAbove = floors.some((f) => f !== floor && Math.abs((f.elevation || 0) - top) < 0.01);
+            if (w <= 0 || d <= 0 || hasFloorAbove) {
+                this._ceilings.push(null);
+                return;
+            }
+            const before = this.floors[i].children.length;
+            this._addBox(this.floors[i], w, SLAB_THICKNESS, d, this.toScene(w / 2, d / 2, top + SLAB_THICKNESS / 2), 0, this._slabMaterial);
+            const ceiling = this.floors[i].children[before];
+            ceiling.visible = false;
+            this._ceilings.push(ceiling);
+        });
+    }
+
+    /**
+     * Opaque mode (walking inside): walls and slabs opaque and depth-writing, ceilings shown; the
+     * model's glass-like materials (the translucent ones) stay translucent.
+     */
+    setOpaque(opaque) {
+        this.opaque = opaque;
+        for (let m of [this._wallMaterial, this._slabMaterial]) {
+            if (opaque && m.userData.orig === undefined) {
+                m.userData.orig = {opacity: m.opacity, transparent: m.transparent, depthWrite: m.depthWrite};
+            }
+            const o = m.userData.orig;
+            m.opacity = opaque ? 1.0 : o.opacity;
+            m.transparent = opaque ? false : o.transparent;
+            m.depthWrite = opaque ? true : o.depthWrite;
+            m.needsUpdate = true;
+        }
+        this._ceilings.forEach((c) => {
+            if (c !== null) c.visible = opaque;
+        });
+        if (this.model !== null) {
+            this.model.traverse((obj) => {
+                if (!obj.isMesh) return;
+                (Array.isArray(obj.material) ? obj.material : [obj.material]).forEach((m) => {
+                    if (m.userData.orig === undefined) {
+                        m.userData.orig = {opacity: m.opacity, transparent: m.transparent, depthWrite: m.depthWrite};
+                    }
+                    const o = m.userData.orig;
+                    const glass = o.transparent && o.opacity <= GLASS_MAX_OPACITY;
+                    const makeOpaque = opaque && !glass;
+                    m.opacity = makeOpaque ? 1.0 : o.opacity;
+                    m.transparent = makeOpaque ? false : o.transparent;
+                    m.depthWrite = makeOpaque ? true : o.depthWrite;
+                    m.needsUpdate = true;
+                });
+            });
+        }
+    }
+
+    /**
+     * @returns {THREE.Vector3} a start position (feet, three.js coordinates) for walking: the
+     *          center of the lowest floor at or above ground level, inside the building's bounds.
+     */
+    walkStart() {
+        const floors = this.plan.floors || [];
+        let floor = floors.find((f) => (f.elevation || 0) >= 0) || floors[0];
+        const elevation = floor ? (floor.elevation || 0) : 0;
+        if (floor && floor.outline) {
+            return this.toScene(floor.outline[0] / 2, floor.outline[1] / 2, elevation);
+        }
+        const c = this.bounds.getCenter(new THREE.Vector3());
+        return new THREE.Vector3(c.x, elevation * this.unitsPerMeter, c.z);
     }
 
     /**

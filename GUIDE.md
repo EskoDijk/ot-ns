@@ -125,6 +125,7 @@ The `office3d` skin (preset `space`) shows the field in 3D, using the node posit
 - Drag on empty space to orbit the camera, right-drag to pan, use the mouse wheel to zoom. Keys: `t` top view (the same picture as the 2D skins), `r` reset to the default view, `f` frame all nodes.
 - Drag a node to move it in its horizontal plane; its height is kept. Hold `Alt` while dragging to change only the height. The `move` command sets all three coordinates.
 - A building can be drawn around the nodes: start OTNS with `-floorplan <file.json>`; a topology file named in the plan is loaded at startup. The floor plan format, a sample two-floor office and a real office building, each with a topology of Routers hanging from the ceilings, are in [etc/floorplans](etc/floorplans/README.md). A plan can also refer to a glTF model of the building for its looks. Keys `1`..`9` hide or show a floor together with the nodes on it, `0` shows all floors, `w` shows the plan's walls over a model. The building is drawing only; the radio model does not know about walls.
+- Key `g` walks through the building in first person: the mouse looks around (the browser locks the pointer), `W`/`A`/`S`/`D` or the arrow keys move, `Shift` runs; walls block and stairs can be climbed. The building is then drawn opaque with ceilings and all floors shown; node selection and dragging are off. `Esc` or `g` returns to the orbit view.
 
 New skins can be added in `web/site/js/vis/skins/`, see the notes in `Skin.js` there.
 
