@@ -13,6 +13,7 @@
 
 # IDE files
 .idea/
+.claude/
 
 # Go generated files
 go.sum

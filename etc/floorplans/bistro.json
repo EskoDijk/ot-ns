@@ -1,0 +1,8 @@
+{
+  "name": "Bistro (Godot demo) luminaires",
+  "topology": "bistro.yaml",
+  "unitsPerMeter": 10,
+  "origin": [0, 0],
+  "nodeScale": 0.25,
+  "floors": []
+}

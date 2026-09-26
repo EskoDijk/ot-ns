@@ -1,0 +1,53 @@
+[gd_scene load_steps=8 format=3]
+
+[ext_resource type="Script" path="res://demo/main.gd" id="1_main"]
+[ext_resource type="Script" path="res://addons/otns_client/otns_client.gd" id="2_client"]
+[ext_resource type="Script" path="res://addons/otns_client/otns_field.gd" id="3_field"]
+[ext_resource type="Script" path="res://demo/fly_camera.gd" id="4_camera"]
+
+[sub_resource type="ProceduralSkyMaterial" id="sky_material"]
+sky_top_color = Color(0.38, 0.55, 0.8, 1)
+sky_horizon_color = Color(0.75, 0.8, 0.85, 1)
+ground_bottom_color = Color(0.25, 0.25, 0.28, 1)
+ground_horizon_color = Color(0.6, 0.6, 0.62, 1)
+
+[sub_resource type="Sky" id="sky"]
+sky_material = SubResource("sky_material")
+
+[sub_resource type="Environment" id="environment"]
+background_mode = 2
+sky = SubResource("sky")
+ambient_light_source = 3
+tonemap_mode = 2
+
+[node name="Main" type="Node3D"]
+script = ExtResource("1_main")
+
+[node name="OtnsClient" type="Node" parent="."]
+script = ExtResource("2_client")
+auto_connect = false
+
+[node name="OtnsField" type="Node3D" parent="."]
+script = ExtResource("3_field")
+client_path = NodePath("../OtnsClient")
+
+[node name="Camera3D" type="Camera3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.819152, 0.573576, 0, -0.573576, 0.819152, 40, 50, 100)
+script = ExtResource("4_camera")
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.866025, -0.353553, 0.353553, 0, 0.707107, 0.707107, -0.5, -0.612372, 0.612372, 0, 20, 0)
+light_energy = 1.2
+shadow_enabled = true
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("environment")
+
+[node name="HUD" type="CanvasLayer" parent="."]
+
+[node name="Status" type="Label" parent="HUD"]
+offset_left = 8.0
+offset_top = 8.0
+offset_right = 1200.0
+offset_bottom = 30.0
+text = "OTNS: connecting..."
