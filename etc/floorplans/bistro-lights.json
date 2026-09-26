@@ -1,0 +1,1435 @@
+{
+ "source": "Bistro-Demo-Tweaked",
+ "unitsPerMeter": 10,
+ "godotToOtns": "x = (x_g + 60) * u, y = (z_g + 80) * u, z = y_g * u",
+ "lights": [
+  {
+   "name": "Night Lights/StreetLamps/S2Lamp01",
+   "kind": "streetlamp",
+   "type": "router",
+   "color": "warm white",
+   "godot": [
+    -1.127,
+    4.406,
+    -17.089
+   ],
+   "id": 1,
+   "otns": [
+    589,
+    629,
+    44
+   ]
+  },
+  {
+   "name": "Night Lights/StreetLamps/S2Lamp02",
+   "kind": "streetlamp",
+   "type": "router",
+   "color": "warm white",
+   "godot": [
+    4.863,
+    4.406,
+    -8.598
+   ],
+   "id": 2,
+   "otns": [
+    649,
+    714,
+    44
+   ]
+  },
+  {
+   "name": "Night Lights/StreetLamps/S2Lamp03",
+   "kind": "streetlamp",
+   "type": "router",
+   "color": "warm white",
+   "godot": [
+    -0.138,
+    4.406,
+    -5.677
+   ],
+   "id": 3,
+   "otns": [
+    599,
+    743,
+    44
+   ]
+  },
+  {
+   "name": "Night Lights/StreetLamps/S2Lamp04",
+   "kind": "streetlamp",
+   "type": "router",
+   "color": "warm white",
+   "godot": [
+    -7.383,
+    4.406,
+    0.756
+   ],
+   "id": 4,
+   "otns": [
+    526,
+    808,
+    44
+   ]
+  },
+  {
+   "name": "Night Lights/StreetLamps/S3Lamp01",
+   "kind": "streetlamp",
+   "type": "router",
+   "color": "warm white",
+   "godot": [
+    1.085,
+    4.406,
+    2.792
+   ],
+   "id": 5,
+   "otns": [
+    611,
+    828,
+    44
+   ]
+  },
+  {
+   "name": "Night Lights/StreetLamps/S5Lamp01",
+   "kind": "streetlamp",
+   "type": "router",
+   "color": "warm white",
+   "godot": [
+    -27.694,
+    4.406,
+    1.374
+   ],
+   "id": 6,
+   "otns": [
+    323,
+    814,
+    44
+   ]
+  },
+  {
+   "name": "Night Lights/StreetLamps/S1Lamp01",
+   "kind": "streetlamp",
+   "type": "router",
+   "color": "warm white",
+   "godot": [
+    1.867,
+    4.406,
+    -35.146
+   ],
+   "id": 7,
+   "otns": [
+    619,
+    449,
+    44
+   ]
+  },
+  {
+   "name": "Night Lights/StreetLamps/S1Lamp02",
+   "kind": "streetlamp",
+   "type": "router",
+   "color": "warm white",
+   "godot": [
+    -5.174,
+    4.406,
+    -47.814
+   ],
+   "id": 8,
+   "otns": [
+    548,
+    322,
+    44
+   ]
+  },
+  {
+   "name": "Night Lights/StreetLamps/S1Lamp03",
+   "kind": "streetlamp",
+   "type": "router",
+   "color": "warm white",
+   "godot": [
+    1.19,
+    4.406,
+    -48.902
+   ],
+   "id": 9,
+   "otns": [
+    612,
+    311,
+    44
+   ]
+  },
+  {
+   "name": "Night Lights/StreetLamps/S1Lamp04",
+   "kind": "streetlamp",
+   "type": "router",
+   "color": "warm white",
+   "godot": [
+    7.952,
+    4.406,
+    -58.916
+   ],
+   "id": 10,
+   "otns": [
+    680,
+    211,
+    44
+   ]
+  },
+  {
+   "name": "Night Lights/StreetLamps/S1Lamp05",
+   "kind": "streetlamp",
+   "type": "router",
+   "color": "warm white",
+   "godot": [
+    3.214,
+    4.406,
+    -69.185
+   ],
+   "id": 11,
+   "otns": [
+    632,
+    108,
+    44
+   ]
+  },
+  {
+   "name": "Night Lights/StreetLamps/S5B1Lamp05",
+   "kind": "streetlamp",
+   "type": "router",
+   "color": "warm white",
+   "godot": [
+    -12.874,
+    4.423,
+    23.34
+   ],
+   "id": 12,
+   "otns": [
+    471,
+    1033,
+    44
+   ]
+  },
+  {
+   "name": "Night Lights/StreetLamps/FilloutLamp",
+   "kind": "streetlamp",
+   "type": "router",
+   "color": "warm white",
+   "godot": [
+    -14.897,
+    4.423,
+    -56.426
+   ],
+   "id": 13,
+   "otns": [
+    451,
+    236,
+    44
+   ]
+  },
+  {
+   "name": "Night Lights/StreetLamps/FilloutLamp2",
+   "kind": "streetlamp",
+   "type": "router",
+   "color": "warm white",
+   "godot": [
+    -12.291,
+    4.423,
+    -67.745
+   ],
+   "id": 14,
+   "otns": [
+    477,
+    123,
+    44
+   ]
+  },
+  {
+   "name": "Night Lights/StreetLamps/FilloutLamp3",
+   "kind": "streetlamp",
+   "type": "router",
+   "color": "warm white",
+   "godot": [
+    -46.981,
+    4.423,
+    0.731
+   ],
+   "id": 15,
+   "otns": [
+    130,
+    807,
+    44
+   ]
+  },
+  {
+   "name": "Props/Section02/Bistro_Lanterns/Lantern_Wind_21",
+   "kind": "lantern",
+   "type": "fed",
+   "color": "orange",
+   "godot": [
+    -4.678,
+    2.457,
+    -11.277
+   ],
+   "id": 16,
+   "otns": [
+    553,
+    687,
+    25
+   ]
+  },
+  {
+   "name": "Props/Section02/Bistro_Lanterns/Lantern_Wind_22",
+   "kind": "lantern",
+   "type": "fed",
+   "color": "orange",
+   "godot": [
+    -4.371,
+    2.459,
+    -8.088
+   ],
+   "id": 17,
+   "otns": [
+    556,
+    719,
+    25
+   ]
+  },
+  {
+   "name": "Props/Section02/Bistro_Lanterns/Lantern_Wind_23",
+   "kind": "lantern",
+   "type": "fed",
+   "color": "orange",
+   "godot": [
+    -9.585,
+    2.459,
+    -2.045
+   ],
+   "id": 18,
+   "otns": [
+    504,
+    780,
+    25
+   ]
+  },
+  {
+   "name": "Props/Section02/Bistro_Lanterns/Lantern_Wind_24",
+   "kind": "lantern",
+   "type": "fed",
+   "color": "orange",
+   "godot": [
+    -12.541,
+    2.427,
+    -1.863
+   ],
+   "id": 19,
+   "otns": [
+    475,
+    781,
+    24
+   ]
+  },
+  {
+   "name": "Props/Section02/Bistro_Lanterns/Lantern_Wind_25",
+   "kind": "lantern",
+   "type": "fed",
+   "color": "orange",
+   "godot": [
+    -5.155,
+    2.435,
+    -14.351
+   ],
+   "id": 20,
+   "otns": [
+    548,
+    656,
+    24
+   ]
+  },
+  {
+   "name": "Props/Section02/Bistro_StringLights/StringLight_Wind_14/StringLight_Wind_14_1#0",
+   "kind": "stringlight",
+   "type": "sed",
+   "color": "orange",
+   "godot": [
+    2.33,
+    5.101,
+    -16.159
+   ],
+   "id": 21,
+   "otns": [
+    623,
+    638,
+    51
+   ]
+  },
+  {
+   "name": "Props/Section02/Bistro_StringLights/StringLight_Wind_14/StringLight_Wind_14_2#0",
+   "kind": "stringlight",
+   "type": "sed",
+   "color": "red",
+   "godot": [
+    -4.616,
+    4.387,
+    -15.583
+   ],
+   "id": 22,
+   "otns": [
+    554,
+    644,
+    44
+   ]
+  },
+  {
+   "name": "Props/Section02/Bistro_StringLights/StringLight_Wind_14/StringLight_Wind_14_2#1",
+   "kind": "stringlight",
+   "type": "sed",
+   "color": "red",
+   "godot": [
+    -1.824,
+    4.412,
+    -15.812
+   ],
+   "id": 23,
+   "otns": [
+    582,
+    642,
+    44
+   ]
+  },
+  {
+   "name": "Props/Section02/Bistro_StringLights/StringLight_Wind_14/StringLight_Wind_14_2#2",
+   "kind": "stringlight",
+   "type": "sed",
+   "color": "red",
+   "godot": [
+    5.005,
+    5.988,
+    -16.387
+   ],
+   "id": 24,
+   "otns": [
+    650,
+    636,
+    60
+   ]
+  },
+  {
+   "name": "Props/Section02/Bistro_StringLights/StringLight_Wind_14/StringLight_Wind_14_3#0",
+   "kind": "stringlight",
+   "type": "sed",
+   "color": "white",
+   "godot": [
+    -3.222,
+    4.356,
+    -15.697
+   ],
+   "id": 25,
+   "otns": [
+    568,
+    643,
+    44
+   ]
+  },
+  {
+   "name": "Props/Section02/Bistro_StringLights/StringLight_Wind_14/StringLight_Wind_14_3#1",
+   "kind": "stringlight",
+   "type": "sed",
+   "color": "white",
+   "godot": [
+    3.708,
+    5.512,
+    -16.276
+   ],
+   "id": 26,
+   "otns": [
+    637,
+    637,
+    55
+   ]
+  },
+  {
+   "name": "Props/Section02/Bistro_StringLights/StringLight_Wind_14/StringLight_Wind_14_4#0",
+   "kind": "stringlight",
+   "type": "sed",
+   "color": "pink",
+   "godot": [
+    0.934,
+    4.78,
+    -16.041
+   ],
+   "id": 27,
+   "otns": [
+    609,
+    640,
+    48
+   ]
+  },
+  {
+   "name": "Props/Section02/Bistro_StringLights/StringLight_Wind_14/StringLight_Wind_14_5#0",
+   "kind": "stringlight",
+   "type": "sed",
+   "color": "blue",
+   "godot": [
+    -0.455,
+    4.551,
+    -15.925
+   ],
+   "id": 28,
+   "otns": [
+    595,
+    641,
+    46
+   ]
+  },
+  {
+   "name": "Props/Section02/Bistro_StringLights/StringLight_Wind_15/StringLight_Wind_15_1#0",
+   "kind": "stringlight",
+   "type": "sed",
+   "color": "orange",
+   "godot": [
+    3.809,
+    4.921,
+    -5.763
+   ],
+   "id": 29,
+   "otns": [
+    638,
+    742,
+    49
+   ]
+  },
+  {
+   "name": "Props/Section02/Bistro_StringLights/StringLight_Wind_15/StringLight_Wind_15_2#0",
+   "kind": "stringlight",
+   "type": "sed",
+   "color": "green",
+   "godot": [
+    -3.651,
+    4.432,
+    -6.792
+   ],
+   "id": 30,
+   "otns": [
+    563,
+    732,
+    44
+   ]
+  },
+  {
+   "name": "Props/Section02/Bistro_StringLights/StringLight_Wind_15/StringLight_Wind_15_2#1",
+   "kind": "stringlight",
+   "type": "sed",
+   "color": "green",
+   "godot": [
+    -0.663,
+    4.348,
+    -6.383
+   ],
+   "id": 31,
+   "otns": [
+    593,
+    736,
+    43
+   ]
+  },
+  {
+   "name": "Props/Section02/Bistro_StringLights/StringLight_Wind_15/StringLight_Wind_15_2#2",
+   "kind": "stringlight",
+   "type": "sed",
+   "color": "green",
+   "godot": [
+    6.707,
+    5.766,
+    -5.355
+   ],
+   "id": 32,
+   "otns": [
+    667,
+    746,
+    58
+   ]
+  },
+  {
+   "name": "Props/Section02/Bistro_StringLights/StringLight_Wind_15/StringLight_Wind_15_3#0",
+   "kind": "stringlight",
+   "type": "sed",
+   "color": "white",
+   "godot": [
+    -2.16,
+    4.344,
+    -6.589
+   ],
+   "id": 33,
+   "otns": [
+    578,
+    734,
+    43
+   ]
+  },
+  {
+   "name": "Props/Section02/Bistro_StringLights/StringLight_Wind_15/StringLight_Wind_15_3#1",
+   "kind": "stringlight",
+   "type": "sed",
+   "color": "white",
+   "godot": [
+    5.3,
+    5.307,
+    -5.554
+   ],
+   "id": 34,
+   "otns": [
+    653,
+    744,
+    53
+   ]
+  },
+  {
+   "name": "Props/Section02/Bistro_StringLights/StringLight_Wind_15/StringLight_Wind_15_4#0",
+   "kind": "stringlight",
+   "type": "sed",
+   "color": "pink",
+   "godot": [
+    2.303,
+    4.633,
+    -5.973
+   ],
+   "id": 35,
+   "otns": [
+    623,
+    740,
+    46
+   ]
+  },
+  {
+   "name": "Props/Section02/Bistro_StringLights/StringLight_Wind_15/StringLight_Wind_15_5#0",
+   "kind": "stringlight",
+   "type": "sed",
+   "color": "blue",
+   "godot": [
+    0.807,
+    4.443,
+    -6.181
+   ],
+   "id": 36,
+   "otns": [
+    608,
+    738,
+    44
+   ]
+  },
+  {
+   "name": "Props/Section02/Bistro_StringLights/StringLight_Wind_18/StringLight_Wind_18_1#0",
+   "kind": "stringlight",
+   "type": "sed",
+   "color": "blue",
+   "godot": [
+    -9.645,
+    4.666,
+    5.639
+   ],
+   "id": 37,
+   "otns": [
+    504,
+    856,
+    47
+   ]
+  },
+  {
+   "name": "Props/Section02/Bistro_StringLights/StringLight_Wind_18/StringLight_Wind_18_2#0",
+   "kind": "stringlight",
+   "type": "sed",
+   "color": "red",
+   "godot": [
+    -9.78,
+    5.328,
+    8.439
+   ],
+   "id": 38,
+   "otns": [
+    502,
+    884,
+    53
+   ]
+  },
+  {
+   "name": "Props/Section02/Bistro_StringLights/StringLight_Wind_18/StringLight_Wind_18_2#1",
+   "kind": "stringlight",
+   "type": "sed",
+   "color": "red",
+   "godot": [
+    -9.465,
+    4.338,
+    1.354
+   ],
+   "id": 39,
+   "otns": [
+    505,
+    814,
+    43
+   ]
+  },
+  {
+   "name": "Props/Section02/Bistro_StringLights/StringLight_Wind_18/StringLight_Wind_18_2#2",
+   "kind": "stringlight",
+   "type": "sed",
+   "color": "red",
+   "godot": [
+    -9.365,
+    4.562,
+    -1.487
+   ],
+   "id": 40,
+   "otns": [
+    506,
+    785,
+    46
+   ]
+  },
+  {
+   "name": "Props/Section02/Bistro_StringLights/StringLight_Wind_18/StringLight_Wind_18_3#0",
+   "kind": "stringlight",
+   "type": "sed",
+   "color": "green",
+   "godot": [
+    -9.712,
+    4.96,
+    7.077
+   ],
+   "id": 41,
+   "otns": [
+    503,
+    871,
+    50
+   ]
+  },
+  {
+   "name": "Props/Section02/Bistro_StringLights/StringLight_Wind_18/StringLight_Wind_18_3#1",
+   "kind": "stringlight",
+   "type": "sed",
+   "color": "green",
+   "godot": [
+    -9.413,
+    4.406,
+    -0.072
+   ],
+   "id": 42,
+   "otns": [
+    506,
+    799,
+    44
+   ]
+  },
+  {
+   "name": "Props/Section02/Bistro_StringLights/StringLight_Wind_18/StringLight_Wind_18_4#0",
+   "kind": "stringlight",
+   "type": "sed",
+   "color": "white",
+   "godot": [
+    -9.58,
+    4.466,
+    4.192
+   ],
+   "id": 43,
+   "otns": [
+    504,
+    842,
+    45
+   ]
+  },
+  {
+   "name": "Props/Section02/Bistro_StringLights/StringLight_Wind_18/StringLight_Wind_18_5#0",
+   "kind": "stringlight",
+   "type": "sed",
+   "color": "pink",
+   "godot": [
+    -9.52,
+    4.358,
+    2.759
+   ],
+   "id": 44,
+   "otns": [
+    505,
+    828,
+    44
+   ]
+  },
+  {
+   "name": "Props/Section02/Bistro_StringLights/StringLight_Wind_19/StringLight_Wind_19_1#0",
+   "kind": "stringlight",
+   "type": "sed",
+   "color": "orange",
+   "godot": [
+    -13.704,
+    5.172,
+    7.404
+   ],
+   "id": 45,
+   "otns": [
+    463,
+    874,
+    52
+   ]
+  },
+  {
+   "name": "Props/Section02/Bistro_StringLights/StringLight_Wind_19/StringLight_Wind_19_1#1",
+   "kind": "stringlight",
+   "type": "sed",
+   "color": "orange",
+   "godot": [
+    -13.239,
+    4.576,
+    4.847
+   ],
+   "id": 46,
+   "otns": [
+    468,
+    848,
+    46
+   ]
+  },
+  {
+   "name": "Props/Section02/Bistro_StringLights/StringLight_Wind_19/StringLight_Wind_19_1#2",
+   "kind": "stringlight",
+   "type": "sed",
+   "color": "orange",
+   "godot": [
+    -12.56,
+    4.296,
+    0.932
+   ],
+   "id": 47,
+   "otns": [
+    474,
+    809,
+    43
+   ]
+  },
+  {
+   "name": "Props/Section02/Bistro_StringLights/StringLight_Wind_19/StringLight_Wind_19_1#3",
+   "kind": "stringlight",
+   "type": "sed",
+   "color": "orange",
+   "godot": [
+    -12.131,
+    4.519,
+    -1.664
+   ],
+   "id": 48,
+   "otns": [
+    479,
+    783,
+    45
+   ]
+  },
+  {
+   "name": "Props/Section02/Bistro_StringLights/StringLight_Wind_19/StringLight_Wind_19_2#0",
+   "kind": "stringlight",
+   "type": "sed",
+   "color": "blue",
+   "godot": [
+    -13.476,
+    4.84,
+    6.161
+   ],
+   "id": 49,
+   "otns": [
+    465,
+    862,
+    48
+   ]
+  },
+  {
+   "name": "Props/Section02/Bistro_StringLights/StringLight_Wind_19/StringLight_Wind_19_2#1",
+   "kind": "stringlight",
+   "type": "sed",
+   "color": "blue",
+   "godot": [
+    -12.343,
+    4.367,
+    -0.371
+   ],
+   "id": 50,
+   "otns": [
+    477,
+    796,
+    44
+   ]
+  },
+  {
+   "name": "Props/Section02/Bistro_StringLights/StringLight_Wind_19/StringLight_Wind_19_3#0",
+   "kind": "stringlight",
+   "type": "sed",
+   "color": "pink",
+   "godot": [
+    -13.005,
+    4.398,
+    3.525
+   ],
+   "id": 51,
+   "otns": [
+    470,
+    835,
+    44
+   ]
+  },
+  {
+   "name": "Props/Section02/Bistro_StringLights/StringLight_Wind_19/StringLight_Wind_19_4#0",
+   "kind": "stringlight",
+   "type": "sed",
+   "color": "red",
+   "godot": [
+    -12.778,
+    4.306,
+    2.215
+   ],
+   "id": 52,
+   "otns": [
+    472,
+    822,
+    43
+   ]
+  },
+  {
+   "name": "Props/Section02/Bistro_StringLights/StringLight_Wind_20/StringLight_Wind_20_1#0",
+   "kind": "stringlight",
+   "type": "sed",
+   "color": "orange",
+   "godot": [
+    -17.895,
+    5.188,
+    3.95
+   ],
+   "id": 53,
+   "otns": [
+    421,
+    840,
+    52
+   ]
+  },
+  {
+   "name": "Props/Section02/Bistro_StringLights/StringLight_Wind_20/StringLight_Wind_20_2#0",
+   "kind": "stringlight",
+   "type": "sed",
+   "color": "blue",
+   "godot": [
+    -18.521,
+    5.957,
+    6.179
+   ],
+   "id": 54,
+   "otns": [
+    415,
+    862,
+    60
+   ]
+  },
+  {
+   "name": "Props/Section02/Bistro_StringLights/StringLight_Wind_20/StringLight_Wind_20_2#1",
+   "kind": "stringlight",
+   "type": "sed",
+   "color": "blue",
+   "godot": [
+    -17.262,
+    4.71,
+    1.625
+   ],
+   "id": 55,
+   "otns": [
+    427,
+    816,
+    47
+   ]
+  },
+  {
+   "name": "Props/Section02/Bistro_StringLights/StringLight_Wind_20/StringLight_Wind_20_2#2",
+   "kind": "stringlight",
+   "type": "sed",
+   "color": "blue",
+   "godot": [
+    -16.957,
+    4.587,
+    0.481
+   ],
+   "id": 56,
+   "otns": [
+    430,
+    805,
+    46
+   ]
+  },
+  {
+   "name": "Props/Section02/Bistro_StringLights/StringLight_Wind_20/StringLight_Wind_20_2#3",
+   "kind": "stringlight",
+   "type": "sed",
+   "color": "blue",
+   "godot": [
+    -16.348,
+    4.56,
+    -1.856
+   ],
+   "id": 57,
+   "otns": [
+    437,
+    781,
+    46
+   ]
+  },
+  {
+   "name": "Props/Section02/Bistro_StringLights/StringLight_Wind_20/StringLight_Wind_20_3#0",
+   "kind": "stringlight",
+   "type": "sed",
+   "color": "white",
+   "godot": [
+    -18.215,
+    5.544,
+    5.099
+   ],
+   "id": 58,
+   "otns": [
+    418,
+    851,
+    55
+   ]
+  },
+  {
+   "name": "Props/Section02/Bistro_StringLights/StringLight_Wind_20/StringLight_Wind_20_3#1",
+   "kind": "stringlight",
+   "type": "sed",
+   "color": "white",
+   "godot": [
+    -16.65,
+    4.537,
+    -0.688
+   ],
+   "id": 59,
+   "otns": [
+    434,
+    793,
+    45
+   ]
+  },
+  {
+   "name": "Props/Section02/Bistro_StringLights/StringLight_Wind_20/StringLight_Wind_20_4#0",
+   "kind": "stringlight",
+   "type": "sed",
+   "color": "pink",
+   "godot": [
+    -17.576,
+    4.909,
+    2.786
+   ],
+   "id": 60,
+   "otns": [
+    424,
+    828,
+    49
+   ]
+  },
+  {
+   "name": "Props/Section02/Bistro_StringLights/StringLight_Wind_21/StringLight_Wind_21_1#0",
+   "kind": "stringlight",
+   "type": "sed",
+   "color": "orange",
+   "godot": [
+    2.308,
+    4.695,
+    -1.346
+   ],
+   "id": 61,
+   "otns": [
+    623,
+    787,
+    47
+   ]
+  },
+  {
+   "name": "Props/Section02/Bistro_StringLights/StringLight_Wind_21/StringLight_Wind_21_2#0",
+   "kind": "stringlight",
+   "type": "sed",
+   "color": "green",
+   "godot": [
+    -4.076,
+    4.673,
+    -5.37
+   ],
+   "id": 62,
+   "otns": [
+    559,
+    746,
+    47
+   ]
+  },
+  {
+   "name": "Props/Section02/Bistro_StringLights/StringLight_Wind_21/StringLight_Wind_21_2#1",
+   "kind": "stringlight",
+   "type": "sed",
+   "color": "green",
+   "godot": [
+    -1.529,
+    4.402,
+    -3.776
+   ],
+   "id": 63,
+   "otns": [
+    585,
+    762,
+    44
+   ]
+  },
+  {
+   "name": "Props/Section02/Bistro_StringLights/StringLight_Wind_21/StringLight_Wind_21_2#2",
+   "kind": "stringlight",
+   "type": "sed",
+   "color": "green",
+   "godot": [
+    4.811,
+    5.356,
+    0.259
+   ],
+   "id": 64,
+   "otns": [
+    648,
+    803,
+    54
+   ]
+  },
+  {
+   "name": "Props/Section02/Bistro_StringLights/StringLight_Wind_21/StringLight_Wind_21_3#0",
+   "kind": "stringlight",
+   "type": "sed",
+   "color": "white",
+   "godot": [
+    -2.807,
+    4.492,
+    -4.578
+   ],
+   "id": 65,
+   "otns": [
+    572,
+    754,
+    45
+   ]
+  },
+  {
+   "name": "Props/Section02/Bistro_StringLights/StringLight_Wind_21/StringLight_Wind_21_3#1",
+   "kind": "stringlight",
+   "type": "sed",
+   "color": "white",
+   "godot": [
+    3.594,
+    4.986,
+    -0.523
+   ],
+   "id": 66,
+   "otns": [
+    636,
+    795,
+    50
+   ]
+  },
+  {
+   "name": "Props/Section02/Bistro_StringLights/StringLight_Wind_21/StringLight_Wind_21_4#0",
+   "kind": "stringlight",
+   "type": "sed",
+   "color": "pink",
+   "godot": [
+    1.012,
+    4.501,
+    -2.171
+   ],
+   "id": 67,
+   "otns": [
+    610,
+    778,
+    45
+   ]
+  },
+  {
+   "name": "Props/Section02/Bistro_StringLights/StringLight_Wind_21/StringLight_Wind_21_5#0",
+   "kind": "stringlight",
+   "type": "sed",
+   "color": "blue",
+   "godot": [
+    -0.271,
+    4.405,
+    -2.983
+   ],
+   "id": 68,
+   "otns": [
+    597,
+    770,
+    44
+   ]
+  },
+  {
+   "name": "Props/Section02/Bistro_StringLights/StringLight_Wind_22/StringLight_Wind_22_1#0",
+   "kind": "stringlight",
+   "type": "sed",
+   "color": "orange",
+   "godot": [
+    -0.436,
+    4.036,
+    3.693
+   ],
+   "id": 69,
+   "otns": [
+    596,
+    837,
+    40
+   ]
+  },
+  {
+   "name": "Props/Section02/Bistro_StringLights/StringLight_Wind_22/StringLight_Wind_22_2#0",
+   "kind": "stringlight",
+   "type": "sed",
+   "color": "green",
+   "godot": [
+    -6.242,
+    4.612,
+    -2.047
+   ],
+   "id": 70,
+   "otns": [
+    538,
+    780,
+    46
+   ]
+  },
+  {
+   "name": "Props/Section02/Bistro_StringLights/StringLight_Wind_22/StringLight_Wind_22_2#1",
+   "kind": "stringlight",
+   "type": "sed",
+   "color": "green",
+   "godot": [
+    -3.957,
+    4.087,
+    0.233
+   ],
+   "id": 71,
+   "otns": [
+    560,
+    802,
+    41
+   ]
+  },
+  {
+   "name": "Props/Section02/Bistro_StringLights/StringLight_Wind_22/StringLight_Wind_22_2#2",
+   "kind": "stringlight",
+   "type": "sed",
+   "color": "green",
+   "godot": [
+    1.915,
+    4.5,
+    5.966
+   ],
+   "id": 72,
+   "otns": [
+    619,
+    860,
+    45
+   ]
+  },
+  {
+   "name": "Props/Section02/Bistro_StringLights/StringLight_Wind_22/StringLight_Wind_22_3#0",
+   "kind": "stringlight",
+   "type": "sed",
+   "color": "white",
+   "godot": [
+    -5.109,
+    4.301,
+    -0.913
+   ],
+   "id": 73,
+   "otns": [
+    549,
+    791,
+    43
+   ]
+  },
+  {
+   "name": "Props/Section02/Bistro_StringLights/StringLight_Wind_22/StringLight_Wind_22_3#1",
+   "kind": "stringlight",
+   "type": "sed",
+   "color": "white",
+   "godot": [
+    0.766,
+    4.223,
+    4.859
+   ],
+   "id": 74,
+   "otns": [
+    608,
+    849,
+    42
+   ]
+  },
+  {
+   "name": "Props/Section02/Bistro_StringLights/StringLight_Wind_22/StringLight_Wind_22_4#0",
+   "kind": "stringlight",
+   "type": "sed",
+   "color": "pink",
+   "godot": [
+    -1.636,
+    3.952,
+    2.521
+   ],
+   "id": 75,
+   "otns": [
+    584,
+    825,
+    40
+   ]
+  },
+  {
+   "name": "Props/Section02/Bistro_StringLights/StringLight_Wind_22/StringLight_Wind_22_5#0",
+   "kind": "stringlight",
+   "type": "sed",
+   "color": "blue",
+   "godot": [
+    -2.813,
+    3.972,
+    1.364
+   ],
+   "id": 76,
+   "otns": [
+    572,
+    814,
+    40
+   ]
+  },
+  {
+   "name": "Props/Section02/Bistro_StringLights/StringLight_Wind_23/StringLight_Wind_23_1#0",
+   "kind": "stringlight",
+   "type": "sed",
+   "color": "orange",
+   "godot": [
+    4.384,
+    2.991,
+    -11.351
+   ],
+   "id": 77,
+   "otns": [
+    644,
+    686,
+    30
+   ]
+  },
+  {
+   "name": "Props/Section02/Bistro_StringLights/StringLight_Wind_23/StringLight_Wind_23_2#0",
+   "kind": "stringlight",
+   "type": "sed",
+   "color": "green",
+   "godot": [
+    -3.135,
+    3.286,
+    -10.784
+   ],
+   "id": 78,
+   "otns": [
+    569,
+    692,
+    33
+   ]
+  },
+  {
+   "name": "Props/Section02/Bistro_StringLights/StringLight_Wind_23/StringLight_Wind_23_2#1",
+   "kind": "stringlight",
+   "type": "sed",
+   "color": "green",
+   "godot": [
+    -0.153,
+    2.889,
+    -11.01
+   ],
+   "id": 79,
+   "otns": [
+    598,
+    690,
+    29
+   ]
+  },
+  {
+   "name": "Props/Section02/Bistro_StringLights/StringLight_Wind_23/StringLight_Wind_23_2#2",
+   "kind": "stringlight",
+   "type": "sed",
+   "color": "green",
+   "godot": [
+    7.375,
+    3.527,
+    -11.575
+   ],
+   "id": 80,
+   "otns": [
+    674,
+    684,
+    35
+   ]
+  },
+  {
+   "name": "Props/Section02/Bistro_StringLights/StringLight_Wind_23/StringLight_Wind_23_3#0",
+   "kind": "stringlight",
+   "type": "sed",
+   "color": "white",
+   "godot": [
+    -1.652,
+    3.042,
+    -10.896
+   ],
+   "id": 81,
+   "otns": [
+    583,
+    691,
+    30
+   ]
+  },
+  {
+   "name": "Props/Section02/Bistro_StringLights/StringLight_Wind_23/StringLight_Wind_23_3#1",
+   "kind": "stringlight",
+   "type": "sed",
+   "color": "white",
+   "godot": [
+    5.917,
+    3.218,
+    -11.466
+   ],
+   "id": 82,
+   "otns": [
+    659,
+    685,
+    32
+   ]
+  },
+  {
+   "name": "Props/Section02/Bistro_StringLights/StringLight_Wind_23/StringLight_Wind_23_4#0",
+   "kind": "stringlight",
+   "type": "sed",
+   "color": "pink",
+   "godot": [
+    2.846,
+    2.861,
+    -11.236
+   ],
+   "id": 83,
+   "otns": [
+    628,
+    688,
+    29
+   ]
+  },
+  {
+   "name": "Props/Section02/Bistro_StringLights/StringLight_Wind_23/StringLight_Wind_23_5#0",
+   "kind": "stringlight",
+   "type": "sed",
+   "color": "blue",
+   "godot": [
+    1.329,
+    2.829,
+    -11.122
+   ],
+   "id": 84,
+   "otns": [
+    613,
+    689,
+    28
+   ]
+  }
+ ]
+}

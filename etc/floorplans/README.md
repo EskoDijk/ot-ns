@@ -123,6 +123,15 @@ for a height `h` above that floor.
   > cv skin space
   ```
 
+- `bistro.json`, `bistro.yaml`, `bistro-lights.json`: the luminaires of the Godot
+  [Bistro Demo Tweaked](https://github.com/Jamsers/Bistro-Demo-Tweaked) scene as an OTNS
+  topology, for driving that scene from OTNS (see `studies/external-engine-interface.md`):
+  15 street lamps as Routers, 5 hanging lanterns as FEDs and 64 string-light bulbs as SEDs,
+  at the lights' positions. `bistro-lights.json` maps each OTNS node ID to the Godot node
+  path, kind and bulb color. Generated with `bistro_lights.py <demo dir> bistro.yaml
+  bistro-lights.json` from the demo's scene files (not included here; the demo's assets have
+  their own license). No building geometry: the plan has no floors and no model.
+
 In the 3D view, keys `1`..`9` toggle the visibility of a floor (from the bottom), `0` shows all,
 and `g` enters walk mode: first-person navigation inside the building (W/A/S/D or arrows, mouse
 look, Shift runs), drawn opaque with ceilings; the plan's slabs and walls or the model's meshes are
