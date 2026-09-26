@@ -52,7 +52,10 @@ class OtnsNode:
 
 @export var host: String = "127.0.0.1"   ## grpcwebproxy binds IPv4; 'localhost' may resolve to ::1
 @export var port: int = 8998
-@export var auto_connect: bool = true
+@export var auto_connect: bool = true      ## connect when the node is ready
+@export var auto_reconnect: bool = true    ## reconnect after a lost or refused connection
+@export var max_events_per_frame: int = 400      ## decode budget per frame; the rest waits for the next frame
+@export var max_sends_per_frame: int = 20        ## 'Send' (frame sent) events decoded per frame; more are dropped
 @export var units_per_meter: float = 10.0        ## floor plan 'unitsPerMeter'
 @export var origin: Vector2 = Vector2(0, 0)      ## floor plan 'origin' (OTNS units)
 
@@ -75,9 +78,17 @@ var sim_time_us: int = 0
 var speed: float = 1.0
 var is_connected: bool = false
 
+var dropped_sends: int = 0            ## Send events dropped for lack of decode budget (see max_sends_per_frame)
 var _stream: OtnsGrpcWebCall = null
 var _reconnect_at: float = 0.0
 var _commands: Array = []             # [{call, command}]
+var _pending: Array[PackedByteArray] = []   # received payloads not yet decoded
+
+# protobuf key bytes of the first field of a VisualizeEvent, to sort payloads before decoding:
+# (field number << 3) | wire type, as a varint. Send = field 17, AdvanceTime = 12, Heartbeat = 19.
+const KEY_SEND := 0x8A         # 17 << 3 | 2 = 138 = 0x8A 0x01
+const KEY_ADVANCE_TIME := 0x62 # 12 << 3 | 2 = 98
+const KEY_HEARTBEAT := 0x9A    # 19 << 3 | 2 = 154 = 0x9A 0x01
 
 
 func _ready() -> void:
@@ -92,7 +103,7 @@ func connect_to_otns() -> void:
 
 
 func disconnect_from_otns() -> void:
-	auto_connect = false
+	auto_reconnect = false
 	_close_stream("closed")
 
 
@@ -155,27 +166,57 @@ func _process(_delta: float) -> void:
 
 func _poll_stream() -> void:
 	if _stream == null:
-		if auto_connect and Time.get_ticks_msec() / 1000.0 >= _reconnect_at:
+		if auto_reconnect and _reconnect_at > 0.0 and Time.get_ticks_msec() / 1000.0 >= _reconnect_at:
 			connect_to_otns()
 		return
-	var payloads := _stream.poll()
-	for payload in payloads:
-		var event = PB.VisualizeEvent.new()
-		if event.from_bytes(payload) != PB.PB_ERR.NO_ERRORS:
-			push_warning("OTNS: undecodable event of %d bytes" % payload.size())
+	_pending.append_array(_stream.poll())
+	# Decoding is pure GDScript and the stream can carry thousands of 'Send' events per second
+	# at high simulation speeds: keep the frame time bounded by a decode budget, decode only the
+	# last AdvanceTime of a batch, skip heartbeats, and drop Send events beyond their budget.
+	var decoded := 0
+	var sends := 0
+	var last_time: PackedByteArray = PackedByteArray()
+	var keep: Array[PackedByteArray] = []
+	for i in _pending.size():
+		var payload := _pending[i]
+		if decoded >= max_events_per_frame:
+			keep.append(payload)
 			continue
-		if not is_connected:
-			is_connected = true
-			connected.emit()
-		_dispatch(event)
-		event_received.emit(event)
+		if payload.size() >= 2 and payload[0] == KEY_SEND and payload[1] == 0x01:
+			if sends >= max_sends_per_frame:
+				dropped_sends += 1
+				continue
+			sends += 1
+		elif payload.size() >= 1 and payload[0] == KEY_ADVANCE_TIME:
+			last_time = payload
+			continue
+		elif payload.size() >= 2 and payload[0] == KEY_HEARTBEAT and payload[1] == 0x01:
+			continue
+		_decode(payload)
+		decoded += 1
+	_pending = keep
+	if last_time.size() > 0:
+		_decode(last_time)
 	if _stream.state == OtnsGrpcWebCall.State.FAILED or _stream.state == OtnsGrpcWebCall.State.DONE:
 		var reason := _stream.error if _stream.error != "" else "stream ended"
 		_close_stream(reason)
 		_reconnect_at = Time.get_ticks_msec() / 1000.0 + RECONNECT_DELAY
 
 
+func _decode(payload: PackedByteArray) -> void:
+	var event = PB.VisualizeEvent.new()
+	if event.from_bytes(payload) != PB.PB_ERR.NO_ERRORS:
+		push_warning("OTNS: undecodable event of %d bytes" % payload.size())
+		return
+	if not is_connected:
+		is_connected = true
+		connected.emit()
+	_dispatch(event)
+	event_received.emit(event)
+
+
 func _close_stream(reason: String) -> void:
+	_pending.clear()
 	if _stream != null:
 		_stream.close()
 		_stream = null

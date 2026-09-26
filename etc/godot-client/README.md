@@ -49,6 +49,15 @@ links and messages. It is the starting point for the game-like views discussed i
     godot4 --headless --path <godobuf project> -s addons/godobuf/godobuf_cmdln.gd \
         --input=/tmp/visualize_grpc.proto --output=<this dir>/addons/otns_client/proto/visualize_grpc_pb.gd
     ```
+  - `otns_luminaires.gd` (`OtnsLuminaires` node): drives the lights of an existing scene from
+    OTNS node state through a JSON mapping of node ID to scene node (`etc/floorplans/
+    bistro-lights.json` for the Bistro demo). A failed node (radio off) always switches its
+    light off; otherwise the light is on while the node is attached (Child, Router, Leader) and
+    off when detached or disabled. Lights (`Light3D`) are switched by visibility; emissive
+    meshes get a duplicated material with emission on or off and a darkened albedo when off,
+    following the scene's own day/night switching of the shared material. A mapping entry
+    `path#k` means part `k` of a mesh: the mesh is split into its connected components at load
+    time (one `MeshInstance3D` per bulb of a string light), numbered as `bistro_lights.py` does.
 - `demo/`: a scene with an `OtnsClient`, an `OtnsField`, a free-flying camera and a status line.
 - `tools/stream_test.gd`: headless check, prints the first events of a running OTNS and exits:
 
@@ -56,11 +65,37 @@ links and messages. It is the starting point for the game-like views discussed i
   godot4 --headless --path etc/godot-client -s tools/stream_test.gd -- --otns=127.0.0.1:8998 --events=20
   ```
 
+## Bistro demo
+
+`tools/install-addon.sh <bistro project dir>` copies the addon, `otns/bistro-lights.json` and
+`otns/luminaires_test.gd` into the [Bistro Demo Tweaked](https://github.com/Jamsers/Bistro-Demo-Tweaked)
+project. Its `MainScene.tscn` needs two nodes under the root (added once by hand or by the
+editor): an `OtnsClient` (`host` 127.0.0.1, `port` 8998) and an `OtnsLuminaires` with
+`mapping_file` `res://otns/bistro-lights.json` and `scene_root` `..`. Then:
+
+```
+otns -floorplan etc/floorplans/bistro.json      # 15 street lamps, 5 lanterns, 64 bulbs as nodes
+godot4 --path <bistro project>                   # switch to a night scenario in the demo's UI
+> radio 7 off                                    # in the OTNS CLI: the lamp of node 7 goes dark
+```
+
+Headless check (needs the running OTNS):
+
+```
+godot4 --headless --path <bistro project> -s otns/luminaires_test.gd -- --otns=127.0.0.1:8998
+```
+
 ## Notes
 
 - gRPC-web over HTTP/1.1 supports server streaming, which is all the visualizer needs. Godot's
   `HTTPClient` has no HTTP/2, so the native gRPC port (base − 1) cannot be used directly.
 - The stream resends the full state on connect, so the client can start or reconnect at any
   time.
+- Decoding is pure GDScript, and at high simulation speeds the stream carries thousands of
+  `Send` (frame sent) events per second. `OtnsClient` bounds the work per frame
+  (`max_events_per_frame`, default 400), decodes only the last `AdvanceTime` of a batch, skips
+  heartbeats, and drops `Send` events beyond `max_sends_per_frame` (default 20; the count is
+  in `dropped_sends`). State events are never dropped. Without this, a large network at 100x
+  made frames take seconds and the unary commands crawl.
 - Coordinates: OTNS (x, y, z) with z up map to Godot (x, z, y) after the floor plan's scale and
   origin, the same mapping the web visualizer's 3D skin uses.
