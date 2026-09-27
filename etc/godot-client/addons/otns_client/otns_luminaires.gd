@@ -5,7 +5,10 @@
 # (e.g. etc/floorplans/bistro-lights.json, made by bistro_lights.py) lists for each OTNS node ID
 # the scene node that is its luminaire:
 #   - a Light3D, or a node with a Light3D somewhere below it (street lamp, lantern): the light's
-#     'visible' is switched;
+#     'visible' is switched, and so is the emission of the luminaire's glowing part: emissive
+#     meshes below the node, or (for a bare light) the nearest mesh within emissive_radius whose
+#     material is one of emissive_materials (a street lamp's bulb mesh lives elsewhere in the
+#     scene tree than its light);
 #   - a MeshInstance3D with an emissive material: its material's emission is switched (a
 #     duplicate of the material is used, the shared one stays as it is);
 #   - a MeshInstance3D path with a '#k' suffix: part k of the mesh, where parts are the connected
@@ -23,13 +26,17 @@ extends Node
 
 const PB := preload("res://addons/otns_client/proto/visualize_grpc_pb.gd")
 const OtnsClientScript := preload("res://addons/otns_client/otns_client.gd")
-const OFF_ALBEDO_FACTOR := 0.35   # darken an emissive mesh's albedo when its light is off
+const OFF_ALBEDO_FACTOR := 0.2    # darken an emissive mesh albedo when its light is off
 
 @export var client_path: NodePath                    ## the OtnsClient node; empty: sibling 'OtnsClient'
 @export_file("*.json") var mapping_file: String = "" ## the lights JSON (res:// or absolute path)
 @export var scene_root: NodePath = ".."              ## mapping node paths are relative to this node
 @export var off_when_detached: bool = true
 @export var dim_uri: String = "/l/dim"             ## CoAP URI path that sets the level (payload 0..100)
+## Materials (resource path substrings) of the glowing parts of luminaires; a light gets the nearest
+## such mesh within emissive_radius as its glowing part.
+@export var emissive_materials: PackedStringArray = ["StreetLight_Bulb", "HangingLight_Emissive", "Spotlight_Glass_Emissive"]
+@export var emissive_radius: float = 2.5           ## meters
 @export var verbose: bool = false
 
 signal luminaire_changed(node_id: int, on: bool)
@@ -40,6 +47,8 @@ var states: Dictionary = {}    # node ID -> bool (on)
 var levels: Dictionary = {}    # node ID -> int, 0..100 (percent); absent = 100
 var _split_cache: Dictionary = {}   # MeshInstance3D path -> Array[MeshInstance3D] parts
 var _refresh_timer := 0.0
+var _emissive_meshes: Array = []    # [{mesh, center}] candidates for the glowing parts, collected once
+var _emissive_used: Dictionary = {} # mesh -> true, each glowing part belongs to one light
 
 
 func _ready() -> void:
@@ -88,6 +97,7 @@ func _load_mapping() -> void:
 	if root == null:
 		push_error("OtnsLuminaires: scene_root not found")
 		return
+	_collect_emissive_meshes(root)
 	var missing := 0
 	for light in data["lights"]:
 		var target := _resolve(root, str(light["name"]))
@@ -122,12 +132,16 @@ func _resolve(root: Node, name: String) -> Dictionary:
 		meshes.append(parts[part])
 	elif node is Light3D:
 		lights.append(node)
+		var glow := _nearest_emissive_mesh(node.global_position)
+		if glow != null:
+			meshes.append(glow)
 	elif node is MeshInstance3D:
 		meshes.append(node)
 	else:
 		_collect_lights(node, lights)
 		if lights.is_empty():
 			return {}
+		_collect_emissive_below(node, meshes)
 	# per-target material duplicates for the emissive meshes
 	var materials: Array = []
 	var bases: Array = []
@@ -145,6 +159,56 @@ func _resolve(root: Node, name: String) -> Dictionary:
 	for light in lights:
 		energies.append(light.light_energy)
 	return {"lights": lights, "meshes": meshes, "materials": materials, "bases": bases, "energies": energies}
+
+
+## All meshes of the scene with one of the emissive_materials, with their world AABB centers.
+func _collect_emissive_meshes(root: Node) -> void:
+	_emissive_meshes.clear()
+	if emissive_materials.is_empty():
+		return
+	var stack: Array = [root]
+	while not stack.is_empty():
+		var n: Node = stack.pop_back()
+		for child in n.get_children():
+			stack.append(child)
+		if n is MeshInstance3D and _has_emissive_material(n):
+			var aabb: AABB = n.global_transform * n.get_aabb()
+			_emissive_meshes.append({"mesh": n, "center": aabb.get_center()})
+	if verbose:
+		print("OtnsLuminaires: %d emissive meshes in the scene" % _emissive_meshes.size())
+
+
+func _has_emissive_material(mesh: MeshInstance3D) -> bool:
+	var m := _base_material(mesh)
+	if m == null:
+		return false
+	for name in emissive_materials:
+		if m.resource_path.contains(name) or m.resource_name.contains(name):
+			return true
+	return false
+
+
+func _nearest_emissive_mesh(at: Vector3) -> MeshInstance3D:
+	var best: MeshInstance3D = null
+	var best_d := emissive_radius
+	for e in _emissive_meshes:
+		if _emissive_used.has(e["mesh"]):
+			continue
+		var d: float = e["center"].distance_to(at)
+		if d < best_d:
+			best_d = d
+			best = e["mesh"]
+	if best != null:
+		_emissive_used[best] = true
+	return best
+
+
+func _collect_emissive_below(node: Node, out: Array) -> void:
+	for child in node.get_children():
+		if child is MeshInstance3D and _has_emissive_material(child):
+			out.append(child)
+			_emissive_used[child] = true
+		_collect_emissive_below(child, out)
 
 
 func _collect_lights(node: Node, out: Array) -> void:

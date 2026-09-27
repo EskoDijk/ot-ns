@@ -58,6 +58,12 @@ links and messages. It is the starting point for the game-like views discussed i
     following the scene's own day/night switching of the shared material. A mapping entry
     `path#k` means part `k` of a mesh: the mesh is split into its connected components at load
     time (one `MeshInstance3D` per bulb of a string light), numbered as `bistro_lights.py` does.
+    A light's glowing part goes dark with it: emissive meshes below the mapped node (a
+    lantern), or for a bare light the nearest mesh within `emissive_radius` (2.5 m) whose
+    material is one of `emissive_materials` (a street lamp's bulb, which lives elsewhere in
+    the scene tree). In the Bistro scene all street lamps, lanterns and string bulbs, 24 of the
+    33 spotlights and 8 of the 16 wall lamps have such a part; the others are fill lights
+    without a fixture of their own. `tools/scene_check.gd` reports this per kind.
     Dimming: a CoAP POST to `/l/dim` (`dim_uri`) received by the node with a payload 0..100 sets
     the level in percent (light energy and emission scaled; 0 is off). In the OTNS CLI:
     `send coap 2 7 "/l/dim" "56"` dims the luminaire of node 7 to 56 %, sent by node 2.
