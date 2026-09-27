@@ -921,13 +921,15 @@ Done
 Send unicast and/or multicast data traffic between nodes, for testing purposes.
 
 ```shell
-send udp|coap [non|con] <src-id> <dst-id(s)> [<addr-type>] [datasize <sz>]
+send udp|coap [non|con] <src-id> <dst-id(s)> [<addr-type>] [datasize <sz>] ["<uri-path>"] ["<payload>"]
 send reset all
 ```
 
 As node IDs for `<dst-id(s)>`, individual nodes, or ranges, or a combination, or "all" can be used, as shown in more detail in the [del](#del) command. If more than one node is selected in this way, a multicast message will be sent automatically. If it is one destination node, it will be unicast. In the present implementation, each subsequent multicast `send` message will be sent to a new IPv6 multicast group so that only the intended set of recipients will receive the message. This causes the number of multicast group memberships to grow over time, potentially. To reset all such memberships back to original state, `send reset all` can be used. This reset also stops any CoAP/UDP server active on all nodes and starts the numbering of multicast groups again at 1.
 
 As protocol, `udp` or `coap` can be selected. For `coap`, also `non` (Non-Confirmable) or `con` (Confirmable) transmission can be chosen. If absent, `non` is assumed. For multicast, `non` is specified by RFC 7252 but for testing purposes also `con` can be used here. Note that CoAP responses are currently not generated for `non` (future addition may address this). Traffic protocols like tcp, tls, or coaps are currently not implemented. For ICMPv6 traffic see [ping](#ping).
+
+For application-level messages, e.g. to control a simulated luminaire, a CoAP URI path and a text payload can be given after the other arguments, both in double quotes: `send coap 2 7 "/l/dim" "56"` sends a CoAP POST to `/l/dim` on node 7 with payload `56`, and `send udp 2 7 "dim=56"` a UDP datagram with that text (for `udp`, the single quoted argument is the payload). The CoAP resource of each destination node is set to the URI path (the OT CLI supports one resource per node), so that the request is handled. Such messages are reported to the visualizers as an application message event (protocol, action, method, URI path, payload), shown in the web visualizer's log window and used by the [Godot client](../etc/godot-client/README.md) to dim luminaires. Without a payload argument, the message carries `datasize` bytes of test data.
 
 The optional `<addr-type>` allows to specify the unicast address type to use (see [ping](#ping) for details). The optional `datasize` (or `ds`) argument sets the payload data size in bytes, between 0-~1220 for `udp` and a smaller range for `coap` of 0-~580 due to CLI line length limits.
 

@@ -61,6 +61,31 @@ type CoapMessage struct {
 	Receivers []CoapMessageRecvInfo `yaml:"receivers,flow"`
 }
 
+// ThreadTmfCoapPort is the UDP port of Thread's own management CoAP messages (TMF), which are
+// not application messages.
+const ThreadTmfCoapPort = 61631
+
+// IsRequest returns whether the CoAP code is a request method (GET, POST, PUT, DELETE).
+func (c CoapCode) IsRequest() bool {
+	return c >= 1 && c <= 4
+}
+
+// MethodName returns the request method name of the CoAP code, or "" for a response code.
+func (c CoapCode) MethodName() string {
+	switch c {
+	case 1:
+		return "GET"
+	case 2:
+		return "POST"
+	case 3:
+		return "PUT"
+	case 4:
+		return "DELETE"
+	default:
+		return ""
+	}
+}
+
 type coapsHandler struct {
 	messages []*CoapMessage
 }

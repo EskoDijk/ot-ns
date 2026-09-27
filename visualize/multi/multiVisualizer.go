@@ -204,6 +204,12 @@ func (mv *MultiVisualizer) SetParent(id NodeId, extaddr uint64) {
 	}
 }
 
+func (mv *MultiVisualizer) AppMessage(info visualize.AppMessageInfo) {
+	for _, v := range mv.vs {
+		v.AppMessage(info)
+	}
+}
+
 func (mv *MultiVisualizer) SetTitle(titleInfo visualize.TitleInfo) {
 	for _, v := range mv.vs {
 		v.SetTitle(titleInfo)

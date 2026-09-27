@@ -66,6 +66,7 @@ message VisualizeEvent {
         SetNetworkInfoEvent set_network_info = 23;
         NodeStatsInfoEvent node_stats_info = 24;
         SetVisualizationOptionsEvent set_visualization_options = 25;
+        AppMessageEvent app_message = 26;
     }
 }
 
@@ -279,4 +280,20 @@ service VisualizeGrpcService {
 }
 
 message Empty {
+}
+
+// AppMessageEvent reports an application-layer message (UDP or CoAP) sent or received by a node,
+// e.g. from the OTNS CLI command send, so that a visualizer can act on it (a luminaire dimmed by a
+// CoAP POST to /l/dim with payload 56).
+message AppMessageEvent {
+    int32 node_id = 1;        // the node that sent (action send) or received (action recv) the message
+    string protocol = 2;      // udp or coap
+    string action = 3;        // send, recv or send_error
+    int32 peer_node_id = 4;   // the other node, if known by its IPv6 address; -1 otherwise
+    string peer_addr = 5;     // IPv6 address of the other end
+    int32 port = 6;           // UDP port of the other end
+    string coap_method = 7;   // CoAP: GET, POST, PUT or DELETE; empty for UDP
+    string uri = 8;           // CoAP URI path, e.g. /l/dim; empty for UDP
+    int32 size = 9;           // payload size in bytes
+    string payload = 10;      // payload text (UTF-8, at most 64 bytes, non-printable bytes as a dot), empty if unknown
 }

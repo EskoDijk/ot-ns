@@ -52,6 +52,7 @@ import (
 	"github.com/openthread/ot-ns/event"
 	"github.com/openthread/ot-ns/logger"
 	. "github.com/openthread/ot-ns/types"
+	"github.com/openthread/ot-ns/visualize"
 )
 
 const (
@@ -74,6 +75,7 @@ type Node struct {
 	version       string
 	threadVersion uint16
 	isSendStarted bool
+	coapResource  string // URI path of the CoAP resource registered on the node ('send' command), "" if none
 	isExiting     bool
 	exitOnce      sync.Once // makes finalizeExit() do its work at most once
 	sendGroupIds  map[int]struct{}
@@ -753,11 +755,88 @@ func (node *Node) SendInit() error {
 	if err := node.CommandChecked("coap start"); err != nil {
 		return err
 	}
-	if err := node.CommandChecked(fmt.Sprintf("coap resource %s", SendCoapResourceName)); err != nil {
+	if err := node.CoapSetResource(SendCoapResourceName); err != nil {
 		return err
 	}
 	node.isSendStarted = true
 	return nil
+}
+
+// CoapSetResource registers the (single) CoAP resource URI path of the node's CoAP server. The
+// path is registered without a leading '/', as OpenThread matches it against the joined
+// Uri-Path options of a request.
+func (node *Node) CoapSetResource(uriPath string) error {
+	uriPath = strings.TrimPrefix(uriPath, "/")
+	if node.coapResource == uriPath {
+		return nil
+	}
+	if err := node.CommandChecked(fmt.Sprintf("coap resource %s", uriPath)); err != nil {
+		return err
+	}
+	node.coapResource = uriPath
+	return nil
+}
+
+// CoapPost sends a CoAP POST with a text payload (may be empty) to the URI path at addr.
+func (node *Node) CoapPost(addr string, uriPath string, confirmable bool, payload string) error {
+	conNonStr := "non"
+	if confirmable {
+		conNonStr = "con"
+	}
+	cmd := fmt.Sprintf("coap post %s %s %s", addr, uriPath, conNonStr)
+	if len(payload) > 0 {
+		cmd += " " + payload
+	}
+	return node.CommandChecked(cmd)
+}
+
+// Unsolicited CLI output lines of the OT CLI that report received application messages:
+//
+//	UDP:  "<n> bytes from <addr> <port> <payload>"                       (cli_udp.cpp)
+//	CoAP: "coap request from <addr> <METHOD>[ OBS=n][ with payload: <hex>]" (cli_coap.cpp)
+var (
+	udpReceiveLineRegex  = regexp.MustCompile(`^(\d+) bytes from ([0-9a-fA-F:]+) (\d+) ?(.*)$`)
+	coapRequestLineRegex = regexp.MustCompile(`^coap request from ([0-9a-fA-F:]+) (GET|POST|PUT|DELETE)(?: OBS=\d+)?(?: with payload: ([0-9a-fA-F]*))?$`)
+)
+
+// inspectLine reports application messages that the node's CLI prints on receiving them
+// (see udpReceiveLineRegex, coapRequestLineRegex) to the visualizer.
+func (node *Node) inspectLine(line string) {
+	if node.S == nil || node.S.vis == nil || len(line) < 8 {
+		return
+	}
+	if m := udpReceiveLineRegex.FindStringSubmatch(line); m != nil {
+		size, _ := strconv.Atoi(m[1])
+		port, _ := strconv.Atoi(m[3])
+		node.S.vis.AppMessage(visualize.AppMessageInfo{
+			NodeId: node.Id, Protocol: "udp", Action: "recv", PeerNodeId: InvalidNodeId,
+			PeerAddr: m[2], Port: port, Size: size, Payload: payloadText([]byte(m[4])),
+		})
+	} else if m := coapRequestLineRegex.FindStringSubmatch(line); m != nil {
+		payload, _ := hex.DecodeString(m[3])
+		node.S.vis.AppMessage(visualize.AppMessageInfo{
+			NodeId: node.Id, Protocol: "coap", Action: "recv", PeerNodeId: InvalidNodeId,
+			PeerAddr: m[1], Method: m[2], Uri: "/" + strings.TrimPrefix(node.coapResource, "/"),
+			Size: len(payload), Payload: payloadText(payload),
+		})
+	}
+}
+
+// payloadText returns a payload as text for display: at most AppMessagePayloadMax bytes, with
+// non-printable bytes replaced by '.'.
+func payloadText(payload []byte) string {
+	if len(payload) > visualize.AppMessagePayloadMax {
+		payload = payload[:visualize.AppMessagePayloadMax]
+	}
+	out := make([]byte, len(payload))
+	for i, b := range payload {
+		if b < 0x20 || b > 0x7e {
+			out[i] = '.'
+		} else {
+			out[i] = b
+		}
+	}
+	return string(out)
 }
 
 // SendReset resets the node after, or before, using a series of OTNS 'send' commands.
@@ -807,6 +886,12 @@ func (node *Node) SendGroupMembership(groupId int, isMember bool) error {
 
 func (node *Node) UdpSend(addr string, port int, data []byte) error {
 	cmd := fmt.Sprintf("udp send %s %d -x %s", addr, port, hex.EncodeToString(data))
+	return node.CommandChecked(cmd)
+}
+
+// UdpSendText sends a UDP datagram with a text payload; the text must not contain spaces.
+func (node *Node) UdpSendText(addr string, port int, text string) error {
+	cmd := fmt.Sprintf("udp send %s %d -t %s", addr, port, text)
 	return node.CommandChecked(cmd)
 }
 
@@ -892,6 +977,7 @@ func (node *Node) processUartData(data []byte) {
 		}
 		lineBytes := node.uartLine.Next(idx + 1)
 		lineStr := string(bytes.TrimRight(lineBytes, "\r\n"))
+		node.inspectLine(lineStr)
 
 		select {
 		case node.pendingLines <- lineStr:

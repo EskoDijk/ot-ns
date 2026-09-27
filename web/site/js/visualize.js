@@ -189,6 +189,11 @@ function loadOk() {
                 e = resp.getSetNetworkInfo();
                 vis.visSetNetworkInfo(e.getVersion(), e.getCommit(), e.getReal(), e.getNodeId(), e.getThreadVersion());
                 break;
+            case VisualizeEvent.TypeCase.APP_MESSAGE:
+                e = resp.getAppMessage();
+                vis.visAppMessage(e.getNodeId(), e.getProtocol(), e.getAction(), e.getPeerNodeId(), e.getPeerAddr(),
+                    e.getPort(), e.getCoapMethod(), e.getUri(), e.getSize(), e.getPayload());
+                break;
             case VisualizeEvent.TypeCase.SET_VISUALIZATION_OPTIONS:
                 e = resp.getSetVisualizationOptions();
                 vis.visSetVisualizationOptions({

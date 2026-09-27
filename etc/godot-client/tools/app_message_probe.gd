@@ -9,7 +9,7 @@ extends SceneTree
 const OtnsClientScript := preload("res://addons/otns_client/otns_client.gd")
 
 var client
-var steps := ["send udp 1 2 ds 21", "send udp 1 2 ds 41", "send udp 1 2-3 ds 61", "send coap 1 2 ds 21", "send coap 1 2 con ds 41"]
+var steps := ["send udp 1 2 ds 21", "send udp 1 2 \"dim=45\"", "send coap 1 2 ds 21", "send coap 1 2 \"/l/dim\" \"56\"", "send coap 1 2-3 \"/l/dim\" \"30\""]
 var step := -1
 var t := 0.0
 var last := -100.0
@@ -31,6 +31,8 @@ func _initialize() -> void:
 	client.max_sends_per_frame = 1000
 	root.add_child(client)
 	client.command_done.connect(func(cmd, output, err): print("%.1f s: '%s' -> %s %s" % [t, cmd, output, err]))
+	client.app_message.connect(func(node, peer, protocol, action, method, uri, payload, size):
+		print("   APP %.2f s: node %d %s %s %s %s '%s' (%d bytes) peer %s" % [t, node.id, protocol, action, method, uri, payload, size, str(peer.id) if peer != null else "-"]))
 	client.message_sent.connect(func(src, dst, kind, mv):
 		if step >= 0:
 			sends.append("%.2f s: %s %d->%s ch %d %d bytes fc 0x%04X seq %d" % [t, kind, src.id, str(dst.id) if dst != null else "-", mv.get_channel(), mv.get_frame_size_bytes(), mv.get_frame_control(), mv.get_seq()]))
@@ -42,9 +44,7 @@ func _process(delta: float) -> bool:
 		return false
 	if t - last >= 6.0:
 		if step >= 0:
-			print("--- events after '%s': %d Send events" % [steps[step], sends.size()])
-			for s in sends:
-				print("   " + s)
+			print("--- after '%s': %d radio Send events (not listed)" % [steps[step], sends.size()])
 			sends.clear()
 		step += 1
 		if step >= steps.size():
