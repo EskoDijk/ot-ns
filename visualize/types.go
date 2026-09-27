@@ -62,6 +62,7 @@ type Visualizer interface {
 	OnExtAddrChange(id NodeId, extaddr uint64)
 	SetTitle(titleInfo TitleInfo)
 	SetNetworkInfo(networkInfo NetworkInfo)
+	AppMessage(info AppMessageInfo)
 	SetVisualizationOptions(opts VisualizationOptions)
 	UpdateNodesEnergy(node []*energy.NodeEnergy, timestamp uint64, updateView bool)
 	SetEnergyAnalyser(ea *energy.EnergyAnalyser)
@@ -79,6 +80,23 @@ type MsgVisualizeInfo struct {
 	PowerDbm        int8
 	FrameSizeBytes  uint16
 }
+
+// AppMessageInfo describes an application-layer message (UDP or CoAP) sent or received by a
+// node, e.g. from the 'send' CLI command; see AppMessageEvent in visualize_grpc.proto.
+type AppMessageInfo struct {
+	NodeId     NodeId // the node that sent (Action "send") or received (Action "recv") it
+	Protocol   string // "udp" or "coap"
+	Action     string // "send", "recv" or "send_error"
+	PeerNodeId NodeId // the other node if known, InvalidNodeId otherwise
+	PeerAddr   string // IPv6 address of the other end
+	Port       int    // UDP port of the other end
+	Method     string // CoAP: "GET", "POST", "PUT", "DELETE"; "" for UDP
+	Uri        string // CoAP URI path, e.g. "/l/dim"; "" for UDP
+	Size       int    // payload size in bytes
+	Payload    string // payload text (UTF-8, at most AppMessagePayloadMax bytes), "" if unknown
+}
+
+const AppMessagePayloadMax = 64
 
 type TitleInfo struct {
 	Title    string

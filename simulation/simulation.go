@@ -390,6 +390,11 @@ func (s *Simulation) Stop() {
 	logger.Debugf("all simulation nodes exited.")
 }
 
+// Visualizer returns the visualizer of the simulation.
+func (s *Simulation) Visualizer() visualize.Visualizer {
+	return s.vis
+}
+
 func (s *Simulation) SetVisualizer(vis visualize.Visualizer) {
 	logger.AssertNotNil(vis)
 	s.vis = vis

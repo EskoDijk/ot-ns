@@ -363,7 +363,7 @@ type RawFlag struct {
 
 // noinspection GoVetStructTag
 type BackboneIfFlag struct {
-	Dummy struct{} `"if"`   //nolint
+	Dummy struct{} `"if"`    //nolint
 	Name  string   `@String` //nolint
 }
 
@@ -602,6 +602,8 @@ type SendCmd struct {
 	DstId      []NodeSelector `( @@ )*`                       //nolint
 	AddrType   *AddrTypeFlag  `[ @@ ]`                        //nolint
 	DataSize   *DataSizeFlag  `[ @@ ]`                        //nolint
+	Uri        *string        `[ @String ]`                   //nolint
+	Payload    *string        `[ @String ]`                   //nolint
 }
 
 // noinspection GoVetStructTag

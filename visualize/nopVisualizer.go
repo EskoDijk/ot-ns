@@ -134,6 +134,9 @@ func (nv *NopVisualizer) OnNodeRecover(NodeId) {
 
 }
 
+func (nv *NopVisualizer) AppMessage(info AppMessageInfo) {
+}
+
 func (nv *NopVisualizer) SetTitle(titleInfo TitleInfo) {
 
 }

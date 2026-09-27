@@ -391,6 +391,24 @@ func (gv *grpcVisualizer) SetParent(id NodeId, extaddr uint64) {
 	}}})
 }
 
+func (gv *grpcVisualizer) AppMessage(info visualize.AppMessageInfo) {
+	gv.Lock()
+	defer gv.Unlock()
+
+	gv.addVisualizeEvent(&pb.VisualizeEvent{Type: &pb.VisualizeEvent_AppMessage{AppMessage: &pb.AppMessageEvent{
+		NodeId:     int32(info.NodeId),
+		Protocol:   info.Protocol,
+		Action:     info.Action,
+		PeerNodeId: int32(info.PeerNodeId),
+		PeerAddr:   info.PeerAddr,
+		Port:       int32(info.Port),
+		CoapMethod: info.Method,
+		Uri:        info.Uri,
+		Size:       int32(info.Size),
+		Payload:    info.Payload,
+	}}})
+}
+
 func (gv *grpcVisualizer) SetTitle(titleInfo visualize.TitleInfo) {
 	gv.Lock()
 	defer gv.Unlock()

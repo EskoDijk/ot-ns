@@ -504,6 +504,18 @@ export default class PixiVisualizer extends VObject {
         }
     }
 
+    /**
+     * An application-layer message (UDP or CoAP) was sent or received by a node, e.g. from the
+     * 'send' CLI command; shown in the log window and the node's log.
+     */
+    visAppMessage(nodeId, protocol, action, peerNodeId, peerAddr, port, method, uri, size, payload) {
+        let peer = this.nodes[peerNodeId] ? `Node ${peerNodeId}` : peerAddr;
+        let what = protocol === 'coap' ? `CoAP ${method} ${uri}` : `UDP :${port}`;
+        let text = payload.length > 0 ? ` "${payload}"` : ` (${size} bytes)`;
+        let verb = action === 'send' ? 'sent to' : (action === 'recv' ? 'received from' : 'failed to send to');
+        this.logNode(nodeId, `${what}${text} ${verb} ${peer}`);
+    }
+
     visShowDemoLegend(x, y, title) {
         console.error("ShowDemoLegend not implemented")
     }

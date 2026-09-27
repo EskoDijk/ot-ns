@@ -15,6 +15,9 @@
 # the node is attached (Child, Router or Leader) and off when detached or disabled, unless
 # off_when_detached is false. Luminaires whose node the simulation does not know keep the
 # scene's own state.
+# Dimming: a CoAP POST received by the node with URI dim_uri (default "/l/dim") and a payload
+# 0..100 sets the luminaire's level in percent: the light's energy and the emissive mesh's
+# emission energy are scaled by it (level 0 is off). In OTNS: send coap <src> <node> "/l/dim" "56".
 class_name OtnsLuminaires
 extends Node
 
@@ -26,6 +29,7 @@ const OFF_ALBEDO_FACTOR := 0.35   # darken an emissive mesh's albedo when its li
 @export_file("*.json") var mapping_file: String = "" ## the lights JSON (res:// or absolute path)
 @export var scene_root: NodePath = ".."              ## mapping node paths are relative to this node
 @export var off_when_detached: bool = true
+@export var dim_uri: String = "/l/dim"             ## CoAP URI path that sets the level (payload 0..100)
 @export var verbose: bool = false
 
 signal luminaire_changed(node_id: int, on: bool)
@@ -33,6 +37,7 @@ signal luminaire_changed(node_id: int, on: bool)
 var client: OtnsClientScript
 var targets: Dictionary = {}   # node ID -> {"lights": [Light3D], "meshes": [MeshInstance3D], "materials": [StandardMaterial3D], "bases": [Material]}
 var states: Dictionary = {}    # node ID -> bool (on)
+var levels: Dictionary = {}    # node ID -> int, 0..100 (percent); absent = 100
 var _split_cache: Dictionary = {}   # MeshInstance3D path -> Array[MeshInstance3D] parts
 var _refresh_timer := 0.0
 
@@ -49,6 +54,7 @@ func _ready() -> void:
 	client.node_added.connect(_apply)
 	client.node_updated.connect(_apply)
 	client.node_removed.connect(_forget)
+	client.app_message.connect(_on_app_message)
 	for node in client.nodes.values():
 		_apply(node)
 
@@ -60,6 +66,10 @@ func resolved_count() -> int:
 
 func is_on(node_id: int) -> bool:
 	return states.get(node_id, false)
+
+
+func level_of(node_id: int) -> int:
+	return levels.get(node_id, 100)
 
 
 func _load_mapping() -> void:
@@ -131,7 +141,10 @@ func _resolve(root: Node, name: String) -> Dictionary:
 		else:
 			materials.append(null)
 			bases.append(base)
-	return {"lights": lights, "meshes": meshes, "materials": materials, "bases": bases}
+	var energies: Array = []  # the lights' own energy, the 100 % level
+	for light in lights:
+		energies.append(light.light_energy)
+	return {"lights": lights, "meshes": meshes, "materials": materials, "bases": bases, "energies": energies}
 
 
 func _collect_lights(node: Node, out: Array) -> void:
@@ -251,7 +264,7 @@ func _apply(node) -> void:
 	if states.get(node.id) == on:
 		return
 	states[node.id] = on
-	_set_target(target, on)
+	_set_target(target, on, levels.get(node.id, 100))
 	luminaire_changed.emit(node.id, on)
 	if verbose:
 		print("OtnsLuminaires: node %d -> %s" % [node.id, "on" if on else "off"])
@@ -259,11 +272,32 @@ func _apply(node) -> void:
 
 func _forget(node) -> void:
 	states.erase(node.id)
+	levels.erase(node.id)
 
 
-func _set_target(target: Dictionary, on: bool) -> void:
-	for light in target["lights"]:
-		light.visible = on
+func _on_app_message(node, _peer, protocol: String, action: String, method: String, uri: String, payload: String, _size: int) -> void:
+	if protocol != "coap" or action != "recv" or method != "POST" or uri != dim_uri:
+		return
+	if not payload.strip_edges().is_valid_int():
+		if verbose:
+			print("OtnsLuminaires: node %d: dim payload '%s' is not a number" % [node.id, payload])
+		return
+	var level := clampi(int(payload.strip_edges()), 0, 100)
+	levels[node.id] = level
+	var target: Dictionary = targets.get(node.id, {})
+	if not target.is_empty():
+		_set_target(target, states.get(node.id, false), level)
+	luminaire_changed.emit(node.id, states.get(node.id, false) and level > 0)
+	if verbose:
+		print("OtnsLuminaires: node %d -> %d %%" % [node.id, level])
+
+
+func _set_target(target: Dictionary, on: bool, level: int = 100) -> void:
+	var lit := on and level > 0
+	for i in target["lights"].size():
+		var light: Light3D = target["lights"][i]
+		light.visible = lit
+		light.light_energy = target["energies"][i] * level / 100.0
 	for i in target["meshes"].size():
 		var mat: StandardMaterial3D = target["materials"][i]
 		var base = target["bases"][i]
@@ -272,8 +306,9 @@ func _set_target(target: Dictionary, on: bool) -> void:
 			continue
 		# the base material may be switched by the scene itself (e.g. day/night): follow it
 		var base_on: bool = base.emission_enabled if base is StandardMaterial3D else true
-		mat.emission_enabled = on and base_on
-		mat.albedo_color = base.albedo_color if on else base.albedo_color * OFF_ALBEDO_FACTOR
+		mat.emission_enabled = lit and base_on
+		mat.emission_energy_multiplier = base.emission_energy_multiplier * level / 100.0
+		mat.albedo_color = base.albedo_color if lit else base.albedo_color * OFF_ALBEDO_FACTOR
 
 
 func _process(delta: float) -> void:
@@ -284,4 +319,4 @@ func _process(delta: float) -> void:
 		return
 	_refresh_timer = 0.0
 	for id in states.keys():
-		_set_target(targets[id], states[id])
+		_set_target(targets[id], states[id], levels.get(id, 100))

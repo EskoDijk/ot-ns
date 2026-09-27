@@ -1629,11 +1629,6 @@ func (d *Dispatcher) setNodeRole(node *Node, role OtDeviceRole) {
 func (d *Dispatcher) handleCoapEvent(node *Node, argsStr string) {
 	var err error
 
-	if d.coaps == nil {
-		// Coaps not enabled
-		return
-	}
-
 	args := strings.Split(argsStr, ",")
 	logger.AssertTrue(len(args) > 0)
 	action := args[0]
@@ -1659,6 +1654,18 @@ func (d *Dispatcher) handleCoapEvent(node *Node, argsStr string) {
 		port, err = strconv.Atoi(args[6])
 		logger.PanicIfError(err)
 
+		// The visualizer gets sent messages from here; received ones come from the node's CLI
+		// output, which includes the payload (simulation.Node.inspectLine).
+		if action != "recv" && CoapCode(coapCode).IsRequest() && port != ThreadTmfCoapPort {
+			d.vis.AppMessage(visualize.AppMessageInfo{
+				NodeId: node.Id, Protocol: "coap", Action: action, PeerNodeId: InvalidNodeId,
+				PeerAddr: ip, Port: port, Method: CoapCode(coapCode).MethodName(), Uri: "/" + strings.TrimPrefix(uri, "/"),
+			})
+		}
+
+		if d.coaps == nil {
+			return // CoAP message tracking ('coaps' command) not enabled
+		}
 		switch action {
 		case "send":
 			d.coaps.OnSend(d.CurTime, node.Id, messageId, CoapType(coapType), CoapCode(coapCode), uri, ip, port)

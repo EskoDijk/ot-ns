@@ -22,6 +22,8 @@ var _checked_resolved := false
 var _last_report := -1
 var _bulb_check_at := 0.0
 var lamp_id := 1    # a street lamp node (from the mapping)
+var _dim_src := 2
+var _dim_retried := false
 var bulb_id := 21   # a string bulb node (from the mapping)
 
 
@@ -157,6 +159,34 @@ func _process(delta: float) -> bool:
 		2:  # radio on -> light on again (once attached)
 			if client.nodes.has(lamp_id) and not client.nodes[lamp_id].failed and client.nodes[lamp_id].role >= 2:
 				_check(lum.is_on(lamp_id), "node %d recovered -> street lamp on" % lamp_id)
+				_dim_src = 2 if lamp_id != 2 else 3
+				phase = 6
+				t = 0.0
+		6:  # let the recovered node settle, then send the dim command (confirmable, retried once)
+			if t > 5.0:
+				client.send_command("send coap con %d %d \"/l/dim\" \"56\"" % [_dim_src, lamp_id])
+				phase = 4
+				t = 0.0
+		4:  # dim command -> level 56 %
+			if lum.level_of(lamp_id) == 56:
+				var light: Light3D = lum.targets[lamp_id]["lights"][0]
+				_check(is_equal_approx(light.light_energy, lum.targets[lamp_id]["energies"][0] * 0.56) and light.visible, "CoAP POST /l/dim 56 -> street lamp at 56 %% (energy %.2f)" % light.light_energy)
+				client.send_command("send coap con %d %d \"/l/dim\" \"0\"" % [_dim_src, lamp_id])
+				phase = 5
+				t = 0.0
+			elif t > 15.0 and not _dim_retried:
+				_dim_retried = true
+				print("no level yet, sending the dim command again")
+				client.send_command("send coap con %d %d \"/l/dim\" \"56\"" % [_dim_src, lamp_id])
+			elif t > 30.0:
+				_check(false, "no dim level received within 30 s (level %d)" % lum.level_of(lamp_id))
+				phase = 3
+		5:  # level 0 -> light off while the node stays attached
+			if lum.level_of(lamp_id) == 0:
+				_check(not lum.targets[lamp_id]["lights"][0].visible and client.nodes[lamp_id].role >= 2, "level 0 -> street lamp off, node still attached")
+				phase = 3
+			elif t > 20.0:
+				_check(false, "no level 0 received within 20 s")
 				phase = 3
 			elif t > 60.0:
 				_check(false, "node %d did not recover within 60 s (role %s)" % [lamp_id, client.nodes[lamp_id].role_name()])

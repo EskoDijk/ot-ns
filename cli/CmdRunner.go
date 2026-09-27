@@ -1554,15 +1554,61 @@ func (rt *CmdRunner) executeSend(cc *CommandContext, cmd *SendCmd) {
 		if cmd.DataSize != nil {
 			datasz = cmd.DataSize.Val
 		}
+		uri := simulation.SendCoapResourceName
+		payload := cmd.Payload
+		if cmd.Uri != nil {
+			if isUdp && payload == nil {
+				payload = cmd.Uri // for UDP the single quoted argument is the payload
+			} else {
+				uri = *cmd.Uri
+			}
+		}
+		if isCoap {
+			// the (single) CoAP resource of each destination is set to the URI, so that the
+			// request is handled and its payload is reported (see Node.inspectLine)
+			for _, nodeId := range dstGrpNodeIds {
+				if dst, _ := rt.getNodeById(nodeId); dst != nil {
+					if err := dst.CoapSetResource(uri); err != nil {
+						cc.errorf("destination node %d: %v", nodeId, err)
+						return
+					}
+				}
+			}
+		}
 
+		peerNodeId := InvalidNodeId
+		if !isMulticast {
+			peerNodeId = dst.Id
+		}
 		var err error
 		if isUdp {
-			err = src.UdpSendTestData(dstAddr, simulation.SendUdpPort, datasz)
+			if payload != nil {
+				err = src.UdpSendText(dstAddr, simulation.SendUdpPort, *payload)
+				datasz = len(*payload)
+			} else {
+				err = src.UdpSendTestData(dstAddr, simulation.SendUdpPort, datasz)
+			}
 		} else if isCoap {
-			err = src.CoapPostTestData(dstAddr, simulation.SendCoapResourceName, isCoapCon, datasz)
+			if payload != nil {
+				err = src.CoapPost(dstAddr, uri, isCoapCon, *payload)
+				datasz = len(*payload)
+			} else {
+				err = src.CoapPostTestData(dstAddr, uri, isCoapCon, datasz)
+			}
 		}
 		if err != nil {
 			cc.error(err)
+			return
+		}
+		if isUdp { // (a CoAP send is reported by the node's OTNS status push)
+			text := ""
+			if payload != nil {
+				text = *payload
+			}
+			sim.Visualizer().AppMessage(visualize.AppMessageInfo{
+				NodeId: src.Id, Protocol: "udp", Action: "send", PeerNodeId: peerNodeId,
+				PeerAddr: dstAddr, Port: simulation.SendUdpPort, Size: datasz, Payload: text,
+			})
 		}
 	})
 }

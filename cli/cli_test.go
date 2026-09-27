@@ -90,6 +90,12 @@ func TestParseBytes(t *testing.T) {
 	assert.True(t, parseBytes([]byte("del"), &cmd) != nil)
 
 	assert.True(t, parseBytes([]byte("demo_legend \"title\" 100 200"), &cmd) == nil && cmd.DemoLegend != nil)
+	assert.True(t, parseBytes([]byte("send coap 2 7 \"/l/dim\" \"56\""), &cmd) == nil && cmd.Send != nil &&
+		*cmd.Send.Uri == "/l/dim" && *cmd.Send.Payload == "56")
+	assert.True(t, parseBytes([]byte("send coap con 2 1-3 ds 21 \"/l/on\""), &cmd) == nil && cmd.Send != nil &&
+		*cmd.Send.Uri == "/l/on" && cmd.Send.Payload == nil && cmd.Send.DataSize.Val == 21)
+	assert.True(t, parseBytes([]byte("send udp 2 7 \"dim=56\""), &cmd) == nil && cmd.Send != nil &&
+		*cmd.Send.Uri == "dim=56" && cmd.Send.Payload == nil)
 
 	assert.True(t, parseBytes([]byte("exe mtd \"MyExecutable_thingy\""), &cmd) == nil && cmd.Exe != nil)
 	assert.True(t, parseBytes([]byte("exe ftd \"./path/to/my/ot-cli-ftd\""), &cmd) == nil && cmd.Exe != nil)

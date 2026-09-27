@@ -58,6 +58,9 @@ links and messages. It is the starting point for the game-like views discussed i
     following the scene's own day/night switching of the shared material. A mapping entry
     `path#k` means part `k` of a mesh: the mesh is split into its connected components at load
     time (one `MeshInstance3D` per bulb of a string light), numbered as `bistro_lights.py` does.
+    Dimming: a CoAP POST to `/l/dim` (`dim_uri`) received by the node with a payload 0..100 sets
+    the level in percent (light energy and emission scaled; 0 is off). In the OTNS CLI:
+    `send coap 2 7 "/l/dim" "56"` dims the luminaire of node 7 to 56 %, sent by node 2.
 - `demo/`: a scene with an `OtnsClient`, an `OtnsField`, a free-flying camera and a status line.
 - `tools/stream_test.gd`: headless check, prints the first events of a running OTNS and exits:
 
@@ -77,6 +80,8 @@ editor): an `OtnsClient` (`host` 127.0.0.1, `port` 8998) and an `OtnsLuminaires`
 otns -floorplan etc/floorplans/bistro.json      # 15 street lamps, 5 lanterns, 64 bulbs as nodes
 godot4 --path <bistro project>                   # switch to a night scenario in the demo's UI
 > radio 7 off                                    # in the OTNS CLI: the lamp of node 7 goes dark
+> radio 7 on
+> send coap 2 7 "/l/dim" "30"                    # node 2 dims node 7's lamp to 30 %
 ```
 
 Headless check (needs the running OTNS):

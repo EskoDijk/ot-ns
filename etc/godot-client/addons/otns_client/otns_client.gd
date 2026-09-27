@@ -71,6 +71,11 @@ signal time_advanced(timestamp_us: int, speed: float)
 signal network_info(version: String, commit: String, real: bool)
 signal title_set(title: String)
 signal command_done(command: String, output: Array[String], err: String)
+## An application-layer message (UDP or CoAP) was sent or received by a node, e.g. from the OTNS
+## 'send' command: node is the sender (action "send") or receiver (action "recv"); peer is the other
+## node if known, else null; method and uri are set for CoAP ("POST", "/l/dim"); payload is the
+## message text, e.g. "56".
+signal app_message(node: OtnsNode, peer: OtnsNode, protocol: String, action: String, method: String, uri: String, payload: String, size: int)
 signal event_received(event)          ## every decoded VisualizeEvent (PB.VisualizeEvent)
 
 var nodes: Dictionary = {}            ## node ID -> OtnsNode
@@ -386,5 +391,11 @@ func _dispatch(ev) -> void:
 				network_info.emit(e.get_version(), e.get_commit(), e.get_real())
 		TC.SET_TITLE:
 			title_set.emit(ev.get_set_title().get_title())
+		TC.APP_MESSAGE:
+			var e = ev.get_app_message()
+			var node := _node(e.get_node_id())
+			if node != null:
+				app_message.emit(node, _node(e.get_peer_node_id()), e.get_protocol(), e.get_action(),
+					e.get_coap_method(), e.get_uri(), e.get_payload(), e.get_size())
 		_:
 			pass  # heartbeat, count down, demo legend, visualization options: not needed here

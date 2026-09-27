@@ -922,6 +922,12 @@ class VisualizeEvent:
 		service.func_ref = Callable(self, "new_set_visualization_options")
 		data[__set_visualization_options.tag] = service
 		
+		__app_message = PBField.new("app_message", PB_DATA_TYPE.MESSAGE, PB_RULE.OPTIONAL, 26, true, DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE])
+		service = PBServiceField.new()
+		service.field = __app_message
+		service.func_ref = Callable(self, "new_app_message")
+		data[__app_message.tag] = service
+		
 	var data = {}
 	
 	enum TypeCase {
@@ -951,6 +957,7 @@ class VisualizeEvent:
 		SET_NETWORK_INFO = 23,
 		NODE_STATS_INFO = 24,
 		SET_VISUALIZATION_OPTIONS = 25,
+		APP_MESSAGE = 26,
 	}
 	var _type_case: int = 0
 
@@ -1013,6 +1020,8 @@ class VisualizeEvent:
 		data[24].state = PB_SERVICE_STATE.UNFILLED
 		__set_visualization_options.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
 		data[25].state = PB_SERVICE_STATE.UNFILLED
+		__app_message.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
+		data[26].state = PB_SERVICE_STATE.UNFILLED
 		__add_node.value = AddNodeEvent.new()
 		return __add_node.value
 	
@@ -1075,6 +1084,8 @@ class VisualizeEvent:
 		data[24].state = PB_SERVICE_STATE.UNFILLED
 		__set_visualization_options.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
 		data[25].state = PB_SERVICE_STATE.UNFILLED
+		__app_message.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
+		data[26].state = PB_SERVICE_STATE.UNFILLED
 		__delete_node.value = DeleteNodeEvent.new()
 		return __delete_node.value
 	
@@ -1137,6 +1148,8 @@ class VisualizeEvent:
 		data[24].state = PB_SERVICE_STATE.UNFILLED
 		__set_visualization_options.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
 		data[25].state = PB_SERVICE_STATE.UNFILLED
+		__app_message.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
+		data[26].state = PB_SERVICE_STATE.UNFILLED
 		__set_node_rloc16.value = SetNodeRloc16Event.new()
 		return __set_node_rloc16.value
 	
@@ -1199,6 +1212,8 @@ class VisualizeEvent:
 		data[24].state = PB_SERVICE_STATE.UNFILLED
 		__set_visualization_options.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
 		data[25].state = PB_SERVICE_STATE.UNFILLED
+		__app_message.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
+		data[26].state = PB_SERVICE_STATE.UNFILLED
 		__set_node_role.value = SetNodeRoleEvent.new()
 		return __set_node_role.value
 	
@@ -1261,6 +1276,8 @@ class VisualizeEvent:
 		data[24].state = PB_SERVICE_STATE.UNFILLED
 		__set_visualization_options.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
 		data[25].state = PB_SERVICE_STATE.UNFILLED
+		__app_message.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
+		data[26].state = PB_SERVICE_STATE.UNFILLED
 		__set_node_pos.value = SetNodePosEvent.new()
 		return __set_node_pos.value
 	
@@ -1323,6 +1340,8 @@ class VisualizeEvent:
 		data[24].state = PB_SERVICE_STATE.UNFILLED
 		__set_visualization_options.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
 		data[25].state = PB_SERVICE_STATE.UNFILLED
+		__app_message.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
+		data[26].state = PB_SERVICE_STATE.UNFILLED
 		__set_node_partition_id.value = SetNodePartitionIdEvent.new()
 		return __set_node_partition_id.value
 	
@@ -1385,6 +1404,8 @@ class VisualizeEvent:
 		data[24].state = PB_SERVICE_STATE.UNFILLED
 		__set_visualization_options.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
 		data[25].state = PB_SERVICE_STATE.UNFILLED
+		__app_message.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
+		data[26].state = PB_SERVICE_STATE.UNFILLED
 		__on_node_fail.value = OnNodeFailEvent.new()
 		return __on_node_fail.value
 	
@@ -1447,6 +1468,8 @@ class VisualizeEvent:
 		data[24].state = PB_SERVICE_STATE.UNFILLED
 		__set_visualization_options.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
 		data[25].state = PB_SERVICE_STATE.UNFILLED
+		__app_message.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
+		data[26].state = PB_SERVICE_STATE.UNFILLED
 		__on_node_recover.value = OnNodeRecoverEvent.new()
 		return __on_node_recover.value
 	
@@ -1509,6 +1532,8 @@ class VisualizeEvent:
 		data[24].state = PB_SERVICE_STATE.UNFILLED
 		__set_visualization_options.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
 		data[25].state = PB_SERVICE_STATE.UNFILLED
+		__app_message.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
+		data[26].state = PB_SERVICE_STATE.UNFILLED
 		__set_parent.value = SetParentEvent.new()
 		return __set_parent.value
 	
@@ -1571,6 +1596,8 @@ class VisualizeEvent:
 		data[24].state = PB_SERVICE_STATE.UNFILLED
 		__set_visualization_options.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
 		data[25].state = PB_SERVICE_STATE.UNFILLED
+		__app_message.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
+		data[26].state = PB_SERVICE_STATE.UNFILLED
 		__count_down.value = CountDownEvent.new()
 		return __count_down.value
 	
@@ -1633,6 +1660,8 @@ class VisualizeEvent:
 		data[24].state = PB_SERVICE_STATE.UNFILLED
 		__set_visualization_options.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
 		data[25].state = PB_SERVICE_STATE.UNFILLED
+		__app_message.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
+		data[26].state = PB_SERVICE_STATE.UNFILLED
 		__show_demo_legend.value = ShowDemoLegendEvent.new()
 		return __show_demo_legend.value
 	
@@ -1695,6 +1724,8 @@ class VisualizeEvent:
 		data[24].state = PB_SERVICE_STATE.UNFILLED
 		__set_visualization_options.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
 		data[25].state = PB_SERVICE_STATE.UNFILLED
+		__app_message.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
+		data[26].state = PB_SERVICE_STATE.UNFILLED
 		__advance_time.value = AdvanceTimeEvent.new()
 		return __advance_time.value
 	
@@ -1757,6 +1788,8 @@ class VisualizeEvent:
 		data[24].state = PB_SERVICE_STATE.UNFILLED
 		__set_visualization_options.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
 		data[25].state = PB_SERVICE_STATE.UNFILLED
+		__app_message.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
+		data[26].state = PB_SERVICE_STATE.UNFILLED
 		__add_router_table.value = AddRouterTableEvent.new()
 		return __add_router_table.value
 	
@@ -1819,6 +1852,8 @@ class VisualizeEvent:
 		data[24].state = PB_SERVICE_STATE.UNFILLED
 		__set_visualization_options.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
 		data[25].state = PB_SERVICE_STATE.UNFILLED
+		__app_message.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
+		data[26].state = PB_SERVICE_STATE.UNFILLED
 		__remove_router_table.value = RemoveRouterTableEvent.new()
 		return __remove_router_table.value
 	
@@ -1881,6 +1916,8 @@ class VisualizeEvent:
 		data[24].state = PB_SERVICE_STATE.UNFILLED
 		__set_visualization_options.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
 		data[25].state = PB_SERVICE_STATE.UNFILLED
+		__app_message.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
+		data[26].state = PB_SERVICE_STATE.UNFILLED
 		__add_child_table.value = AddChildTableEvent.new()
 		return __add_child_table.value
 	
@@ -1943,6 +1980,8 @@ class VisualizeEvent:
 		data[24].state = PB_SERVICE_STATE.UNFILLED
 		__set_visualization_options.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
 		data[25].state = PB_SERVICE_STATE.UNFILLED
+		__app_message.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
+		data[26].state = PB_SERVICE_STATE.UNFILLED
 		__remove_child_table.value = RemoveChildTableEvent.new()
 		return __remove_child_table.value
 	
@@ -2005,6 +2044,8 @@ class VisualizeEvent:
 		data[24].state = PB_SERVICE_STATE.UNFILLED
 		__set_visualization_options.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
 		data[25].state = PB_SERVICE_STATE.UNFILLED
+		__app_message.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
+		data[26].state = PB_SERVICE_STATE.UNFILLED
 		__send.value = SendEvent.new()
 		return __send.value
 	
@@ -2067,6 +2108,8 @@ class VisualizeEvent:
 		data[24].state = PB_SERVICE_STATE.UNFILLED
 		__set_visualization_options.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
 		data[25].state = PB_SERVICE_STATE.UNFILLED
+		__app_message.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
+		data[26].state = PB_SERVICE_STATE.UNFILLED
 		__set_speed.value = SetSpeedEvent.new()
 		return __set_speed.value
 	
@@ -2129,6 +2172,8 @@ class VisualizeEvent:
 		data[24].state = PB_SERVICE_STATE.UNFILLED
 		__set_visualization_options.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
 		data[25].state = PB_SERVICE_STATE.UNFILLED
+		__app_message.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
+		data[26].state = PB_SERVICE_STATE.UNFILLED
 		__heartbeat.value = HeartbeatEvent.new()
 		return __heartbeat.value
 	
@@ -2191,6 +2236,8 @@ class VisualizeEvent:
 		data[24].state = PB_SERVICE_STATE.UNFILLED
 		__set_visualization_options.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
 		data[25].state = PB_SERVICE_STATE.UNFILLED
+		__app_message.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
+		data[26].state = PB_SERVICE_STATE.UNFILLED
 		__on_ext_addr_change.value = OnExtAddrChangeEvent.new()
 		return __on_ext_addr_change.value
 	
@@ -2253,6 +2300,8 @@ class VisualizeEvent:
 		data[24].state = PB_SERVICE_STATE.UNFILLED
 		__set_visualization_options.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
 		data[25].state = PB_SERVICE_STATE.UNFILLED
+		__app_message.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
+		data[26].state = PB_SERVICE_STATE.UNFILLED
 		__set_title.value = SetTitleEvent.new()
 		return __set_title.value
 	
@@ -2315,6 +2364,8 @@ class VisualizeEvent:
 		data[24].state = PB_SERVICE_STATE.UNFILLED
 		__set_visualization_options.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
 		data[25].state = PB_SERVICE_STATE.UNFILLED
+		__app_message.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
+		data[26].state = PB_SERVICE_STATE.UNFILLED
 		__set_node_mode.value = SetNodeModeEvent.new()
 		return __set_node_mode.value
 	
@@ -2377,6 +2428,8 @@ class VisualizeEvent:
 		data[24].state = PB_SERVICE_STATE.UNFILLED
 		__set_visualization_options.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
 		data[25].state = PB_SERVICE_STATE.UNFILLED
+		__app_message.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
+		data[26].state = PB_SERVICE_STATE.UNFILLED
 		__set_network_info.value = SetNetworkInfoEvent.new()
 		return __set_network_info.value
 	
@@ -2439,6 +2492,8 @@ class VisualizeEvent:
 		_type_case = 24
 		__set_visualization_options.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
 		data[25].state = PB_SERVICE_STATE.UNFILLED
+		__app_message.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
+		data[26].state = PB_SERVICE_STATE.UNFILLED
 		__node_stats_info.value = NodeStatsInfoEvent.new()
 		return __node_stats_info.value
 	
@@ -2501,8 +2556,74 @@ class VisualizeEvent:
 		data[24].state = PB_SERVICE_STATE.UNFILLED
 		data[25].state = PB_SERVICE_STATE.FILLED
 		_type_case = 25
+		__app_message.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
+		data[26].state = PB_SERVICE_STATE.UNFILLED
 		__set_visualization_options.value = SetVisualizationOptionsEvent.new()
 		return __set_visualization_options.value
+	
+	var __app_message: PBField
+	func has_app_message() -> bool:
+		return data[26].state == PB_SERVICE_STATE.FILLED
+	func get_app_message() -> AppMessageEvent:
+		return __app_message.value
+	func clear_app_message() -> void:
+		data[26].state = PB_SERVICE_STATE.UNFILLED
+		__app_message.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
+	func new_app_message() -> AppMessageEvent:
+		__add_node.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
+		data[1].state = PB_SERVICE_STATE.UNFILLED
+		__delete_node.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
+		data[2].state = PB_SERVICE_STATE.UNFILLED
+		__set_node_rloc16.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
+		data[3].state = PB_SERVICE_STATE.UNFILLED
+		__set_node_role.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
+		data[4].state = PB_SERVICE_STATE.UNFILLED
+		__set_node_pos.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
+		data[5].state = PB_SERVICE_STATE.UNFILLED
+		__set_node_partition_id.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
+		data[6].state = PB_SERVICE_STATE.UNFILLED
+		__on_node_fail.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
+		data[7].state = PB_SERVICE_STATE.UNFILLED
+		__on_node_recover.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
+		data[8].state = PB_SERVICE_STATE.UNFILLED
+		__set_parent.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
+		data[9].state = PB_SERVICE_STATE.UNFILLED
+		__count_down.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
+		data[10].state = PB_SERVICE_STATE.UNFILLED
+		__show_demo_legend.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
+		data[11].state = PB_SERVICE_STATE.UNFILLED
+		__advance_time.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
+		data[12].state = PB_SERVICE_STATE.UNFILLED
+		__add_router_table.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
+		data[13].state = PB_SERVICE_STATE.UNFILLED
+		__remove_router_table.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
+		data[14].state = PB_SERVICE_STATE.UNFILLED
+		__add_child_table.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
+		data[15].state = PB_SERVICE_STATE.UNFILLED
+		__remove_child_table.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
+		data[16].state = PB_SERVICE_STATE.UNFILLED
+		__send.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
+		data[17].state = PB_SERVICE_STATE.UNFILLED
+		__set_speed.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
+		data[18].state = PB_SERVICE_STATE.UNFILLED
+		__heartbeat.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
+		data[19].state = PB_SERVICE_STATE.UNFILLED
+		__on_ext_addr_change.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
+		data[20].state = PB_SERVICE_STATE.UNFILLED
+		__set_title.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
+		data[21].state = PB_SERVICE_STATE.UNFILLED
+		__set_node_mode.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
+		data[22].state = PB_SERVICE_STATE.UNFILLED
+		__set_network_info.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
+		data[23].state = PB_SERVICE_STATE.UNFILLED
+		__node_stats_info.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
+		data[24].state = PB_SERVICE_STATE.UNFILLED
+		__set_visualization_options.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
+		data[25].state = PB_SERVICE_STATE.UNFILLED
+		data[26].state = PB_SERVICE_STATE.FILLED
+		_type_case = 26
+		__app_message.value = AppMessageEvent.new()
+		return __app_message.value
 	
 	func get_type_case() -> int:
 		return _type_case
@@ -5213,6 +5334,214 @@ class Empty:
 		var service
 		
 	var data = {}
+	
+	func _to_string() -> String:
+		return PBPacker.message_to_string(data)
+		
+	func to_bytes() -> PackedByteArray:
+		return PBPacker.pack_message(data)
+		
+	func from_bytes(bytes : PackedByteArray, offset : int = 0, limit : int = -1) -> int:
+		var cur_limit = bytes.size()
+		if limit != -1:
+			cur_limit = limit
+		var result = PBPacker.unpack_message(data, bytes, offset, cur_limit)
+		if result == cur_limit:
+			if PBPacker.check_required(data):
+				if limit == -1:
+					return PB_ERR.NO_ERRORS
+			else:
+				return PB_ERR.REQUIRED_FIELDS
+		elif limit == -1 && result > 0:
+			return PB_ERR.PARSE_INCOMPLETE
+		return result
+	
+class AppMessageEvent:
+	extends RefCounted
+	func _init():
+		var service
+		
+		__node_id = PBField.new("node_id", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 1, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __node_id
+		data[__node_id.tag] = service
+		
+		__protocol = PBField.new("protocol", PB_DATA_TYPE.STRING, PB_RULE.OPTIONAL, 2, true, DEFAULT_VALUES_3[PB_DATA_TYPE.STRING])
+		service = PBServiceField.new()
+		service.field = __protocol
+		data[__protocol.tag] = service
+		
+		__action = PBField.new("action", PB_DATA_TYPE.STRING, PB_RULE.OPTIONAL, 3, true, DEFAULT_VALUES_3[PB_DATA_TYPE.STRING])
+		service = PBServiceField.new()
+		service.field = __action
+		data[__action.tag] = service
+		
+		__peer_node_id = PBField.new("peer_node_id", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 4, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __peer_node_id
+		data[__peer_node_id.tag] = service
+		
+		__peer_addr = PBField.new("peer_addr", PB_DATA_TYPE.STRING, PB_RULE.OPTIONAL, 5, true, DEFAULT_VALUES_3[PB_DATA_TYPE.STRING])
+		service = PBServiceField.new()
+		service.field = __peer_addr
+		data[__peer_addr.tag] = service
+		
+		__port = PBField.new("port", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 6, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __port
+		data[__port.tag] = service
+		
+		__coap_method = PBField.new("coap_method", PB_DATA_TYPE.STRING, PB_RULE.OPTIONAL, 7, true, DEFAULT_VALUES_3[PB_DATA_TYPE.STRING])
+		service = PBServiceField.new()
+		service.field = __coap_method
+		data[__coap_method.tag] = service
+		
+		__uri = PBField.new("uri", PB_DATA_TYPE.STRING, PB_RULE.OPTIONAL, 8, true, DEFAULT_VALUES_3[PB_DATA_TYPE.STRING])
+		service = PBServiceField.new()
+		service.field = __uri
+		data[__uri.tag] = service
+		
+		__size = PBField.new("size", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 9, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __size
+		data[__size.tag] = service
+		
+		__payload = PBField.new("payload", PB_DATA_TYPE.STRING, PB_RULE.OPTIONAL, 10, true, DEFAULT_VALUES_3[PB_DATA_TYPE.STRING])
+		service = PBServiceField.new()
+		service.field = __payload
+		data[__payload.tag] = service
+		
+	var data = {}
+	
+	var __node_id: PBField
+	func has_node_id() -> bool:
+		if __node_id.value != null:
+			return true
+		return false
+	func get_node_id() -> int:
+		return __node_id.value
+	func clear_node_id() -> void:
+		data[1].state = PB_SERVICE_STATE.UNFILLED
+		__node_id.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_node_id(value : int) -> void:
+		__node_id.value = value
+	
+	var __protocol: PBField
+	func has_protocol() -> bool:
+		if __protocol.value != null:
+			return true
+		return false
+	func get_protocol() -> String:
+		return __protocol.value
+	func clear_protocol() -> void:
+		data[2].state = PB_SERVICE_STATE.UNFILLED
+		__protocol.value = DEFAULT_VALUES_3[PB_DATA_TYPE.STRING]
+	func set_protocol(value : String) -> void:
+		__protocol.value = value
+	
+	var __action: PBField
+	func has_action() -> bool:
+		if __action.value != null:
+			return true
+		return false
+	func get_action() -> String:
+		return __action.value
+	func clear_action() -> void:
+		data[3].state = PB_SERVICE_STATE.UNFILLED
+		__action.value = DEFAULT_VALUES_3[PB_DATA_TYPE.STRING]
+	func set_action(value : String) -> void:
+		__action.value = value
+	
+	var __peer_node_id: PBField
+	func has_peer_node_id() -> bool:
+		if __peer_node_id.value != null:
+			return true
+		return false
+	func get_peer_node_id() -> int:
+		return __peer_node_id.value
+	func clear_peer_node_id() -> void:
+		data[4].state = PB_SERVICE_STATE.UNFILLED
+		__peer_node_id.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_peer_node_id(value : int) -> void:
+		__peer_node_id.value = value
+	
+	var __peer_addr: PBField
+	func has_peer_addr() -> bool:
+		if __peer_addr.value != null:
+			return true
+		return false
+	func get_peer_addr() -> String:
+		return __peer_addr.value
+	func clear_peer_addr() -> void:
+		data[5].state = PB_SERVICE_STATE.UNFILLED
+		__peer_addr.value = DEFAULT_VALUES_3[PB_DATA_TYPE.STRING]
+	func set_peer_addr(value : String) -> void:
+		__peer_addr.value = value
+	
+	var __port: PBField
+	func has_port() -> bool:
+		if __port.value != null:
+			return true
+		return false
+	func get_port() -> int:
+		return __port.value
+	func clear_port() -> void:
+		data[6].state = PB_SERVICE_STATE.UNFILLED
+		__port.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_port(value : int) -> void:
+		__port.value = value
+	
+	var __coap_method: PBField
+	func has_coap_method() -> bool:
+		if __coap_method.value != null:
+			return true
+		return false
+	func get_coap_method() -> String:
+		return __coap_method.value
+	func clear_coap_method() -> void:
+		data[7].state = PB_SERVICE_STATE.UNFILLED
+		__coap_method.value = DEFAULT_VALUES_3[PB_DATA_TYPE.STRING]
+	func set_coap_method(value : String) -> void:
+		__coap_method.value = value
+	
+	var __uri: PBField
+	func has_uri() -> bool:
+		if __uri.value != null:
+			return true
+		return false
+	func get_uri() -> String:
+		return __uri.value
+	func clear_uri() -> void:
+		data[8].state = PB_SERVICE_STATE.UNFILLED
+		__uri.value = DEFAULT_VALUES_3[PB_DATA_TYPE.STRING]
+	func set_uri(value : String) -> void:
+		__uri.value = value
+	
+	var __size: PBField
+	func has_size() -> bool:
+		if __size.value != null:
+			return true
+		return false
+	func get_size() -> int:
+		return __size.value
+	func clear_size() -> void:
+		data[9].state = PB_SERVICE_STATE.UNFILLED
+		__size.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_size(value : int) -> void:
+		__size.value = value
+	
+	var __payload: PBField
+	func has_payload() -> bool:
+		if __payload.value != null:
+			return true
+		return false
+	func get_payload() -> String:
+		return __payload.value
+	func clear_payload() -> void:
+		data[10].state = PB_SERVICE_STATE.UNFILLED
+		__payload.value = DEFAULT_VALUES_3[PB_DATA_TYPE.STRING]
+	func set_payload(value : String) -> void:
+		__payload.value = value
 	
 	func _to_string() -> String:
 		return PBPacker.message_to_string(data)
