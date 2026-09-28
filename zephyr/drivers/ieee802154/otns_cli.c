@@ -19,9 +19,9 @@ LOG_MODULE_REGISTER(LOG_MODULE_NAME, LOG_LEVEL_INF);
 #include <stdio.h>
 #include <string.h>
 
-#include <zephyr/kernel.h>
 #include <zephyr/init.h>
 #include <zephyr/irq.h>
+#include <zephyr/kernel.h>
 
 #include <openthread.h>
 #include <openthread/cli.h>
@@ -38,8 +38,9 @@ LOG_MODULE_REGISTER(LOG_MODULE_NAME, LOG_LEVEL_INF);
 #define OUTPUT_BUF_MAX 512
 #define INPUT_CHUNK_MAX 256
 
-struct line {
-	char buf[LINE_MAX];
+struct line
+{
+    char buf[LINE_MAX];
 };
 
 K_MSGQ_DEFINE(msgq, sizeof(struct line), MSGQ_DEPTH, MSGQ_ALIGN);
@@ -49,112 +50,122 @@ static struct k_thread thread;
 
 /* Line accumulator, only touched from the (serialized) CLI ISR. */
 static char acc[LINE_MAX];
-static int acc_len;
+static int  acc_len;
 
 /* OpenThread CLI output callback: forward formatted output to stdout. */
 static int cli_output_cb(void *context, const char *format, va_list arg)
 {
-	char buf[OUTPUT_BUF_MAX];
-	int len;
+    char buf[OUTPUT_BUF_MAX];
+    int  len;
 
-	ARG_UNUSED(context);
+    ARG_UNUSED(context);
 
-	len = vsnprintf(buf, sizeof(buf), format, arg);
-	if (len <= 0) {
-		return 0;
-	}
-	if (len > (int)sizeof(buf)) {
-		len = sizeof(buf);
-	}
+    len = vsnprintf(buf, sizeof(buf), format, arg);
+    if (len <= 0)
+    {
+        return 0;
+    }
+    if (len > (int)sizeof(buf))
+    {
+        len = sizeof(buf);
+    }
 
-	nsi_otns_cli_output((const uint8_t *)buf, len);
-	return len;
+    nsi_otns_cli_output((const uint8_t *)buf, len);
+    return len;
 }
 
 /* ISR: drain stdin bytes from the runner side and split into command lines. */
 static void isr(const void *arg)
 {
-	uint8_t buf[INPUT_CHUNK_MAX];
-	int n;
+    uint8_t buf[INPUT_CHUNK_MAX];
+    int     n;
 
-	ARG_UNUSED(arg);
+    ARG_UNUSED(arg);
 
-	while ((n = nsi_otns_cli_get_input(buf, sizeof(buf))) > 0) {
-		for (int i = 0; i < n; i++) {
-			char c = (char)buf[i];
+    while ((n = nsi_otns_cli_get_input(buf, sizeof(buf))) > 0)
+    {
+        for (int i = 0; i < n; i++)
+        {
+            char c = (char)buf[i];
 
-			if (c == '\r') {
-				continue;
-			}
-			if (c == '\n') {
-				struct line line;
+            if (c == '\r')
+            {
+                continue;
+            }
+            if (c == '\n')
+            {
+                struct line line;
 
-				if (acc_len == 0) {
-					continue; /* skip empty lines */
-				}
-				acc[acc_len] = '\0';
-				memcpy(line.buf, acc, acc_len + 1);
-				acc_len = 0;
-				(void)k_msgq_put(&msgq, &line, K_NO_WAIT);
-			} else if (acc_len < LINE_MAX - 1) {
-				acc[acc_len++] = c;
-			}
-		}
-	}
+                if (acc_len == 0)
+                {
+                    continue; /* skip empty lines */
+                }
+                acc[acc_len] = '\0';
+                memcpy(line.buf, acc, acc_len + 1);
+                acc_len = 0;
+                (void)k_msgq_put(&msgq, &line, K_NO_WAIT);
+            }
+            else if (acc_len < LINE_MAX - 1)
+            {
+                acc[acc_len++] = c;
+            }
+        }
+    }
 }
 
 static void thread_fn(void *a, void *b, void *c)
 {
-	otInstance *instance;
+    otInstance *instance;
 
-	ARG_UNUSED(a);
-	ARG_UNUSED(b);
-	ARG_UNUSED(c);
+    ARG_UNUSED(a);
+    ARG_UNUSED(b);
+    ARG_UNUSED(c);
 
-	/*
-	 * Wait for the OpenThread instance to be created (it is created at boot
-	 * by the L2 init). Use k_yield() rather than k_sleep(): during OTNS node
-	 * setup the simulator does not advance virtual time, so a timed sleep
-	 * would never elapse.
-	 */
-	while ((instance = openthread_get_default_instance()) == NULL) {
-		k_yield();
-	}
+    /*
+     * Wait for the OpenThread instance to be created (it is created at boot
+     * by the L2 init). Use k_yield() rather than k_sleep(): during OTNS node
+     * setup the simulator does not advance virtual time, so a timed sleep
+     * would never elapse.
+     */
+    while ((instance = openthread_get_default_instance()) == NULL)
+    {
+        k_yield();
+    }
 
-	/* Take over the CLI output so replies go to OTNS via UART_WRITE. */
-	openthread_mutex_lock();
-	otCliInit(instance, cli_output_cb, NULL);
-	openthread_mutex_unlock();
+    /* Take over the CLI output so replies go to OTNS via UART_WRITE. */
+    openthread_mutex_lock();
+    otCliInit(instance, cli_output_cb, NULL);
+    openthread_mutex_unlock();
 
-	LOG_INF("OTNS OpenThread CLI bridge ready");
+    LOG_INF("OTNS OpenThread CLI bridge ready");
 
-	for (;;) {
-		struct line line;
+    for (;;)
+    {
+        struct line line;
 
-		k_msgq_get(&msgq, &line, K_FOREVER);
+        k_msgq_get(&msgq, &line, K_FOREVER);
 
-		openthread_mutex_lock();
-		otCliInputLine(line.buf);
-		openthread_mutex_unlock();
-	}
+        openthread_mutex_lock();
+        otCliInputLine(line.buf);
+        openthread_mutex_unlock();
+    }
 }
 
 static int init(void)
 {
-	if (!nsi_otns_cli_is_enabled()) {
-		return 0;
-	}
+    if (!nsi_otns_cli_is_enabled())
+    {
+        return 0;
+    }
 
-	IRQ_CONNECT(IEEE802154_OTNS_CLI_IRQ, 0, isr, NULL, 0);
-	irq_enable(IEEE802154_OTNS_CLI_IRQ);
+    IRQ_CONNECT(IEEE802154_OTNS_CLI_IRQ, 0, isr, NULL, 0);
+    irq_enable(IEEE802154_OTNS_CLI_IRQ);
 
-	k_thread_create(&thread, stack,
-			K_THREAD_STACK_SIZEOF(stack),
-			thread_fn, NULL, NULL, NULL,
-			K_PRIO_PREEMPT(THREAD_PRIO), 0, K_NO_WAIT);
-	k_thread_name_set(&thread, "otns_cli");
+    k_thread_create(&thread, stack, K_THREAD_STACK_SIZEOF(stack), thread_fn, NULL, NULL, NULL,
+                    K_PRIO_PREEMPT(THREAD_PRIO), 0, K_NO_WAIT);
+    k_thread_name_set(&thread, "otns_cli");
 
-	return 0;
+    return 0;
 }
 
 SYS_INIT(init, APPLICATION, INIT_PRIORITY);

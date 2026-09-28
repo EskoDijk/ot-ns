@@ -17,8 +17,8 @@
 #ifndef OTNS_CLI_H__
 #define OTNS_CLI_H__
 
-#include <stdint.h>
 #include <stdbool.h>
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {

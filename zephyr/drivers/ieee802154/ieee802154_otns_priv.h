@@ -8,8 +8,9 @@
  *   - the embedded (Zephyr CPU) side  : ieee802154_otns.c
  *   - the runner  (host/native) side  : ieee802154_otns_bottom.c
  *
- * It must therefore only use standard C integer types and no Zephyr- or
- * host-specific headers, so that it is valid in both compilation environments.
+ * It must therefore only use standard C integer types and headers that are
+ * valid in both compilation environments (plain C, or portable OpenThread
+ * public API headers - no Zephyr- or host-specific ones).
  *
  * The two sides are linked together into a single native_simulator executable
  * and communicate through the plain C functions declared below. Data flowing
@@ -20,44 +21,14 @@
 #ifndef IEEE802154_OTNS_PRIV_H__
 #define IEEE802154_OTNS_PRIV_H__
 
-#include <stdint.h>
 #include <stdbool.h>
+#include <stdint.h>
+
+#include "ot-rfsim/src/event-sim.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-/*
- * OTNS simulation-event types (subset used by this driver).
- * Must match ot-rfsim/src/event-sim.h.
- */
-#define OTNS_EVENT_ALARM_FIRED       0
-#define OTNS_EVENT_UART_WRITE        2
-#define OTNS_EVENT_STATUS_PUSH       5
-#define OTNS_EVENT_RADIO_COMM_START  6
-#define OTNS_EVENT_RADIO_TX_DONE     7
-#define OTNS_EVENT_RADIO_CHAN_SAMPLE 8
-#define OTNS_EVENT_RADIO_STATE       9
-#define OTNS_EVENT_RADIO_RX_DONE     10
-#define OTNS_EVENT_EXT_ADDR          11
-#define OTNS_EVENT_NODE_INFO         12
-
-/* OTNS otError values used on the wire (subset of otError). */
-#define OTNS_ERROR_NONE                   0
-#define OTNS_ERROR_CHANNEL_ACCESS_FAILURE 15
-#define OTNS_ERROR_ABORT                  11
-
-/* OTNS radio (OT) energy/state values, see otRadioState. */
-#define OTNS_RADIO_STATE_DISABLED 0
-#define OTNS_RADIO_STATE_SLEEP    1
-#define OTNS_RADIO_STATE_RECEIVE  2
-#define OTNS_RADIO_STATE_TRANSMIT 3
-
-/* Maximum IEEE 802.15.4 PHY payload (PSDU) size including the 2-byte FCS. */
-#define OTNS_PSDU_MAX 127
-
-/* Invalid RSSI marker (matches OT_RADIO_RSSI_INVALID = 127). */
-#define OTNS_RSSI_INVALID 127
 
 /*
  * Interrupt line used by the runner side to notify the embedded side that a
@@ -71,13 +42,12 @@ extern "C" {
  * the raw MAC frame *including* the 2-byte FCS, without any PHY length prefix
  * and without the OTNS channel byte (both handled inside the runner side).
  */
-struct otns_radio_event {
-	uint8_t  type;          /* OTNS_EVENT_* */
-	uint8_t  channel;       /* IEEE 802.15.4 channel (11..26) */
-	int8_t   power;         /* dBm: RSSI for RX, TX power / CCA energy otherwise */
-	uint8_t  error;         /* OTNS_ERROR_* result reported by the simulator */
-	uint16_t psdu_len;      /* length of psdu[] (incl. FCS); 0 if none */
-	uint8_t  psdu[OTNS_PSDU_MAX];
+struct otns_radio_event
+{
+    uint8_t                   type;     /* OT_SIM_EVENT_* */
+    struct RadioCommEventData data;     /* channel/power/error (mDuration unused here) */
+    uint16_t                  psdu_len; /* length of psdu[] (incl. FCS); 0 if none */
+    uint8_t                   psdu[OT_RADIO_FRAME_MAX_SIZE];
 };
 
 /*
@@ -99,8 +69,7 @@ bool nsi_otns_bottom_is_configured(void);
  * Queue a frame transmission towards the simulator (RADIO_COMM_START). The
  * frame is the MAC PSDU including FCS. Returns 0 on success, negative on error.
  */
-int nsi_otns_bottom_tx(uint8_t channel, int8_t power,
-		       const uint8_t *psdu, uint16_t len);
+int nsi_otns_bottom_tx(uint8_t channel, int8_t power, const uint8_t *psdu, uint16_t len);
 
 /*
  * Like nsi_otns_bottom_tx(), but defer the transmission by @p delay_us of
@@ -110,9 +79,7 @@ int nsi_otns_bottom_tx(uint8_t channel, int8_t power,
  * tick to represent. Only one deferred frame may be pending at a time; a new
  * call replaces any still-pending one. Returns 0 on success, negative on error.
  */
-int nsi_otns_bottom_tx_after(uint8_t channel, int8_t power,
-			     const uint8_t *psdu, uint16_t len,
-			     uint32_t delay_us);
+int nsi_otns_bottom_tx_after(uint8_t channel, int8_t power, const uint8_t *psdu, uint16_t len, uint32_t delay_us);
 
 /*
  * Request a channel sample / CCA from the simulator (RADIO_CHAN_SAMPLE).
