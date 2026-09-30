@@ -122,6 +122,18 @@ void nsi_otns_bottom_send_status(const char *status, uint16_t len);
  */
 bool nsi_otns_bottom_get_event(struct otns_radio_event *ev);
 
+/*
+ * Returns the millisecond offset currently implied by this node's configured
+ * clock drift ('rfsim <id> clkdrift'), as last computed by the runner side's
+ * drift accumulator. The embedded side is responsible for actually applying it
+ * (via alarm_milli_set_time_offset_ms(), part of Zephyr's OpenThread platform
+ * layer) since that symbol only exists in the embedded image; the runner side
+ * cannot call it directly (it is link-time unreachable from the runner/native
+ * simulator executable link, which discards it unless the embedded side itself
+ * references it).
+ */
+int32_t nsi_otns_bottom_get_drift_offset_ms(void);
+
 #ifdef __cplusplus
 }
 #endif

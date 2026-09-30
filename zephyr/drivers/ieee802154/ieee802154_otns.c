@@ -616,7 +616,7 @@ static void schedule_ack(const uint8_t *rx_psdu, uint16_t rx_len, int8_t rssi, c
     }
 }
 
-static void deliver_rx(const struct otns_radio_event *ev)
+static void deliver_rx(const struct otns_radio_event *ev, bool acked_with_fpb)
 {
     struct net_pkt *pkt;
     uint16_t        mac_len;
@@ -651,6 +651,9 @@ static void deliver_rx(const struct otns_radio_event *ev)
 
     net_pkt_set_ieee802154_lqi(pkt, LQI_PERFECT);
     net_pkt_set_ieee802154_rssi_dbm(pkt, ev->data.mPower);
+    /* Tell OT whether the ACK we (auto-)sent for this frame had Frame Pending set,
+     * so DataPollHandler::HandleDataPoll() actually triggers the indirect Tx. */
+    net_pkt_set_ieee802154_ack_fpb(pkt, acked_with_fpb);
 
     if (net_recv_data(data.iface, pkt) < 0)
     {
@@ -691,11 +694,40 @@ static void handle_rx(const struct otns_radio_event *ev)
 
     for_me = frame_is_for_me(ev->psdu, ev->psdu_len, &info);
 
-    deliver_rx(ev);
-
     if (for_me && (info.fcf & FCF_ACK_REQ_BIT))
     {
+        bool fpb = frame_pending_for(ev->psdu, ev->psdu_len, &info);
+
+        deliver_rx(ev, fpb);
         schedule_ack(ev->psdu, ev->psdu_len, ev->data.mPower, &info);
+    }
+    else
+    {
+        deliver_rx(ev, false);
+    }
+}
+
+/*
+ * Applies the runner side's clock-drift-derived alarm offset (see
+ * ieee802154_otns_bottom.c's update_alarm_drift_offset()) to OpenThread's own
+ * notion of elapsed time. alarm_milli_set_time_offset_ms() lives in Zephyr's
+ * OpenThread platform layer (zephyr/modules/openthread/platform/alarm_milli.c)
+ * and can only be called from the embedded side: it is otherwise unreferenced
+ * in our build (none of our Kconfig options enable its other callers in
+ * alarm_micro.c/alarm_counter.c), so the embedded image's own link would
+ * discard it before the runner side ever gets a chance to call it.
+ */
+extern void alarm_milli_set_time_offset_ms(int32_t offset_ms);
+
+static void apply_pending_drift_offset(void)
+{
+    static int32_t last_offset_ms;
+    int32_t        offset_ms = nsi_otns_bottom_get_drift_offset_ms();
+
+    if (offset_ms != last_offset_ms)
+    {
+        last_offset_ms = offset_ms;
+        alarm_milli_set_time_offset_ms(offset_ms);
     }
 }
 
@@ -704,6 +736,8 @@ static void isr(const void *arg)
     struct otns_radio_event ev;
 
     ARG_UNUSED(arg);
+
+    apply_pending_drift_offset();
 
     while (nsi_otns_bottom_get_event(&ev))
     {
@@ -930,6 +964,31 @@ static int tx(const struct device *dev, enum ieee802154_tx_mode mode, struct net
     psdu[len]     = fcs & 0xff;
     psdu[len + 1] = fcs >> 8;
 
+    {
+        struct frame_addr_info tx_info;
+
+        if (parse_frame(psdu, len, &tx_info) == 0 && tx_info.dst_off >= 0)
+        {
+            uint8_t dst_ext_be[OT_EXT_ADDRESS_SIZE];
+
+            if (tx_info.dst_mode == ADDR_MODE_EXT)
+            {
+                for (int i = 0; i < OT_EXT_ADDRESS_SIZE; i++)
+                {
+                    dst_ext_be[i] = psdu[tx_info.dst_off + OT_EXT_ADDRESS_SIZE - 1 - i];
+                }
+                LOG_INF("TX seq %u type %d -> ext %02x%02x%02x%02x%02x%02x%02x%02x", tx_info.seq,
+                        tx_info.fcf & FCF_FRAME_TYPE_MASK, dst_ext_be[0], dst_ext_be[1], dst_ext_be[2],
+                        dst_ext_be[3], dst_ext_be[4], dst_ext_be[5], dst_ext_be[6], dst_ext_be[7]);
+            }
+            else if (tx_info.dst_mode == ADDR_MODE_SHORT)
+            {
+                LOG_INF("TX seq %u type %d -> short 0x%04x", tx_info.seq, tx_info.fcf & FCF_FRAME_TYPE_MASK,
+                        sys_get_le16(&psdu[tx_info.dst_off]));
+            }
+        }
+    }
+
     ctx->tx_wants_ack = (len >= 1) && (frag->data[0] & (FCF_ACK_REQ_BIT & 0xff));
     ctx->tx_seq       = (len >= MIN_FRAME_SIZE) ? frag->data[2] : 0;
     ctx->ack_len      = 0;
@@ -993,6 +1052,9 @@ static int tx(const struct device *dev, enum ieee802154_tx_mode mode, struct net
                 {
                     LOG_DBG("ACK not handled");
                 }
+                /* Frame Pending bit tells a polling child whether the parent has buffered data. */
+                LOG_INF("ACK for seq %u: fcf=0x%04x frame_pending=%d", ctx->tx_seq,
+                        sys_get_le16(ctx->ack_psdu), (ctx->ack_psdu[0] & (FCF_FRAME_PENDING_BIT & 0xff)) != 0);
             }
             net_pkt_unref(ack_pkt);
         }

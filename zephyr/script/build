@@ -1,0 +1,84 @@
+#!/bin/bash
+# SPDX-License-Identifier: Apache-2.0
+#
+# Generic build helper for Zephyr-based OTNS node executables (analogous to
+# ot-rfsim/script/build). Builds zephyr/apps/shell for the native_sim board,
+# with this repo's zephyr/ directory added as an extra Zephyr module (it
+# provides the OTNS IEEE 802.15.4 driver). Variant scripts (build_latest,
+# build_v11/v12/v13) set OTNS_NODE_TYPE and pass Kconfig overrides (e.g.
+# -DCONFIG_OPENTHREAD_MTD=y) as arguments to this script.
+#
+# Requires: `west` on PATH, and ZEPHYR_BASE pointing at a valid Zephyr install.
+# Assumes it is run with its cwd set to this 'zephyr' directory.
+
+set -euxo pipefail
+
+ZEPHYR_SRCDIR="$(cd "$(dirname "$0")/.." && pwd)"
+OTNS_ROOT="$(cd "${ZEPHYR_SRCDIR}/.." && pwd)"
+readonly ZEPHYR_SRCDIR
+readonly OTNS_ROOT
+
+COMMON_OPTIONS=(
+#    "-DCONFIG_OPENTHREAD_BORDER_ROUTER=y"
+    "-DCONFIG_OPENTHREAD_PING_SENDER=y"
+    "-DCONFIG_OPENTHREAD_DNS_CLIENT=y"
+    "-DCONFIG_OPENTHREAD_TCP_ENABLE=y"
+    "-DCONFIG_OPENTHREAD_NETDIAG_CLIENT=y"
+    "-DCONFIG_OPENTHREAD_MESH_DIAG=y"
+    "-DCONFIG_OPENTHREAD_COAP=y"
+    "-DCONFIG_OPENTHREAD_COAP_BLOCK=y"
+    "-DCONFIG_OPENTHREAD_COAP_OBSERVE=y"
+    "-DCONFIG_OPENTHREAD_IP6_MAX_EXT_MCAST_ADDRS=4"
+    "-DCONFIG_OPENTHREAD_CUSTOM_PARAMETERS=\"OPENTHREAD_CONFIG_TLS_ENABLE=0\""
+)
+readonly COMMON_OPTIONS
+
+check_prereqs()
+{
+    if ! command -v west >/dev/null 2>&1; then
+        echo "error: 'west' command not found on PATH" >&2
+        exit 1
+    fi
+    if [[ -z ${ZEPHYR_BASE:-} ]]; then
+        echo "error: ZEPHYR_BASE is not set" >&2
+        exit 1
+    fi
+}
+
+build()
+{
+    local nodetype="${OTNS_NODE_TYPE:-custom}"
+    local builddir="${OT_CMAKE_BUILD_DIR:-build/${nodetype}}"
+    local app="${ZEPHYR_APP:-apps/shell}"
+    local device_type="${OT_DEVICE_TYPE:?OT_DEVICE_TYPE must be set to 'ftd' or 'mtd'}"
+    local thread_version="${OT_THREAD_VERSION:?OT_THREAD_VERSION must be set, e.g. '1_4'}"
+    local device_options=()
+
+    case "${device_type}" in
+        ftd)
+            device_options+=("-DCONFIG_OPENTHREAD_FTD=y" "-DCONFIG_OPENTHREAD_MTD=n")
+            ;;
+        mtd)
+            device_options+=("-DCONFIG_OPENTHREAD_FTD=n" "-DCONFIG_OPENTHREAD_MTD=y")
+            if [[ ${thread_version} != "1_1" ]]; then
+                device_options+=("-DCONFIG_OPENTHREAD_CSL_RECEIVER=y")
+            fi
+            ;;
+        *)
+            echo "error: OT_DEVICE_TYPE must be 'ftd' or 'mtd', got '${device_type}'" >&2
+            exit 1
+            ;;
+    esac
+    device_options+=("-DCONFIG_OPENTHREAD_THREAD_VERSION_${thread_version}=y")
+
+    west build -b native_sim "${ZEPHYR_SRCDIR}/${app}" -d "${builddir}" -p always -- \
+        -DEXTRA_ZEPHYR_MODULES="${OTNS_ROOT}" "${COMMON_OPTIONS[@]}" "${device_options[@]}" "$@"
+}
+
+main()
+{
+    check_prereqs
+    build "$@"
+}
+
+main "$@"

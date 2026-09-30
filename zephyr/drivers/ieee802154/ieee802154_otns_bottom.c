@@ -40,7 +40,7 @@
 
 #include "ieee802154_otns_priv.h"
 
-#define PHY_BITRATE 250000U /* bit/s (O-QPSK 2.4 GHz) */
+#define PHY_BITRATE_DEFAULT 250000U /* bit/s (O-QPSK 2.4 GHz) */
 #define RADIO_MSG_HDR sizeof(((struct RadioMessage *)0)->mChannel)
 #define RADIO_COMM_EVENT_DATA_SIZE sizeof(struct RadioCommEventData)
 #define MAX_SLEEP_US 3600000000ULL
@@ -80,6 +80,18 @@ static uint8_t reported_channel = OT_RADIO_STATE_INVALID;
 static uint8_t ext_addr[OT_EXT_ADDRESS_SIZE];
 static bool    ext_addr_valid;
 
+/* 'rfsim <id> rxsens|bitrate|clkdrift' simulation parameters (get/set via OTNS). */
+static int8_t   s_rx_sensitivity  = RFSIM_RX_SENSITIVITY_DEFAULT_DBM;
+static uint64_t s_phy_bitrate     = PHY_BITRATE_DEFAULT;
+static int16_t  s_clock_drift_ppm = 0; /* can be <0, 0 or >0 */
+
+/* Drift-offset bookkeeping applied to OpenThread's millisecond alarm base (see
+ * update_alarm_drift_offset() below). */
+static int64_t  s_drift_ps               = 0; /* sub-microsecond fractional accumulator (ppm*us units) */
+static int64_t  s_drift_us_total         = 0; /* cumulative whole-microsecond drift since node start */
+static uint64_t s_drift_last_time        = 0; /* nsi_hws_get_time() at the last drift update */
+static int32_t  s_drift_offset_ms_applied = 0; /* last value handed to alarm_milli_set_time_offset_ms() */
+
 /* ------------------------------------------------------------------------- */
 /* Little-endian (de)serialization helpers                                   */
 /* ------------------------------------------------------------------------- */
@@ -90,6 +102,84 @@ static inline void put_le64(uint8_t *p, uint64_t v)
     {
         p[i] = (v >> (8 * i)) & 0xff;
     }
+}
+
+static inline int32_t get_le32(const uint8_t *p)
+{
+    return (int32_t)((uint32_t)p[0] | ((uint32_t)p[1] << 8) | ((uint32_t)p[2] << 16) | ((uint32_t)p[3] << 24));
+}
+
+static inline void put_le32(uint8_t *p, int32_t v)
+{
+    p[0] = (uint8_t)(v & 0xff);
+    p[1] = (uint8_t)((v >> 8) & 0xff);
+    p[2] = (uint8_t)((v >> 16) & 0xff);
+    p[3] = (uint8_t)((v >> 24) & 0xff);
+}
+
+/*
+ * Non-static helper exported (without a public header) by Zephyr's OpenThread
+ * platform glue (zephyr/modules/openthread/platform/alarm_milli.c). It sets an
+ * offset that is subtracted from k_uptime_get_32() inside otPlatAlarmMilliGetNow(),
+ * which is what OpenThread's own alarms *and* otInstanceGetUptime() (the `uptime`
+ * CLI command) are ultimately derived from.
+ *
+ * This runner (host/native) side cannot call it directly: it is compiled and
+ * linked separately from the embedded image (zephyr.elf is fully linked, with
+ * unreferenced symbols discarded by --gc-sections, *before* the native
+ * simulator's final link combines it with this runner side), so a symbol with
+ * no caller anywhere in the embedded build - as this one has, since none of our
+ * Kconfig options enable alarm_micro.c/alarm_counter.c's own internal callers
+ * of it - is gone by the time this side could reference it. The embedded side
+ * therefore applies the offset itself, via nsi_otns_bottom_get_drift_offset_ms()
+ * below (see ieee802154_otns.c / otns_cli.c).
+ */
+
+/*
+ * Updates this node's configured-clock-drift (ppm) accumulator and returns the
+ * millisecond offset the embedded side should currently apply via
+ * alarm_milli_set_time_offset_ms(), mirroring ot-rfsim/src/alarm.c's
+ * platformAlarmAdvanceNow() accumulator.
+ *
+ * This deliberately does NOT try to speed up/slow down native_sim's HW-event
+ * pacing (the "now"/delay values exchanged with OTNS over the wire protocol):
+ * OpenThread's alarms and `uptime` are derived from the Zephyr kernel tick
+ * counter (k_uptime_get()), which is driven by native_sim's system timer driver
+ * announcing ticks at a fixed, un-drifted period -- and that driver cannot be
+ * swapped out, because `BOARD_NATIVE_SIM`'s Kconfig unconditionally does
+ * `select NATIVE_SIM_TIMER` (a `select` cannot be overridden by a command-line
+ * `-DCONFIG_NATIVE_SIM_TIMER=n`). Two earlier approaches based on that pacing
+ * (scaling incoming event delays, then scaling our own outgoing alarm request)
+ * therefore could not work: neither one changes how often the tick ISR fires.
+ */
+static void update_alarm_drift_offset(uint64_t now)
+{
+    uint64_t elapsed = now - s_drift_last_time;
+
+    s_drift_last_time = now;
+
+    if (s_clock_drift_ppm == 0 || elapsed == 0)
+    {
+        return;
+    }
+
+    s_drift_ps += (int64_t)s_clock_drift_ppm * (int64_t)elapsed;
+    if (s_drift_ps >= 1000000 || s_drift_ps <= -1000000)
+    {
+        int64_t whole_us = s_drift_ps / 1000000;
+
+        s_drift_ps -= whole_us * 1000000;
+        s_drift_us_total += whole_us;
+
+        /* offset is *subtracted* by otPlatAlarmMilliGetNow(), so a node running
+         * ahead (positive ppm, positive accumulated drift) needs a negative offset. */
+        s_drift_offset_ms_applied = (int32_t)(-(s_drift_us_total / 1000));
+    }
+}
+
+int32_t nsi_otns_bottom_get_drift_offset_ms(void)
+{
+    return s_drift_offset_ms_applied;
 }
 
 /* ------------------------------------------------------------------------- */
@@ -318,6 +408,61 @@ static int event_is_for_embedded(uint8_t type)
            type == OT_SIM_EVENT_RADIO_CHAN_SAMPLE;
 }
 
+/* Handles a 'rfsim' GET/SET request for this node; replies with the (possibly updated) value. */
+static void handle_rfsim_param_event(uint8_t event_type, const uint8_t *data, uint16_t datalen)
+{
+    uint8_t data_out[5];
+    uint8_t param;
+    int32_t value;
+
+    if (datalen < 5)
+    {
+        return;
+    }
+    param = data[0];
+    value = get_le32(&data[1]);
+
+    if (event_type == OT_SIM_EVENT_RFSIM_PARAM_SET)
+    {
+        switch (param)
+        {
+        case RFSIM_PARAM_RX_SENSITIVITY:
+            s_rx_sensitivity = (int8_t)value;
+            break;
+        case RFSIM_PARAM_PHY_BITRATE:
+            s_phy_bitrate = (value < 1) ? 1 : (uint64_t)value;
+            break;
+        case RFSIM_PARAM_CLOCK_DRIFT:
+            s_clock_drift_ppm = (int16_t)value;
+            s_drift_last_time = nsi_hws_get_time();
+            break;
+        default:
+            break;
+        }
+    }
+
+    switch (param)
+    {
+    case RFSIM_PARAM_RX_SENSITIVITY:
+        value = (int32_t)s_rx_sensitivity;
+        break;
+    case RFSIM_PARAM_PHY_BITRATE:
+        value = (int32_t)s_phy_bitrate;
+        break;
+    case RFSIM_PARAM_CLOCK_DRIFT:
+        value = (int32_t)s_clock_drift_ppm;
+        break;
+    default:
+        param = RFSIM_PARAM_UNKNOWN;
+        value = 0;
+        break;
+    }
+
+    data_out[0] = param;
+    put_le32(&data_out[1], value);
+    (void)write_event(OT_SIM_EVENT_RFSIM_PARAM_RSP, 0, data_out, sizeof(data_out));
+}
+
 __attribute__((weak)) void nsi_otns_cli_feed_input(const uint8_t *buf, int len)
 {
     (void)buf;
@@ -340,7 +485,7 @@ static void report_state(void)
 
     data[0] = radio_channel;
     data[1] = 0;
-    data[2] = (uint8_t)RFSIM_RX_SENSITIVITY_DEFAULT_DBM;
+    data[2] = (uint8_t)s_rx_sensitivity;
     data[3] = radio_state;
     data[4] = 0;
     data[5] = radio_state;
@@ -373,6 +518,7 @@ static void pacer(void)
     }
 
     now = nsi_hws_get_time();
+    update_alarm_drift_offset(now);
 
     if (have_pending)
     {
@@ -424,6 +570,10 @@ static void pacer(void)
             if (raw.mEvent == OT_SIM_EVENT_UART_WRITE)
             {
                 nsi_otns_cli_feed_input(raw.mData, raw.mDataLength);
+            }
+            else if (raw.mEvent == OT_SIM_EVENT_RFSIM_PARAM_GET || raw.mEvent == OT_SIM_EVENT_RFSIM_PARAM_SET)
+            {
+                handle_rfsim_param_event(raw.mEvent, raw.mData, raw.mDataLength);
             }
             pacer_time = now + raw.mDelay;
             return;
@@ -554,7 +704,7 @@ int nsi_otns_bottom_tx(uint8_t channel, int8_t power, const uint8_t *psdu, uint1
         return -1;
     }
 
-    duration = (uint64_t)(OT_RADIO_SHR_PHR_LENGTH_BYTES + len) * 8U * 1000000U / PHY_BITRATE;
+duration = (uint64_t)(OT_RADIO_SHR_PHR_LENGTH_BYTES + len) * 8U * 1000000U / s_phy_bitrate;
 
     data[0] = channel;
     data[1] = (uint8_t)power;

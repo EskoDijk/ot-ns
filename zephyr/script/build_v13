@@ -1,0 +1,20 @@
+#!/bin/bash
+# SPDX-License-Identifier: Apache-2.0
+#
+# Builds the zephyr-based equivalents of ot-rfsim's Thread-1.3 ot-cli-ftd_v13
+# and ot-cli-mtd_v13 node executables.
+
+set -euxo pipefail
+
+main()
+{
+    mkdir -p ot-versions
+
+    OTNS_NODE_TYPE="v13-ftd" OT_DEVICE_TYPE="ftd" OT_THREAD_VERSION="1_3" ./script/build "$@"
+    ./script/install_exe v13-ftd ot-cli-ftd_v13
+
+    OTNS_NODE_TYPE="v13-mtd" OT_DEVICE_TYPE="mtd" OT_THREAD_VERSION="1_3" ./script/build "$@"
+    ./script/install_exe v13-mtd ot-cli-mtd_v13
+}
+
+main "$@"
