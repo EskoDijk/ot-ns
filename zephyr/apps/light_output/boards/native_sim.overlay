@@ -1,0 +1,17 @@
+/*
+ * native_sim overlay: instantiate the OTNS virtual IEEE 802.15.4 radio and
+ * select it as the OpenThread / IEEE 802.15.4 radio for the system.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/ {
+	chosen {
+		zephyr,ieee802154 = &otns_radio;
+	};
+
+	otns_radio: otns_radio {
+		compatible = "zephyr,ieee802154-otns";
+		status = "okay";
+	};
+};

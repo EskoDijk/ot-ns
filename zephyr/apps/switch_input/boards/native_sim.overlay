@@ -1,0 +1,42 @@
+/*
+ * native_sim overlay: instantiate the OTNS virtual IEEE 802.15.4 radio, and
+ * simulated buttons (sw0/sw1/sw2) on the board's built-in gpio_emul
+ * controller, mirroring nrf54l15dk's real button aliases.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include <zephyr/dt-bindings/gpio/gpio.h>
+
+/ {
+	chosen {
+		zephyr,ieee802154 = &otns_radio;
+	};
+
+	otns_radio: otns_radio {
+		compatible = "zephyr,ieee802154-otns";
+		status = "okay";
+	};
+
+	buttons {
+		compatible = "gpio-keys";
+
+		button0: button_0 {
+			gpios = <&gpio0 1 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;
+		};
+
+		button1: button_1 {
+			gpios = <&gpio0 2 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;
+		};
+
+		button2: button_2 {
+			gpios = <&gpio0 3 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;
+		};
+	};
+
+	aliases {
+		sw0 = &button0;
+		sw1 = &button1;
+		sw2 = &button2;
+	};
+};
