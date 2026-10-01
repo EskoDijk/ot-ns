@@ -725,8 +725,8 @@ func (rt *CmdRunner) executeLsNodes(cc *CommandContext, cmd *NodesCmd) {
 		for _, nodeId := range sim.GetNodes() {
 			snode, dnode := rt.getNodeById(nodeId)
 			var line strings.Builder
-			line.WriteString(fmt.Sprintf("id=%d\ttype=%-6s  extaddr=%016x  rloc16=%04x  x=%-2d\ty=%-3d\tz=%-3d\tstate=%s\tfailed=%v", nodeId, snode.GetType(), dnode.ExtAddr, dnode.Rloc16,
-				dnode.X, dnode.Y, dnode.Z, dnode.Role, dnode.IsFailed()))
+			line.WriteString(fmt.Sprintf("id=%d\ttype=%-6s  extaddr=%016x  rloc16=%04x  x=%-2d\ty=%-3d\tz=%-3d\trr=%-3d\tstate=%s\tfailed=%v", nodeId, snode.GetType(), dnode.ExtAddr, dnode.Rloc16,
+				dnode.X, dnode.Y, dnode.Z, snode.GetRadioRange(), dnode.Role, dnode.IsFailed()))
 			line.WriteString(fmt.Sprintf("\texe=%s", snode.GetExecutableName()))
 			cc.outputf("%s\n", line.String())
 		}
@@ -1149,10 +1149,25 @@ func (rt *CmdRunner) executeScan(cc *CommandContext, cmd *ScanCmd) {
 }
 
 func (rt *CmdRunner) executeConfigVisualization(cc *CommandContext, cmd *ConfigVisualizationCmd) {
-	var opts dispatcher.VisualizationOptions
+	var opts VisualizationOptions
+
+	var preset *VisualizationSkinPreset
+	if cmd.Skin != nil {
+		preset = FindVisualizationSkinPreset(cmd.Skin.Name)
+		if preset == nil {
+			cc.errorf("unknown skin '%s', available skins: %s", cmd.Skin.Name,
+				strings.Join(VisualizationSkinPresetNames(), ", "))
+			return
+		}
+	}
 
 	rt.postAsyncWait(cc, func(sim *simulation.Simulation) {
 		opts = sim.Dispatcher().GetVisualizationOptions()
+
+		// a skin preset is applied first, so that the explicit options can still override it.
+		if preset != nil {
+			preset.Apply(&opts)
+		}
 
 		if cmd.BroadcastMessage != nil {
 			opts.BroadcastMessage = cmd.BroadcastMessage.OnOrOff.On != nil
@@ -1174,6 +1189,10 @@ func (rt *CmdRunner) executeConfigVisualization(cc *CommandContext, cmd *ConfigV
 			opts.ChildTable = cmd.ChildTable.OnOrOff.On != nil
 		}
 
+		if cmd.PartitionId != nil {
+			opts.PartitionId = cmd.PartitionId.OnOrOff.On != nil
+		}
+
 		sim.Dispatcher().SetVisualizationOptions(opts)
 	})
 
@@ -1189,6 +1208,8 @@ func (rt *CmdRunner) executeConfigVisualization(cc *CommandContext, cmd *ConfigV
 	cc.outputf("ack=%s\n", bool_to_onoroff(opts.AckMessage))
 	cc.outputf("rtb=%s\n", bool_to_onoroff(opts.RouterTable))
 	cc.outputf("ctb=%s\n", bool_to_onoroff(opts.ChildTable))
+	cc.outputf("pid=%s\n", bool_to_onoroff(opts.PartitionId))
+	cc.outputf("skin=%s\n", opts.SkinPreset)
 }
 
 func (rt *CmdRunner) enterNodeContext(nodeId NodeId) bool {

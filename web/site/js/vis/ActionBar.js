@@ -34,6 +34,7 @@ import {
     NODE_SPACING_ABOVE_ACTIONBAR_PX
 } from "./consts";
 import {Resources} from "./resources";
+import {SkinName} from "./skins";
 
 const {
     OtDeviceRole, NodeMode,
@@ -107,11 +108,12 @@ export default class ActionBar extends VObject {
         this.addButton("Delete", "node", "del", (e) => {
             this.actionDelete(e)
         });
+        // toggles the radio of the selected node; the label shows the action that a click performs.
         this.addButton("Radio Off", "node", "radio", (e) => {
-            this.actionRadioOff(e)
-        });
-        this.addButton("Radio On", "node", "radio", (e) => {
-            this.actionRadioOn(e)
+            this.actionToggleRadio(e)
+        }, (button) => {
+            const node = this.vis.getSelectedNode();
+            button.text = node && node.failed ? "Radio On" : "Radio Off";
         });
         // add more any-context buttons
         this._logClearButton = this.addButton("Clear Log", "any", "", (e) => {
@@ -119,6 +121,11 @@ export default class ActionBar extends VObject {
         });
         this._logOnOffButton = this.addButton("Show Log", "any", "", (e) => {
             this.actionToggleLogWindow()
+        });
+        this.addButton("Skin", "any", "", (e) => {
+            this.actionCycleSkin()
+        }, (button) => {
+            button.text = "Skin: " + this.currentSkinPreset();
         });
         this.addButton("Delete All", "any", "del", (e) => {
             this.actionClear(e)
@@ -136,6 +143,10 @@ export default class ActionBar extends VObject {
     setAbilities(abilities) {
         this._abilities = abilities;
         this._resetButtons();
+    }
+
+    hasAbility(ability) {
+        return !!this._abilities[ability];
     }
 
     setSpeed(speed) {
@@ -222,12 +233,11 @@ export default class ActionBar extends VObject {
         this.vis.deleteSelectedNode()
     }
 
-    actionRadioOff(e) {
-        this.vis.setSelectedNodeFailed(true)
-    }
-
-    actionRadioOn(e) {
-        this.vis.setSelectedNodeFailed(false)
+    actionToggleRadio(e) {
+        const node = this.vis.getSelectedNode();
+        if (node) {
+            this.vis.setSelectedNodeFailed(!node.failed)
+        }
     }
 
     actionClear() {
@@ -248,6 +258,24 @@ export default class ActionBar extends VObject {
             this._logOnOffButton.text = "Show Log"
         }
         this.vis.actionBar.refresh()
+    }
+
+    // Name of the selected skin preset (see 'cv skin' in the CLI), as sent by the simulator.
+    // Before the first options event, the name of the active skin is shown instead.
+    currentSkinPreset() {
+        return this.vis.visOptions.skinPreset || SkinName();
+    }
+
+    // select the next skin preset from the list sent by the simulator, via the simulator so that
+    // all connected browsers switch along and the CLI 'cv' output stays in sync.
+    actionCycleSkin() {
+        const presets = this.vis.visOptions.skinPresets;
+        if (presets.length === 0) {
+            return;
+        }
+        const next = presets[(presets.indexOf(this.currentSkinPreset()) + 1) % presets.length];
+        this.vis.skinOverride = null;
+        this.vis.ctrlSetSkin(next);
     }
 
     actionOpenEnergyWindow() {
@@ -278,7 +306,7 @@ export default class ActionBar extends VObject {
         }
 
         this._currentContext = context;
-        this._resetButtons()
+        this.refresh()
     }
 
     refresh() {

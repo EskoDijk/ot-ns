@@ -1,4 +1,4 @@
-// Copyright (c) 2020-2023, The OTNS Authors.
+// Copyright (c) 2020-2026, The OTNS Authors.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -27,7 +27,7 @@
 import * as PIXI from "pixi.js";
 import LVObject from "./LVObject";
 import {Resources} from "./resources";
-import {COLOR_ACK_MESSAGE} from "./consts";
+import {Skin} from "./skins";
 
 const BROADCAST_MESSAGE_SCALE = 128;
 const UNICAST_MESSAGE_SCALE = 64;
@@ -42,7 +42,8 @@ export class BroadcastMessage extends LVObject {
         this.mvInfo = mvInfo;
         this.src = src;
 
-        let beginRadius = 32;
+        this.style = Skin().messageStyle('broadcast');
+        let beginRadius = this.style.size;
         let sprite = new PIXI.Sprite(Resources().WhiteDashed8Circle128.texture);
         sprite.tint = this.getColor();
         sprite.scale.set(beginRadius * 2 / BROADCAST_MESSAGE_SCALE, beginRadius * 2 / BROADCAST_MESSAGE_SCALE);
@@ -55,7 +56,7 @@ export class BroadcastMessage extends LVObject {
     }
 
     getColor() {
-        return 0x1565c0
+        return this.style.color;
     }
 
     isBroadcast() {
@@ -71,7 +72,7 @@ export class BroadcastMessage extends LVObject {
         }
 
         try {
-            let beginRadius = 32;
+            let beginRadius = this.style.size;
             let playRatio = this.getLifetimeProgress();
             let radius = beginRadius + (this._targetRadius - beginRadius) * Math.pow(playRatio, 0.5);
             this.sprite.scale.set(radius * 2 / BROADCAST_MESSAGE_SCALE, radius * 2 / BROADCAST_MESSAGE_SCALE);
@@ -100,7 +101,8 @@ export class UnicastMessage extends LVObject {
         this.src = src;
         this.mvInfo = mvInfo;
 
-        let size = 10;
+        this.style = Skin().messageStyle('unicast');
+        let size = this.style.size;
         let sprite = new PIXI.Sprite(Resources().WhiteSolidHexagon64.texture);
         sprite.tint = this.getColor();
         sprite.scale.set(size / UNICAST_MESSAGE_SCALE, size / UNICAST_MESSAGE_SCALE);
@@ -115,7 +117,7 @@ export class UnicastMessage extends LVObject {
     }
 
     getColor() {
-        return 0xff8f00
+        return this.style.color;
     }
 
     update(dt) {
@@ -158,7 +160,8 @@ export class AckMessage extends LVObject {
         this.src = src;
         this.mvInfo = mvInfo;
 
-        let size = 10;
+        this.style = Skin().messageStyle('ack');
+        let size = this.style.size;
         let sprite = new PIXI.Sprite(Resources().WhiteSolidTriangle64.texture);
         sprite.tint = this.getColor();
         sprite.scale.set(size / UNICAST_MESSAGE_SCALE, size / UNICAST_MESSAGE_SCALE);
@@ -173,7 +176,7 @@ export class AckMessage extends LVObject {
     }
 
     getColor() {
-        return COLOR_ACK_MESSAGE;
+        return this.style.color;
     }
 
     update(dt) {

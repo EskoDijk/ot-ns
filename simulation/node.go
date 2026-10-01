@@ -719,6 +719,10 @@ func (node *Node) SetMode(mode string) {
 	node.Command(fmt.Sprintf("mode %s", mode))
 }
 
+func (node *Node) GetRadioRange() int {
+	return node.cfg.RadioRange
+}
+
 func (node *Node) GetType() string {
 	return node.cfg.Type
 }

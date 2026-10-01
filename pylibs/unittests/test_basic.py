@@ -327,7 +327,8 @@ class BasicTests(OTNSTestCase):
         ns = self.ns
         vopts = ns.config_visualization()
         print('vopts', vopts)
-        for opt in ('broadcast_message', 'unicast_message', 'ack_message', 'router_table', 'child_table'):
+        for opt in ('broadcast_message', 'unicast_message', 'ack_message', 'router_table', 'child_table',
+                    'partition_id'):
             self.assertTrue(opt in vopts)
 
             set_vals = (False, True) if vopts[opt] else (True, False)
@@ -339,19 +340,50 @@ class BasicTests(OTNSTestCase):
                                         unicast_message=True,
                                         ack_message=True,
                                         router_table=True,
-                                        child_table=True)
+                                        child_table=True,
+                                        partition_id=True)
 
-        for opt in ('broadcast_message', 'unicast_message', 'ack_message', 'router_table', 'child_table'):
+        for opt in ('broadcast_message', 'unicast_message', 'ack_message', 'router_table', 'child_table',
+                    'partition_id'):
             self.assertTrue(vopts[opt])
 
         vopts = ns.config_visualization(broadcast_message=False,
                                         unicast_message=False,
                                         ack_message=False,
                                         router_table=False,
-                                        child_table=False)
+                                        child_table=False,
+                                        partition_id=False)
 
-        for opt in ('broadcast_message', 'unicast_message', 'ack_message', 'router_table', 'child_table'):
+        for opt in ('broadcast_message', 'unicast_message', 'ack_message', 'router_table', 'child_table',
+                    'partition_id'):
             self.assertFalse(vopts[opt])
+
+        # skin presets: a preset selects a skin and applies its own option values only.
+        self.assertEqual(vopts['skin'], 'classic')  # the default; unchanged by setting options
+        vopts = ns.config_visualization(skin='thread')
+        self.assertEqual(vopts['skin'], 'thread')
+        self.assertFalse(vopts['partition_id'])
+        self.assertFalse(vopts['ack_message'])
+        self.assertFalse(vopts['router_table'])  # not part of the preset: unchanged
+        vopts = ns.config_visualization(skin='clas_ack')
+        self.assertEqual(vopts['skin'], 'clas_ack')
+        self.assertTrue(vopts['partition_id'])
+        self.assertTrue(vopts['ack_message'])
+        vopts = ns.config_visualization(skin='thread')
+        self.assertEqual(vopts['skin'], 'thread')
+        self.assertFalse(vopts['partition_id'])
+        self.assertFalse(vopts['ack_message'])  # every preset sets 'ack': not left on by clas_ack
+        self.assertFalse(vopts['router_table'])  # not part of the preset: unchanged
+        vopts = ns.config_visualization(skin='thread+', ack_message=True)  # explicit options override
+        self.assertEqual(vopts['skin'], 'thread+')
+        self.assertTrue(vopts['partition_id'])
+        self.assertTrue(vopts['ack_message'])
+        vopts = ns.config_visualization(partition_id=False)  # changing an option keeps the preset name
+        self.assertEqual(vopts['skin'], 'thread+')
+        self.assertFalse(vopts['partition_id'])
+        with self.assertRaises(errors.OTNSCliError):
+            ns.config_visualization(skin='nonexistent')
+        self.assertEqual(ns.config_visualization()['skin'], 'thread+')
 
     def testWithOTNS(self):
         """
@@ -822,13 +854,19 @@ class BasicTests(OTNSTestCase):
         ns.add('router', x=200, y=100)
         ns.add('router', version='', x=300, y=100)
         ns.add('router', x=400, y=100)
-        ns.add('med', x=400, y=160)
+        ns.add('med', x=400, y=160, radio_range=150)
         ns.go(25)
         self.assertEqual(5, len(ns.nodes()))
         self.assertFormPartitions(1)
+        rr_default = ns.nodes()[1]['rr']
+        self.assertNotEqual(150, rr_default)
 
         ns.save('tmp/unittest_save_topology.yaml')
         self.assertEqual(5, len(ns.nodes()))
+        with open('tmp/unittest_save_topology.yaml') as f:
+            saved = f.read()
+        self.assertIn(f'radio-range: {rr_default}', saved)  # network-wide default is always saved
+        self.assertIn('radio-range: 150', saved)  # per-node deviation from the default is saved
 
         ns.delete(1, 2, 3, 4, 5)
         self.assertEqual(0, len(ns.nodes()))
@@ -841,8 +879,10 @@ class BasicTests(OTNSTestCase):
             self.assertEqual(100, nodes_info[n]['y'])
             self.assertEqual(0, nodes_info[n]['z'])
             self.assertEqual('router', nodes_info[n]['type'])
+            self.assertEqual(rr_default, nodes_info[n]['rr'])
         self.assertEqual(160, nodes_info[5]['y'])
         self.assertEqual('med', nodes_info[5]['type'])
+        self.assertEqual(150, nodes_info[5]['rr'])
         self.assertFormPartitionsIgnoreOrphans(0)
         ns.go(125)
         self.assertFormPartitions(1)
