@@ -1,0 +1,41 @@
+#!/bin/bash
+# SPDX-License-Identifier: Apache-2.0
+#
+# Builds the zephyr-based equivalent of ot-rfsim's Border Router (BR)
+# ot-cli-ftd_br node executable (see ot-rfsim/script/build_br). Limited to
+# the subset of OT_* CMake options that have a Kconfig equivalent in
+# Zephyr's OpenThread module (no equivalent exists for OT_VENDOR_MODEL,
+# OT_HISTORY_TRACKER or OT_MLE_MAX_CHILDREN).
+
+set -euxo pipefail
+
+EXTRA_OPTIONS=(
+    "-DCONFIG_OPENTHREAD_BACKBONE_ROUTER=y"
+    "-DCONFIG_OPENTHREAD_BACKBONE_ROUTER_MULTICAST_ROUTING=y"
+    "-DCONFIG_OPENTHREAD_BORDER_ROUTER=y"
+    "-DOT_BORDER_ROUTING=ON"
+    "-DOT_BORDER_ROUTING_DHCP6_PD=ON"
+    "-DOT_BORDER_ROUTING_COUNTERS=ON"
+    "-DOT_NAT64_BORDER_ROUTING=ON"
+    "-DCONFIG_OPENTHREAD_BORDER_AGENT=y"
+    "-DCONFIG_OPENTHREAD_MLR=y"
+    "-DCONFIG_OPENTHREAD_UDP_FORWARD=y"
+    "-DCONFIG_OPENTHREAD_DNSSD_SERVER=y"
+    "-DCONFIG_OPENTHREAD_NETDATA_PUBLISHER=y"
+    "-DCONFIG_OPENTHREAD_SRP_SERVER=y"
+    "-DCONFIG_OPENTHREAD_DEVICE_PROP_LEADER_WEIGHT=y"
+    "-DCONFIG_OPENTHREAD_HISTORY_TRACKER=y"
+    "-DCONFIG_OPENTHREAD_ENABLE_SERVICE=y"
+    "-DCONFIG_OPENTHREAD_COMMISSIONER=y"
+)
+readonly EXTRA_OPTIONS
+
+main()
+{
+    mkdir -p ot-versions
+
+    OTNS_NODE_TYPE="br" OT_DEVICE_TYPE="ftd" OT_THREAD_VERSION="1_4" ./script/build "${EXTRA_OPTIONS[@]}" "$@"
+    ./script/install_exe br ot-cli-ftd_br
+}
+
+main "$@"

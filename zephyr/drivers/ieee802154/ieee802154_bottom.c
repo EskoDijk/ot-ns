@@ -1,6 +1,29 @@
 /*
- * Copyright (c) 2026
- * SPDX-License-Identifier: Apache-2.0
+ * Copyright (c) 2026, The OTNS Authors.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ * 3. Neither the name of the copyright holder nor the
+ *    names of its contributors may be used to endorse or promote products
+ *    derived from this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
  *
  * Runner ("bottom") side of the OTNS virtual IEEE 802.15.4 radio driver.
  *
@@ -38,7 +61,7 @@
 #include "nsi_tasks.h"
 #include "nsi_tracing.h"
 
-#include "ieee802154_otns_priv.h"
+#include "ieee802154_priv.h"
 
 #define PHY_BITRATE_DEFAULT 250000U /* bit/s (O-QPSK 2.4 GHz) */
 #define RADIO_MSG_HDR sizeof(((struct RadioMessage *)0)->mChannel)
@@ -87,9 +110,9 @@ static int16_t  s_clock_drift_ppm = 0; /* can be <0, 0 or >0 */
 
 /* Drift-offset bookkeeping applied to OpenThread's millisecond alarm base (see
  * update_alarm_drift_offset() below). */
-static int64_t  s_drift_ps               = 0; /* sub-microsecond fractional accumulator (ppm*us units) */
-static int64_t  s_drift_us_total         = 0; /* cumulative whole-microsecond drift since node start */
-static uint64_t s_drift_last_time        = 0; /* nsi_hws_get_time() at the last drift update */
+static int64_t  s_drift_ps                = 0; /* sub-microsecond fractional accumulator (ppm*us units) */
+static int64_t  s_drift_us_total          = 0; /* cumulative whole-microsecond drift since node start */
+static uint64_t s_drift_last_time         = 0; /* nsi_hws_get_time() at the last drift update */
 static int32_t  s_drift_offset_ms_applied = 0; /* last value handed to alarm_milli_set_time_offset_ms() */
 
 /* ------------------------------------------------------------------------- */
@@ -177,10 +200,7 @@ static void update_alarm_drift_offset(uint64_t now)
     }
 }
 
-int32_t nsi_otns_bottom_get_drift_offset_ms(void)
-{
-    return s_drift_offset_ms_applied;
-}
+int32_t nsi_otns_bottom_get_drift_offset_ms(void) { return s_drift_offset_ms_applied; }
 
 /* ------------------------------------------------------------------------- */
 /* Socket I/O                                                                */
@@ -704,7 +724,7 @@ int nsi_otns_bottom_tx(uint8_t channel, int8_t power, const uint8_t *psdu, uint1
         return -1;
     }
 
-duration = (uint64_t)(OT_RADIO_SHR_PHR_LENGTH_BYTES + len) * 8U * 1000000U / s_phy_bitrate;
+    duration = (uint64_t)(OT_RADIO_SHR_PHR_LENGTH_BYTES + len) * 8U * 1000000U / s_phy_bitrate;
 
     data[0] = channel;
     data[1] = (uint8_t)power;

@@ -51,6 +51,10 @@ ot-cli-mtd*
 ot-rcp
 ot-cli
 
+# zephyr build items
+/zephyr/build*/
+/zephyr/apps/build*/
+
 # pylibs installation files
 /pylibs/build/
 /pylibs/dist/

@@ -19,7 +19,6 @@ readonly ZEPHYR_SRCDIR
 readonly OTNS_ROOT
 
 COMMON_OPTIONS=(
-#    "-DCONFIG_OPENTHREAD_BORDER_ROUTER=y"
     "-DCONFIG_OPENTHREAD_PING_SENDER=y"
     "-DCONFIG_OPENTHREAD_DNS_CLIENT=y"
     "-DCONFIG_OPENTHREAD_TCP_ENABLE=y"
@@ -49,7 +48,7 @@ build()
 {
     local nodetype="${OTNS_NODE_TYPE:-custom}"
     local builddir="${OT_CMAKE_BUILD_DIR:-build/${nodetype}}"
-    local app="${ZEPHYR_APP:-apps/shell}"
+    local app="${ZEPHYR_APP:-apps/cli}"
     local device_type="${OT_DEVICE_TYPE:?OT_DEVICE_TYPE must be set to 'ftd' or 'mtd'}"
     local thread_version="${OT_THREAD_VERSION:?OT_THREAD_VERSION must be set, e.g. '1_4'}"
     local device_options=()
@@ -60,9 +59,6 @@ build()
             ;;
         mtd)
             device_options+=("-DCONFIG_OPENTHREAD_FTD=n" "-DCONFIG_OPENTHREAD_MTD=y")
-            if [[ ${thread_version} != "1_1" ]]; then
-                device_options+=("-DCONFIG_OPENTHREAD_CSL_RECEIVER=y")
-            fi
             ;;
         *)
             echo "error: OT_DEVICE_TYPE must be 'ftd' or 'mtd', got '${device_type}'" >&2

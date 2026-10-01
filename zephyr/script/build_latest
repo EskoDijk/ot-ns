@@ -6,14 +6,26 @@
 
 set -euxo pipefail
 
+EXTRA_MTD_OPTIONS=(
+    "-DCONFIG_OPENTHREAD_CSL_RECEIVER=y"
+)
+readonly EXTRA_MTD_OPTIONS
+
+EXTRA_FTD_OPTIONS=(
+    "-DCONFIG_OPENTHREAD_BORDER_ROUTER=y"
+)
+readonly EXTRA_FTD_OPTIONS
+
 main()
 {
     mkdir -p ot-versions
 
-    OTNS_NODE_TYPE="latest-ftd" OT_DEVICE_TYPE="ftd" OT_THREAD_VERSION="1_4" ./script/build "$@"
+    OTNS_NODE_TYPE="latest-ftd" OT_DEVICE_TYPE="ftd" OT_THREAD_VERSION="1_4" ./script/build \
+        "${EXTRA_FTD_OPTIONS[@]}" "$@"
     ./script/install_exe latest-ftd ot-cli-ftd
 
-    OTNS_NODE_TYPE="latest-mtd" OT_DEVICE_TYPE="mtd" OT_THREAD_VERSION="1_4" ./script/build "$@"
+    OTNS_NODE_TYPE="latest-mtd" OT_DEVICE_TYPE="mtd" OT_THREAD_VERSION="1_4" ./script/build \
+        "${EXTRA_MTD_OPTIONS[@]}" "$@"
     ./script/install_exe latest-mtd ot-cli-mtd
 }
 

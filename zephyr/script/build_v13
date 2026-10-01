@@ -6,6 +6,11 @@
 
 set -euxo pipefail
 
+EXTRA_MTD_OPTIONS=(
+    "-DCONFIG_OPENTHREAD_CSL_RECEIVER=y"
+)
+readonly EXTRA_MTD_OPTIONS
+
 main()
 {
     mkdir -p ot-versions
@@ -13,7 +18,8 @@ main()
     OTNS_NODE_TYPE="v13-ftd" OT_DEVICE_TYPE="ftd" OT_THREAD_VERSION="1_3" ./script/build "$@"
     ./script/install_exe v13-ftd ot-cli-ftd_v13
 
-    OTNS_NODE_TYPE="v13-mtd" OT_DEVICE_TYPE="mtd" OT_THREAD_VERSION="1_3" ./script/build "$@"
+    OTNS_NODE_TYPE="v13-mtd" OT_DEVICE_TYPE="mtd" OT_THREAD_VERSION="1_3" ./script/build \
+        "${EXTRA_MTD_OPTIONS[@]}" "$@"
     ./script/install_exe v13-mtd ot-cli-mtd_v13
 }
 

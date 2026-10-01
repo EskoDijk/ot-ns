@@ -1,6 +1,29 @@
 /*
- * Copyright (c) 2026
- * SPDX-License-Identifier: Apache-2.0
+ * Copyright (c) 2026, The OTNS Authors.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ * 3. Neither the name of the copyright holder nor the
+ *    names of its contributors may be used to endorse or promote products
+ *    derived from this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
  *
  * Embedded (Zephyr CPU) side of the OTNS virtual IEEE 802.15.4 radio driver.
  *
@@ -37,7 +60,7 @@ LOG_MODULE_REGISTER(LOG_MODULE_NAME);
 #include <zephyr/net/openthread.h>
 #endif
 
-#include "ieee802154_otns_priv.h"
+#include "ieee802154_priv.h"
 #include "radio.h"
 #include <openthread/link.h>
 #include <openthread/platform/otns.h>
@@ -130,6 +153,7 @@ struct ctx
 
     struct k_sem tx_wait;
     struct k_sem cca_wait;
+    struct k_sem ack_tx_done; /* given when a pending deferred auto-ACK transmission completes */
 
     volatile int  tx_result;
     volatile bool cca_channel_free;
@@ -303,7 +327,8 @@ static bool frame_is_for_me(const uint8_t *psdu, uint16_t len, struct frame_addr
         }
         return memcmp(&psdu[info->dst_off], data.short_addr, SHORT_ADDR_SIZE) == 0;
     }
-    else if (info->dst_mode == ADDR_MODE_EXT)
+
+    if (info->dst_mode == ADDR_MODE_EXT)
     {
         if (info->dst_off + OT_EXT_ADDRESS_SIZE > len)
         {
@@ -756,6 +781,7 @@ static void isr(const void *arg)
                     data.sleep_pending = false;
                     nsi_otns_bottom_set_state(OT_RADIO_STATE_SLEEP, data.channel);
                 }
+                k_sem_give(&data.ack_tx_done);
                 break;
             }
             data.tx_result = err_to_errno(ev.data.mError);
@@ -978,8 +1004,8 @@ static int tx(const struct device *dev, enum ieee802154_tx_mode mode, struct net
                     dst_ext_be[i] = psdu[tx_info.dst_off + OT_EXT_ADDRESS_SIZE - 1 - i];
                 }
                 LOG_INF("TX seq %u type %d -> ext %02x%02x%02x%02x%02x%02x%02x%02x", tx_info.seq,
-                        tx_info.fcf & FCF_FRAME_TYPE_MASK, dst_ext_be[0], dst_ext_be[1], dst_ext_be[2],
-                        dst_ext_be[3], dst_ext_be[4], dst_ext_be[5], dst_ext_be[6], dst_ext_be[7]);
+                        tx_info.fcf & FCF_FRAME_TYPE_MASK, dst_ext_be[0], dst_ext_be[1], dst_ext_be[2], dst_ext_be[3],
+                        dst_ext_be[4], dst_ext_be[5], dst_ext_be[6], dst_ext_be[7]);
             }
             else if (tx_info.dst_mode == ADDR_MODE_SHORT)
             {
@@ -996,7 +1022,30 @@ static int tx(const struct device *dev, enum ieee802154_tx_mode mode, struct net
 
     k_sem_reset(&ctx->tx_wait);
 
-    nsi_otns_bottom_set_state(OT_RADIO_STATE_TRANSMIT, ctx->channel);
+    /*
+     * A previously received frame may still have a deferred auto-ACK armed
+     * (schedule_ack()/nsi_otns_bottom_tx_after()), which transmits on its own
+     * timer independently of this thread. Starting our own TX while that ACK
+     * is still outstanding would make this node issue two overlapping
+     * RADIO_COMM_START events, which OTNS's radio model does not expect from
+     * a single node and reports as an internal error. Wait for it to finish
+     * first; the irq_lock() makes the pending-check/clear-to-send atomic with
+     * respect to a new ACK being armed from the ISR in between.
+     */
+    for (;;)
+    {
+        unsigned int key = irq_lock();
+
+        if (!ctx->ack_tx_pending)
+        {
+            nsi_otns_bottom_set_state(OT_RADIO_STATE_TRANSMIT, ctx->channel);
+            irq_unlock(key);
+            break;
+        }
+
+        irq_unlock(key);
+        k_sem_take(&ctx->ack_tx_done, K_FOREVER);
+    }
 
     ret = nsi_otns_bottom_tx(ctx->channel, ctx->txpower, psdu, len + FCS_SIZE);
     if (ret < 0)
@@ -1053,8 +1102,8 @@ static int tx(const struct device *dev, enum ieee802154_tx_mode mode, struct net
                     LOG_DBG("ACK not handled");
                 }
                 /* Frame Pending bit tells a polling child whether the parent has buffered data. */
-                LOG_INF("ACK for seq %u: fcf=0x%04x frame_pending=%d", ctx->tx_seq,
-                        sys_get_le16(ctx->ack_psdu), (ctx->ack_psdu[0] & (FCF_FRAME_PENDING_BIT & 0xff)) != 0);
+                LOG_INF("ACK for seq %u: fcf=0x%04x frame_pending=%d", ctx->tx_seq, sys_get_le16(ctx->ack_psdu),
+                        (ctx->ack_psdu[0] & (FCF_FRAME_PENDING_BIT & 0xff)) != 0);
             }
             net_pkt_unref(ack_pkt);
         }
@@ -1292,6 +1341,7 @@ static int init(const struct device *dev)
 
     k_sem_init(&ctx->tx_wait, 0, 1);
     k_sem_init(&ctx->cca_wait, 0, 1);
+    k_sem_init(&ctx->ack_tx_done, 0, 1);
 
     ctx->channel = kMinChannel;
     ctx->txpower = 0;

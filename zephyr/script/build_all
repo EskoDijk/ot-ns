@@ -19,7 +19,7 @@ main()
 {
     local options=("$@")
 
-    for VER in latest v11 v12 v13; do
+    for VER in latest v11 v12 v13 br; do
         local scriptname="./script/build_${VER}"
 
         printf 'Node %s: building with script %s\n' "${VER}" "${scriptname}"
