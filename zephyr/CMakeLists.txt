@@ -7,6 +7,8 @@ if(CONFIG_IEEE802154_OTNS)
 
   zephyr_library()
   zephyr_library_sources(${otns_drv_dir}/ieee802154.c)
+  zephyr_library_sources(${otns_drv_dir}/ieee802154_frame.c)
+  zephyr_library_sources(${otns_drv_dir}/ieee802154_isr.c)
   zephyr_include_directories(${otns_drv_dir})
   zephyr_include_directories(${CMAKE_CURRENT_SOURCE_DIR}/..)
   zephyr_include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../ot-rfsim/src)
