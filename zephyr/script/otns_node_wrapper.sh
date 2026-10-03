@@ -18,13 +18,13 @@ FLASH="${OTNS_DATA_PATH}/${PORT_OFFSET}_${NODE_ID}.flash"
 ENTROPY_SEED="${SEED:-$NODE_ID}"
 
 set -- "$ZEPHYR_EXE" \
-        --otns-node-id="$NODE_ID" \
-        --otns-socket="$SOCKET" \
-        --flash="$FLASH" \
-        --seed="$ENTROPY_SEED"
+    --otns-node-id="$NODE_ID" \
+    --otns-socket="$SOCKET" \
+    --flash="$FLASH" \
+    --seed="$ENTROPY_SEED"
 
 if [ -n "$SEED" ]; then
-	set -- "$@" --otns-seed="$SEED"
+    set -- "$@" --otns-seed="$SEED"
 fi
 
 exec "$@"
