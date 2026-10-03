@@ -7,8 +7,8 @@
 
 int main(void)
 {
-	switch_coap_init();
-	switch_input_init();
+    switch_coap_init();
+    switch_input_init();
 
-	return 0;
+    return 0;
 }

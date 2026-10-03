@@ -33,8 +33,8 @@
 #ifndef IEEE802154_OTNS_FRAME_H__
 #define IEEE802154_OTNS_FRAME_H__
 
-#include <stddef.h>
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
 #include "radio.h"

@@ -17,10 +17,11 @@
 #define LIGHT_COAP_MULTICAST_ADDR "ff03::1"
 
 /** Single-byte command payload exchanged over the "light" CoAP resource. */
-enum light_cmd {
-	LIGHT_CMD_OFF = 0,
-	LIGHT_CMD_ON = 1,
-	LIGHT_CMD_TOGGLE = 2,
+enum light_cmd
+{
+    LIGHT_CMD_OFF    = 0,
+    LIGHT_CMD_ON     = 1,
+    LIGHT_CMD_TOGGLE = 2,
 };
 
 #endif /* SWITCH_LIGHT_PROTOCOL_H_ */

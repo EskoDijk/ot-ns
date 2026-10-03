@@ -6,7 +6,7 @@
 
 int main(void)
 {
-	light_output_init();
+    light_output_init();
 
-	return 0;
+    return 0;
 }
