@@ -79,7 +79,6 @@ ZEPHYR_EXE="/path/to/your/build/zephyr/zephyr.exe" exec "/path/to/zephyr/script/
 
 Point OTNS at this launcher (e.g. as the node binary name when adding a node), so it can start your custom application like any other OTNS node type.
 
-
 Use the `exe` argument of the OTNS CLI's `add` command to point a new node at your wrapper launcher instead of one of the default executables:
 
 ```bash
