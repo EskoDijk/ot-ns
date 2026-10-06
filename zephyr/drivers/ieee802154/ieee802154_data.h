@@ -24,10 +24,6 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
- *
- * Shared driver state (struct otns_radio_data) for the embedded-side IEEE
- * 802.15.4 OTNS driver, split across ieee802154.c, ieee802154_frame.c and
- * ieee802154_isr.c. `data`/`radio_dev` are defined once in ieee802154.c.
  */
 
 #ifndef IEEE802154_OTNS_DATA_H__
@@ -49,58 +45,49 @@
 struct otns_radio_data
 {
     struct net_if *iface;
-    uint8_t        mac_addr[8];
+    uint8_t        mac_addr[OT_EXT_ADDRESS_SIZE];
 
-    /* Synchronous TX completion / CCA / deferred-ACK signaling. */
     struct k_sem tx_wait;
     struct k_sem cca_wait;
-    struct k_sem ack_tx_done; /* given when a pending deferred auto-ACK transmission completes */
+    struct k_sem ack_tx_done;
 
     volatile int  tx_result;
     volatile bool cca_channel_free;
 
-    /* State of the frame currently being transmitted, and its received ACK (if any). */
     bool              tx_wants_ack;
     uint8_t           tx_seq;
     uint8_t           ack_psdu[OT_RADIO_FRAME_MAX_SIZE];
     volatile uint16_t ack_len;
 
-    /* Address filters (ieee802154_radio_api.filter()). */
-    uint8_t pan_id[2];
-    uint8_t short_addr[2];
-    uint8_t ext_addr[8];
+    uint8_t pan_id[PAN_ID_SIZE];
+    uint8_t short_addr[SHORT_ADDR_SIZE];
+    uint8_t ext_addr[OT_EXT_ADDRESS_SIZE];
 
-    /* Auto-ACK frame-pending-bit (FPB) address list. */
     bool     auto_ack_fpb_enabled;
     uint16_t fpb_short[MAX_FPB_ENTRIES];
     uint8_t  fpb_short_count;
     uint8_t  fpb_ext[MAX_FPB_ENTRIES][OT_EXT_ADDRESS_SIZE];
     uint8_t  fpb_ext_count;
 
-    /* Energy-detection scan (ed_scan()). */
     bool                  ed_scan_pending;
     energy_scan_done_cb_t ed_done_cb;
 
-    /* Deferred auto-ACK transmission vs. a stop() requested while it's in flight. */
     bool ack_tx_pending;
     bool sleep_pending;
 
-    /* Coordinated Sampled Listening (CSL) phase computation for Enhanced ACKs. */
     uint32_t csl_period;
     int64_t  csl_expected_rx_time_ns;
 
     struct enh_ack_ie ack_ies[MAX_ACK_IES];
+
+    struct mac_key_entry mac_keys[MAX_MAC_KEYS];
+    uint32_t             mac_frame_counter;
 
     uint8_t channel;
     int8_t  txpower;
     bool    started;
 };
 
-/*
- * This driver only ever instantiates one device (NET_DEVICE_DT_INST_DEFINE(0, ...) in
- * ieee802154.c), so `data` is accessed directly everywhere (ISR included) rather than
- * via dev->data indirection.
- */
 extern struct otns_radio_data data;
 
 extern const struct device *radio_dev;

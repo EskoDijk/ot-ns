@@ -24,14 +24,14 @@ static int light_put(struct coap_resource *resource,
                      struct sockaddr      *addr,
                      socklen_t             addr_len)
 {
-    const uint8_t *payload;
-    uint16_t       payload_len;
+    uint16_t payload_len;
 
     ARG_UNUSED(resource);
     ARG_UNUSED(addr);
     ARG_UNUSED(addr_len);
 
-    payload = coap_packet_get_payload(request, &payload_len);
+    const uint8_t *payload = coap_packet_get_payload(request, &payload_len);
+
     if (!payload || payload_len != 1)
     {
         LOG_ERR("Light handler: missing or malformed command payload");

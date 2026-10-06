@@ -13,6 +13,12 @@ readonly EXTRA_MTD_OPTIONS
 
 EXTRA_FTD_OPTIONS=(
     "-DCONFIG_OPENTHREAD_BORDER_ROUTER=y"
+    # Needed so Zephyr's Kconfig turns on OPENTHREAD_PLATFORM_USEC_TIMER (that symbol
+    # has no prompt of its own, and otherwise only defaults on for CSL_RECEIVER/child
+    # builds) - without it, the parent-side CSL transmit scheduler (SubMac::mCslTimer,
+    # a TimerMicro) never fires, so queued CSL transmissions to sleepy children are
+    # scheduled but never actually sent.
+    "-DCONFIG_OPENTHREAD_CSL_RECEIVER=y"
 )
 readonly EXTRA_FTD_OPTIONS
 

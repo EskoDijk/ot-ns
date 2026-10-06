@@ -26,8 +26,6 @@ static int                sock = -1;
 
 void switch_coap_init(void)
 {
-    int ret;
-
     sock = socket(AF_INET6, SOCK_DGRAM, IPPROTO_UDP);
     if (sock < 0)
     {
@@ -35,7 +33,8 @@ void switch_coap_init(void)
         return;
     }
 
-    ret = coap_client_init(&client, NULL);
+    int ret = coap_client_init(&client, NULL);
+
     if (ret)
     {
         LOG_ERR("Failed to init CoAP client: %d", ret);
@@ -66,7 +65,6 @@ void switch_input_send_command(enum light_cmd cmd)
             },
         .num_options = 1,
     };
-    int ret;
 
     if (sock < 0)
     {
@@ -77,7 +75,8 @@ void switch_input_send_command(enum light_cmd cmd)
     payload = (uint8_t)cmd;
     inet_pton(AF_INET6, LIGHT_COAP_MULTICAST_ADDR, &addr.sin6_addr);
 
-    ret = coap_client_req(&client, sock, (struct sockaddr *)&addr, &req, NULL);
+    int ret = coap_client_req(&client, sock, (struct sockaddr *)&addr, &req, NULL);
+
     if (ret)
     {
         LOG_ERR("Failed to send CoAP request: %d", ret);

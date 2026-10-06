@@ -81,11 +81,11 @@ static int  acc_len;
 static int cli_output_cb(void *context, const char *format, va_list arg)
 {
     char buf[OUTPUT_BUF_MAX];
-    int  len;
 
     ARG_UNUSED(context);
 
-    len = vsnprintf(buf, sizeof(buf), format, arg);
+    int len = vsnprintf(buf, sizeof(buf), format, arg);
+
     if (len <= 0)
     {
         return 0;

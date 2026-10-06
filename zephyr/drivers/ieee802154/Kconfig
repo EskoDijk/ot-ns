@@ -7,6 +7,7 @@ config IEEE802154_OTNS
 	depends on DT_HAS_ZEPHYR_IEEE802154_OTNS_ENABLED
 	depends on ARCH_POSIX
 	depends on NATIVE_LIBRARY
+	select NET_PKT_TIMESTAMP
 	help
 	  Virtual IEEE 802.15.4 radio driver for the native_sim board that
 	  connects to the OpenThread Network Simulator (OTNS) over a Unix domain

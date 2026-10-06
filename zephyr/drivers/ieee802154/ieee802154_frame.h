@@ -39,7 +39,6 @@
 
 #include "radio.h"
 
-/* IEEE 802.15.4 MAC framing constants. */
 #define FCS_SIZE 2
 #define FCF_SIZE 2
 #define MIN_FRAME_SIZE 3
@@ -49,11 +48,12 @@
 #define ACK_FRAME_SIZE 5
 #define FCF_FRAME_TYPE_MASK 0x0007
 #define FCF_FRAME_TYPE_ACK 0x0002
+#define FCF_FRAME_TYPE_CMD 0x0003
 #define FCF_ACK_CONTROL_BYTE_0 0x02
 #define FCF_ACK_CONTROL_BYTE_1 0x00
 #define FCF_FRAME_PENDING_BIT 0x0010
 #define FCF_ACK_REQ_BIT 0x0020
-#define FCF_BYTE0_FRAME_PENDING_BIT (FCF_FRAME_PENDING_BIT & 0xff) /* FCF low byte, for byte-wise PSDU access */
+#define FCF_BYTE0_FRAME_PENDING_BIT (FCF_FRAME_PENDING_BIT & 0xff)
 #define FCF_BYTE0_ACK_REQ_BIT (FCF_ACK_REQ_BIT & 0xff)
 #define FCF_PAN_COMPR_BIT 0x0040
 #define FCF_DST_MODE_MASK 0x0c00
@@ -63,6 +63,7 @@
 #define FCF_VERSION_MASK 0x3000
 #define FCF_VERSION_SHIFT 12
 #define FCF_SEQ_SUPPR_BIT 0x0100
+#define FCF_SECURITY_ENABLED_BIT 0x0008 /* bit 3 */
 #define IEEE802154_VERSION_2015 2
 #define CRC_POLY_KERMIT 0x8408U
 #define CRC_INIT 0
@@ -70,31 +71,39 @@
 #define ADDR_MODE_NONE 0
 #define ADDR_MODE_SHORT 2
 #define ADDR_MODE_EXT 3
-#define FRAME_OFF_NONE (-1) /* sentinel for frame_addr_info.{dst,src}_off: address not present */
+#define FRAME_OFF_NONE (-1)
 
-/* Header IE (Information Element), IEEE 802.15.4-2015 section 7.4.2.1. */
-#define HEADER_IE_HDR_SIZE 2 /* 2-byte length+element-id header preceding the IE content */
+#define HEADER_IE_HDR_SIZE 2
 #define HEADER_IE_LEN_MASK 0x7f
 #define HEADER_IE_ID_SHIFT 7
-#define FCF_IE_PRESENT_BIT 0x0080 /* bit 7 */
+#define FCF_IE_PRESENT_BIT 0x0200
 #define HEADER_IE_ID_CSL 0x1a
+#define HEADER_IE_ID_TERMINATION_2 0x7f
+#define ACK_IE_CSL_CONTENT_SIZE 4
 
-/* Thread vendor-specific Enhanced-ACK Probing (Link Metrics) IE, Thread 1.2 4.11.3.4.4.6. */
 #define LM_TOKEN_RSSI 0x01
 #define LM_TOKEN_MARGIN 0x02
 #define LM_TOKEN_LQI 0x03
-/* Vendor IE layout: content[0..2]=OUI, [3]=subtype, [4..]=LM_TOKEN_* placeholders. */
 #define LM_VENDOR_IE_TOKEN_OFFSET 4
-/* Thread Link Metrics dBm-to-byte linear mapping range (Thread 1.2 4.11.3.4.4.6). */
 #define LM_METRIC_RANGE_DBM 130
 
-/* Max stored Enhanced-ACK header IE templates (IEEE802154_CONFIG_ENH_ACK_HEADER_IE). */
 #define MAX_ACK_IES 4
 #define ACK_IE_MAX_CONTENT (OT_ACK_IE_MAX_SIZE - 2)
 
 #define MAX_FPB_ENTRIES 32
 
 #define AIFS_TURNAROUND_US ((uint32_t)OT_RADIO_AIFS_TIME_US)
+
+#define MAX_MAC_KEYS 3
+#define MAC_KEY_SIZE 16
+
+struct mac_key_entry
+{
+    bool    valid;
+    uint8_t key_id_mode;
+    uint8_t key_id;
+    uint8_t key[MAC_KEY_SIZE];
+};
 
 struct enh_ack_ie
 {
@@ -141,5 +150,13 @@ void schedule_ack(const uint8_t *rx_psdu, uint16_t rx_len, int8_t rssi, const st
 
 struct ieee802154_config;
 int configure_enh_ack_ie(const struct ieee802154_config *config);
+
+struct ieee802154_key;
+
+void set_mac_keys(const struct ieee802154_key *keys);
+
+void set_frame_counter(uint32_t counter, bool only_if_larger);
+
+int encrypt_tx_frame(uint8_t *psdu, uint16_t len);
 
 #endif /* IEEE802154_OTNS_FRAME_H__ */

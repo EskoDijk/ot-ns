@@ -48,7 +48,6 @@ void switch_input_init(void)
     for (size_t i = 0; i < ARRAY_SIZE(buttons); i++)
     {
         struct switch_button *button = &buttons[i];
-        int                   ret;
 
         if (!gpio_is_ready_dt(&button->gpio))
         {
@@ -56,7 +55,8 @@ void switch_input_init(void)
             continue;
         }
 
-        ret = gpio_pin_configure_dt(&button->gpio, GPIO_INPUT);
+        int ret = gpio_pin_configure_dt(&button->gpio, GPIO_INPUT);
+
         if (ret)
         {
             LOG_ERR("Failed to configure button (%d)", ret);

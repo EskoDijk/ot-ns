@@ -11,11 +11,22 @@ EXTRA_MTD_OPTIONS=(
 )
 readonly EXTRA_MTD_OPTIONS
 
+# Needed so Zephyr's Kconfig turns on OPENTHREAD_PLATFORM_USEC_TIMER (that symbol has
+# no prompt of its own, and otherwise only defaults on for CSL_RECEIVER/child builds) -
+# without it, the parent-side CSL transmit scheduler (SubMac::mCslTimer, a TimerMicro)
+# never fires, so queued CSL transmissions to sleepy children are scheduled but never
+# actually sent.
+EXTRA_FTD_OPTIONS=(
+    "-DCONFIG_OPENTHREAD_CSL_RECEIVER=y"
+)
+readonly EXTRA_FTD_OPTIONS
+
 main()
 {
     mkdir -p ot-versions
 
-    OTNS_NODE_TYPE="v12-ftd" OT_DEVICE_TYPE="ftd" OT_THREAD_VERSION="1_2" ./script/build "$@"
+    OTNS_NODE_TYPE="v12-ftd" OT_DEVICE_TYPE="ftd" OT_THREAD_VERSION="1_2" ./script/build \
+        "${EXTRA_FTD_OPTIONS[@]}" "$@"
     ./script/install_exe v12-ftd ot-cli-ftd_v12
 
     OTNS_NODE_TYPE="v12-mtd" OT_DEVICE_TYPE="mtd" OT_THREAD_VERSION="1_2" ./script/build \

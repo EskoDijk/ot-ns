@@ -31,10 +31,6 @@
  * operations into calls to the runner ("bottom") side, which owns the real Unix
  * domain socket to OTNS. Received radio events are delivered from the runner
  * side through IEEE802154_OTNS_IRQ and processed by isr() (ieee802154_isr.c).
- *
- * Frame parsing / FPB list / Enhanced-ACK building live in ieee802154_frame.c;
- * RX delivery and ISR/event handling live in ieee802154_isr.c; shared state is
- * declared in ieee802154_data.h.
  */
 
 #define DT_DRV_COMPAT zephyr_ieee802154_otns
@@ -85,10 +81,6 @@ LOG_MODULE_REGISTER(LOG_MODULE_NAME);
 
 #define OPENTHREAD_MTU 1280
 
-/*
- * This driver only ever instantiates one device (NET_DEVICE_DT_INST_DEFINE(0, ...) below), so
- * `data` is accessed directly everywhere (ISR included) rather than via dev->data indirection.
- */
 struct otns_radio_data data;
 
 const struct device *radio_dev;
@@ -102,12 +94,11 @@ static enum ieee802154_hw_caps get_capabilities(const struct device *dev)
     ARG_UNUSED(dev);
 
     return IEEE802154_HW_FCS | IEEE802154_HW_FILTER | IEEE802154_HW_ENERGY_SCAN | IEEE802154_HW_TX_RX_ACK |
-           IEEE802154_HW_RX_TX_ACK;
+           IEEE802154_HW_RX_TX_ACK | IEEE802154_HW_TX_SEC;
 }
 
 static int energy_scan(const struct device *dev, uint16_t duration, energy_scan_done_cb_t done_cb)
 {
-    /* The simulated radio reports a single sample per request; requested scan duration is not honored. */
     ARG_UNUSED(dev);
     ARG_UNUSED(duration);
 
@@ -244,27 +235,19 @@ static void log_tx_frame(const uint8_t *psdu, uint16_t len)
         {
             dst_ext_be[i] = psdu[tx_info.dst_off + OT_EXT_ADDRESS_SIZE - 1 - i];
         }
-        LOG_INF("TX seq %u type %d -> ext %02x%02x%02x%02x%02x%02x%02x%02x", tx_info.seq,
+        LOG_DBG("TX seq %u type %d -> ext %02x%02x%02x%02x%02x%02x%02x%02x", tx_info.seq,
                 tx_info.fcf & FCF_FRAME_TYPE_MASK, dst_ext_be[0], dst_ext_be[1], dst_ext_be[2], dst_ext_be[3],
                 dst_ext_be[4], dst_ext_be[5], dst_ext_be[6], dst_ext_be[7]);
     }
     else if (tx_info.dst_mode == ADDR_MODE_SHORT)
     {
-        LOG_INF("TX seq %u type %d -> short 0x%04x", tx_info.seq, tx_info.fcf & FCF_FRAME_TYPE_MASK,
+        LOG_DBG("TX seq %u type %d -> short 0x%04x", tx_info.seq, tx_info.fcf & FCF_FRAME_TYPE_MASK,
                 sys_get_le16(&psdu[tx_info.dst_off]));
     }
 }
 
-static int tx(const struct device *dev, enum ieee802154_tx_mode mode, struct net_pkt *pkt, struct net_buf *frag)
+static int tx_check_preconditions(enum ieee802154_tx_mode mode, uint16_t len)
 {
-    uint8_t  psdu[OT_RADIO_FRAME_MAX_SIZE];
-    uint16_t len = frag->len;
-    uint16_t fcs;
-    int      ret;
-    int      rc = 0;
-
-    ARG_UNUSED(pkt);
-
     if (mode != IEEE802154_TX_MODE_DIRECT && mode != IEEE802154_TX_MODE_CCA)
     {
         LOG_ERR("TX mode %d not supported", mode);
@@ -281,39 +264,29 @@ static int tx(const struct device *dev, enum ieee802154_tx_mode mode, struct net
         return -EMSGSIZE;
     }
 
-    if (mode == IEEE802154_TX_MODE_CCA)
+    return 0;
+}
+
+static int tx_build_psdu(struct net_buf *frag, uint16_t len, uint8_t *psdu)
+{
+    memcpy(psdu, frag->data, len);
+    if (encrypt_tx_frame(psdu, len) < 0)
     {
-        ret = cca(dev);
-        if (ret != 0)
-        {
-            return ret;
-        }
+        return -EIO;
     }
 
-    memcpy(psdu, frag->data, len);
-    fcs           = crc16(psdu, len);
+    uint16_t fcs = crc16(psdu, len);
+
     psdu[len]     = fcs & 0xff;
     psdu[len + 1] = fcs >> 8;
 
     log_tx_frame(psdu, len);
 
-    data.tx_wants_ack = (len >= 1) && (frag->data[0] & FCF_BYTE0_ACK_REQ_BIT);
-    data.tx_seq       = (len >= MIN_FRAME_SIZE) ? frag->data[2] : 0;
-    data.ack_len      = 0;
-    data.tx_result    = 0;
+    return 0;
+}
 
-    k_sem_reset(&data.tx_wait);
-
-    /*
-     * A previously received frame may still have a deferred auto-ACK armed
-     * (schedule_ack()/nsi_otns_bottom_tx_after()), which transmits on its own
-     * timer independently of this thread. Starting our own TX while that ACK
-     * is still outstanding would make this node issue two overlapping
-     * RADIO_COMM_START events, which OTNS's radio model does not expect from
-     * a single node and reports as an internal error. Wait for it to finish
-     * first; the irq_lock() makes the pending-check/clear-to-send atomic with
-     * respect to a new ACK being armed from the ISR in between.
-     */
+static int tx_send_frame(const uint8_t *psdu, uint16_t air_len)
+{
     for (;;)
     {
         unsigned int key = irq_lock();
@@ -329,15 +302,18 @@ static int tx(const struct device *dev, enum ieee802154_tx_mode mode, struct net
         k_sem_take(&data.ack_tx_done, K_FOREVER);
     }
 
-    ret = nsi_otns_bottom_tx(data.channel, data.txpower, psdu, len + FCS_SIZE);
-    if (ret < 0)
+    if (nsi_otns_bottom_tx(data.channel, data.txpower, psdu, air_len) < 0)
     {
-        rc = -EIO;
-        goto out;
+        return -EIO;
     }
 
     nsi_otns_bottom_set_state(OT_RADIO_STATE_RECEIVE, data.channel);
 
+    return 0;
+}
+
+static int tx_wait_for_result(uint16_t len)
+{
     if (data.tx_wants_ack)
     {
         uint32_t frame_us =
@@ -345,8 +321,7 @@ static int tx(const struct device *dev, enum ieee802154_tx_mode mode, struct net
 
         if (k_sem_take(&data.tx_wait, K_USEC(frame_us + ACK_ALLOWANCE_US)) != 0)
         {
-            rc = -ENOMSG;
-            goto out;
+            return -ENOMSG;
         }
     }
     else
@@ -354,44 +329,102 @@ static int tx(const struct device *dev, enum ieee802154_tx_mode mode, struct net
         (void)k_sem_take(&data.tx_wait, K_FOREVER);
     }
 
-    if (data.tx_result != 0)
+    return data.tx_result;
+}
+
+static void tx_deliver_ack(void)
+{
+    struct net_pkt *ack_pkt;
+    uint16_t ack_mac_len = IS_ENABLED(CONFIG_IEEE802154_L2_PKT_INCL_FCS) ? data.ack_len : data.ack_len - FCS_SIZE;
+
+    ack_pkt = net_pkt_rx_alloc_with_buffer(data.iface, ack_mac_len, NET_AF_UNSPEC, 0, K_NO_WAIT);
+    if (ack_pkt == NULL)
     {
-        rc = data.tx_result;
-        goto out;
+        return;
     }
 
-    if (data.tx_wants_ack)
+    if (net_pkt_write(ack_pkt, data.ack_psdu, ack_mac_len) == 0)
     {
-        if (data.ack_len == 0)
+        net_pkt_set_ieee802154_lqi(ack_pkt, LQI_PERFECT);
+        net_pkt_set_ieee802154_rssi_dbm(ack_pkt, 0);
+        net_pkt_set_timestamp_ns(ack_pkt, k_ticks_to_ns_floor64(k_uptime_ticks()));
+        net_pkt_cursor_init(ack_pkt);
+        if (ieee802154_handle_ack(data.iface, ack_pkt) != NET_OK)
         {
-            rc = -ENOMSG;
-            goto out;
+            LOG_DBG("ACK not handled");
         }
+        LOG_DBG("ACK for seq %u: fcf=0x%04x frame_pending=%d", data.tx_seq, sys_get_le16(data.ack_psdu),
+                (data.ack_psdu[0] & FCF_BYTE0_FRAME_PENDING_BIT) != 0);
+    }
+    net_pkt_unref(ack_pkt);
+}
 
-        struct net_pkt *ack_pkt;
-        uint16_t ack_mac_len = IS_ENABLED(CONFIG_IEEE802154_L2_PKT_INCL_FCS) ? data.ack_len : data.ack_len - FCS_SIZE;
+static int tx_await_outcome(uint16_t len)
+{
+    int rc = tx_wait_for_result(len);
 
-        ack_pkt = net_pkt_rx_alloc_with_buffer(data.iface, ack_mac_len, NET_AF_UNSPEC, 0, K_NO_WAIT);
-        if (ack_pkt != NULL)
+    if (rc != 0)
+    {
+        return rc;
+    }
+
+    if (!data.tx_wants_ack)
+    {
+        return 0;
+    }
+
+    if (data.ack_len == 0)
+    {
+        return -ENOMSG;
+    }
+
+    tx_deliver_ack();
+    return 0;
+}
+
+static int tx(const struct device *dev, enum ieee802154_tx_mode mode, struct net_pkt *pkt, struct net_buf *frag)
+{
+    int      rc;
+    uint16_t len = frag->len;
+
+    ARG_UNUSED(pkt);
+
+    rc = tx_check_preconditions(mode, len);
+    if (rc != 0)
+    {
+        return rc;
+    }
+
+    if (mode == IEEE802154_TX_MODE_CCA)
+    {
+        rc = cca(dev);
+        if (rc != 0)
         {
-            if (net_pkt_write(ack_pkt, data.ack_psdu, ack_mac_len) == 0)
-            {
-                net_pkt_set_ieee802154_lqi(ack_pkt, LQI_PERFECT);
-                net_pkt_set_ieee802154_rssi_dbm(ack_pkt, 0);
-                net_pkt_cursor_init(ack_pkt);
-                if (ieee802154_handle_ack(data.iface, ack_pkt) != NET_OK)
-                {
-                    LOG_DBG("ACK not handled");
-                }
-                /* Frame Pending bit tells a polling child whether the parent has buffered data. */
-                LOG_INF("ACK for seq %u: fcf=0x%04x frame_pending=%d", data.tx_seq, sys_get_le16(data.ack_psdu),
-                        (data.ack_psdu[0] & FCF_BYTE0_FRAME_PENDING_BIT) != 0);
-            }
-            net_pkt_unref(ack_pkt);
+            return rc;
         }
     }
 
-out:
+    uint8_t psdu[OT_RADIO_FRAME_MAX_SIZE];
+
+    rc = tx_build_psdu(frag, len, psdu);
+    if (rc != 0)
+    {
+        return rc;
+    }
+
+    data.tx_wants_ack = (len >= 1) && (frag->data[0] & FCF_BYTE0_ACK_REQ_BIT);
+    data.tx_seq       = (len >= MIN_FRAME_SIZE) ? frag->data[2] : 0;
+    data.ack_len      = 0;
+    data.tx_result    = 0;
+
+    k_sem_reset(&data.tx_wait);
+
+    rc = tx_send_frame(psdu, len + FCS_SIZE);
+    if (rc == 0)
+    {
+        rc = tx_await_outcome(len);
+    }
+
     nsi_otns_bottom_set_state(OT_RADIO_STATE_RECEIVE, data.channel);
     return rc;
 }
@@ -414,9 +447,6 @@ static int start(const struct device *dev)
 
 static int stop(const struct device *dev)
 {
-    unsigned int key;
-    bool         ack_pending;
-
     ARG_UNUSED(dev);
 
     if (!data.started)
@@ -426,9 +456,9 @@ static int stop(const struct device *dev)
 
     data.started = false;
 
-    /* irq_lock() makes the check-and-set atomic with respect to isr() clearing ack_tx_pending. */
-    key         = irq_lock();
-    ack_pending = data.ack_tx_pending;
+    unsigned int key         = irq_lock();
+    bool         ack_pending = data.ack_tx_pending;
+
     if (ack_pending)
     {
         data.sleep_pending = true;
@@ -483,6 +513,18 @@ static int configure(const struct device *dev, enum ieee802154_config_type type,
 
     case IEEE802154_CONFIG_ENH_ACK_HEADER_IE:
         return configure_enh_ack_ie(config);
+
+    case IEEE802154_CONFIG_MAC_KEYS:
+        set_mac_keys(config->mac_keys);
+        return 0;
+
+    case IEEE802154_CONFIG_FRAME_COUNTER:
+        set_frame_counter(config->frame_counter, false);
+        return 0;
+
+    case IEEE802154_CONFIG_FRAME_COUNTER_IF_LARGER:
+        set_frame_counter(config->frame_counter, true);
+        return 0;
 
     default:
         return 0;
@@ -555,7 +597,7 @@ static uint8_t get_sch_acc(const struct device *dev)
 {
     ARG_UNUSED(dev);
 
-    return RFSIM_CSL_ACCURACY_DEFAULT_PPM;
+    return nsi_otns_bottom_get_csl_accuracy();
 }
 
 static const struct ieee802154_radio_api radio_api = {

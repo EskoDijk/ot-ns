@@ -24,15 +24,11 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
- *
- * RX frame delivery and IEEE802154_OTNS_IRQ event handling. Implemented in
- * ieee802154_isr.c; registered by ieee802154.c's init().
  */
 
 #ifndef IEEE802154_OTNS_ISR_H__
 #define IEEE802154_OTNS_ISR_H__
 
-/* Registered via IRQ_CONNECT(IEEE802154_OTNS_IRQ, ...) in ieee802154.c's init(). */
 void isr(const void *arg);
 
 #endif /* IEEE802154_OTNS_ISR_H__ */
