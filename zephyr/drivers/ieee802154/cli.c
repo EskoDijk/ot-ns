@@ -26,12 +26,6 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  * Embedded (Zephyr CPU) side of the OTNS OpenThread CLI bridge.
- *
- * It runs the raw OpenThread CLI (otCliInputLine / otCli output callback) so
- * that replies use the exact "<output>\nDone" / "Error <n>: ..." format that
- * OTNS expects — unlike the Zephyr `ot` shell, which wraps commands and adds a
- * shell prompt. Command bytes arrive from the runner side (stdin) through
- * IEEE802154_OTNS_CLI_IRQ; CLI output is sent back to the runner side (stdout).
  */
 
 #define LOG_MODULE_NAME otns_cli
@@ -73,11 +67,9 @@ K_MSGQ_DEFINE(msgq, sizeof(struct line), MSGQ_DEPTH, MSGQ_ALIGN);
 K_THREAD_STACK_DEFINE(stack, STACK_SIZE);
 static struct k_thread thread;
 
-/* Line accumulator, only touched from the (serialized) CLI ISR. */
 static char acc[LINE_MAX];
 static int  acc_len;
 
-/* OpenThread CLI output callback: forward formatted output to stdout. */
 static int cli_output_cb(void *context, const char *format, va_list arg)
 {
     char buf[OUTPUT_BUF_MAX];
@@ -99,14 +91,6 @@ static int cli_output_cb(void *context, const char *format, va_list arg)
     return len;
 }
 
-/*
- * Applies the runner side's clock-drift-derived alarm offset (see
- * ieee802154_otns_bottom.c's update_alarm_drift_offset()) right before any CLI
- * command (notably `uptime`) is handled, so replies reflect the most up to date
- * drift even if no radio activity happened to refresh it first. See
- * ieee802154_otns.c's apply_pending_drift_offset() for why this can only be
- * done from the embedded side.
- */
 extern int32_t nsi_otns_bottom_get_drift_offset_ms(void);
 extern void    alarm_milli_set_time_offset_ms(int32_t offset_ms);
 
@@ -122,7 +106,6 @@ static void apply_pending_drift_offset(void)
     }
 }
 
-/* ISR: drain stdin bytes from the runner side and split into command lines. */
 static void isr(const void *arg)
 {
     uint8_t buf[INPUT_CHUNK_MAX];
@@ -148,7 +131,7 @@ static void isr(const void *arg)
 
                 if (acc_len == 0)
                 {
-                    continue; /* skip empty lines */
+                    continue;
                 }
                 acc[acc_len] = '\0';
                 memcpy(line.buf, acc, acc_len + 1);
@@ -171,18 +154,11 @@ static void thread_fn(void *a, void *b, void *c)
     ARG_UNUSED(b);
     ARG_UNUSED(c);
 
-    /*
-     * Wait for the OpenThread instance to be created (it is created at boot
-     * by the L2 init). Use k_yield() rather than k_sleep(): during OTNS node
-     * setup the simulator does not advance virtual time, so a timed sleep
-     * would never elapse.
-     */
     while ((instance = openthread_get_default_instance()) == NULL)
     {
         k_yield();
     }
 
-    /* Take over the CLI output so replies go to OTNS via UART_WRITE. */
     openthread_mutex_lock();
     otCliInit(instance, cli_output_cb, NULL);
     openthread_mutex_unlock();

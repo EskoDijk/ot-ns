@@ -26,17 +26,6 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  * Runner ("bottom") side of the OTNS OpenThread CLI bridge.
- *
- * OTNS configures each simulated node through its OpenThread CLI. For a standard
- * (non-RCP) node it delivers CLI commands over the *simulation socket* as
- * OT_SIM_EVENT_UART_WRITE events (the "virtual-time UART"), and it reads the CLI
- * replies back as OT_SIM_EVENT_UART_WRITE events from the node. It does NOT read
- * a standard node's stdout for CLI. This host-side code therefore:
- *   - receives UART_WRITE command bytes from the radio runner side and feeds
- *     them to the embedded OpenThread CLI through IEEE802154_OTNS_CLI_IRQ;
- *   - sends CLI reply bytes back to OTNS as UART_WRITE events on the socket;
- *   - redirects Zephyr's own stdout (banner, logs, printk) to stderr, which OTNS
- *     captures as node log output.
  */
 
 #include <errno.h>
@@ -54,26 +43,21 @@
 
 #include "cli.h"
 
-/* From the radio runner side. */
 extern int  nsi_otns_bottom_is_configured(void);
 extern void nsi_otns_bottom_send_uart(const uint8_t *buf, uint16_t len);
 
-#define RING_SIZE 8192U /* must be a power of two */
+#define RING_SIZE 8192U
 #define RING_MASK (RING_SIZE - 1U)
 
 #define CMDLINE_TASK_PRIO 210
 #define BOOT_TASK_PRIO 400
 
-static bool flag;    /* --otns-cli switch */
-static bool enabled; /* effective enable state */
+static bool flag;
+static bool enabled;
 
 static uint8_t           ring[RING_SIZE];
-static volatile uint32_t ring_head; /* producer (UART_WRITE from OTNS) */
-static volatile uint32_t ring_tail; /* consumer (embedded ISR) */
-
-/* ------------------------------------------------------------------------- */
-/* Command line                                                              */
-/* ------------------------------------------------------------------------- */
+static volatile uint32_t ring_head;
+static volatile uint32_t ring_tail;
 
 static void register_cmdline_opts(void)
 {
@@ -94,10 +78,6 @@ static void register_cmdline_opts(void)
 
 NSI_TASK(register_cmdline_opts, PRE_BOOT_1, CMDLINE_TASK_PRIO);
 
-/* ------------------------------------------------------------------------- */
-/* Init                                                                      */
-/* ------------------------------------------------------------------------- */
-
 static void boot(void)
 {
     enabled = flag || nsi_otns_bottom_is_configured();
@@ -106,12 +86,6 @@ static void boot(void)
         return;
     }
 
-    /*
-     * Point fd 1 at stderr so that all Zephyr/native output (banner, logs,
-     * printk) is captured by OTNS as node log output (OTNS reads a standard
-     * node's stderr, not its stdout). The CLI protocol itself flows over the
-     * simulation socket, not stdout.
-     */
     if (dup2(STDERR_FILENO, STDOUT_FILENO) < 0)
     {
         nsi_print_warning("ieee802154_otns cli: dup2 failed\n");
@@ -120,16 +94,8 @@ static void boot(void)
 
 NSI_TASK(boot, HW_INIT, BOOT_TASK_PRIO);
 
-/* ------------------------------------------------------------------------- */
-/* Boundary functions                                                        */
-/* ------------------------------------------------------------------------- */
-
 bool nsi_otns_cli_is_enabled(void) { return enabled; }
 
-/*
- * Called by the radio runner side when an OT_SIM_EVENT_UART_WRITE (CLI command)
- * is received from OTNS: queue the bytes and signal the embedded CLI.
- */
 void nsi_otns_cli_feed_input(const uint8_t *buf, int len)
 {
     bool woke = false;
@@ -145,7 +111,7 @@ void nsi_otns_cli_feed_input(const uint8_t *buf, int len)
 
         if (next == ring_tail)
         {
-            break; /* ring full: drop remaining bytes */
+            break;
         }
         ring[ring_head] = buf[i];
         ring_head       = next;
@@ -177,6 +143,5 @@ void nsi_otns_cli_output(const uint8_t *buf, int len)
         return;
     }
 
-    /* Send the CLI reply back to OTNS as a UART_WRITE event on the socket. */
     nsi_otns_bottom_send_uart(buf, (uint16_t)len);
 }

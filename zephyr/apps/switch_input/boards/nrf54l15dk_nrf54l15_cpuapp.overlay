@@ -1,10 +1,3 @@
-/*
- * nrf54l15dk overlay: the SoC's ieee802154 radio node is disabled by default
- * (see dts/vendor/nordic/nrf54l_05_10_15.dtsi), so enable it explicitly.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
-
 &ieee802154 {
 	status = "okay";
 };
