@@ -1,5 +1,3 @@
-# IEEE 802.15.4 OTNS simulated radio driver
-# SPDX-License-Identifier: Apache-2.0
 
 config IEEE802154_OTNS
 	bool "OpenThread Network Simulator (OTNS) IEEE 802.15.4 driver"

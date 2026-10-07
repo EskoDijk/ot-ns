@@ -11,9 +11,5 @@ target_sources(app PRIVATE
   src/light_output.c
 )
 
-# Register the per-service CoAP resource iterable section defined by
-# COAP_RESOURCE_DEFINE/COAP_SERVICE_DEFINE(light_coap_service, ...) in
-# src/coap_server.c, otherwise the linker can't find its _list_start/_list_end
-# symbols (needed for both the CMake and LD linker-script generators).
 zephyr_iterable_section(NAME coap_resource_light_coap_service GROUP DATA_REGION ${XIP_ALIGN_WITH_INPUT})
 zephyr_linker_sources(DATA_SECTIONS sections-ram.ld)

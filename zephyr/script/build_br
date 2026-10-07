@@ -1,5 +1,4 @@
 #!/bin/bash
-# SPDX-License-Identifier: Apache-2.0
 #
 # Builds the zephyr-based equivalent of ot-rfsim's Border Router (BR)
 # ot-cli-ftd_br node executable (see ot-rfsim/script/build_br). Limited to

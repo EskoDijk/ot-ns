@@ -1,5 +1,4 @@
 #!/bin/bash
-# SPDX-License-Identifier: Apache-2.0
 #
 # Generic build helper for Zephyr-based OTNS node executables (analogous to
 # ot-rfsim/script/build). Builds zephyr/apps/shell for the native_sim board,

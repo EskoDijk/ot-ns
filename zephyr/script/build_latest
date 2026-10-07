@@ -1,5 +1,4 @@
 #!/bin/bash
-# SPDX-License-Identifier: Apache-2.0
 #
 # Builds the zephyr-based equivalents of ot-rfsim's default ("latest",
 # Thread 1.4) ot-cli-ftd and ot-cli-mtd node executables.

@@ -1,4 +1,3 @@
 # IEEE 802.15.4 OTNS out-of-source driver
-# SPDX-License-Identifier: Apache-2.0
 
 rsource "drivers/ieee802154/Kconfig"

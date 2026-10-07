@@ -1,5 +1,4 @@
 # IEEE 802.15.4 OTNS out-of-source driver
-# SPDX-License-Identifier: Apache-2.0
 
 if(CONFIG_IEEE802154_OTNS)
 

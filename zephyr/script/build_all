@@ -1,5 +1,4 @@
 #!/bin/bash
-# SPDX-License-Identifier: Apache-2.0
 #
 # Builds all zephyr-based OTNS node executables (mirrors ot-rfsim's
 # build_all, excluding RCP and CCM variants, which are out of scope for

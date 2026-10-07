@@ -1,5 +1,4 @@
 #!/bin/sh
-# SPDX-License-Identifier: Apache-2.0
 #
 # OTNS node launcher wrapper for a Zephyr native_sim executable.
 

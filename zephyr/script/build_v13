@@ -1,8 +1,4 @@
 #!/bin/bash
-# SPDX-License-Identifier: Apache-2.0
-#
-# Builds the zephyr-based equivalents of ot-rfsim's Thread-1.3 ot-cli-ftd_v13
-# and ot-cli-mtd_v13 node executables.
 
 set -euxo pipefail
 
@@ -11,11 +7,6 @@ EXTRA_MTD_OPTIONS=(
 )
 readonly EXTRA_MTD_OPTIONS
 
-# Needed so Zephyr's Kconfig turns on OPENTHREAD_PLATFORM_USEC_TIMER (that symbol has
-# no prompt of its own, and otherwise only defaults on for CSL_RECEIVER/child builds) -
-# without it, the parent-side CSL transmit scheduler (SubMac::mCslTimer, a TimerMicro)
-# never fires, so queued CSL transmissions to sleepy children are scheduled but never
-# actually sent.
 EXTRA_FTD_OPTIONS=(
     "-DCONFIG_OPENTHREAD_CSL_RECEIVER=y"
 )
