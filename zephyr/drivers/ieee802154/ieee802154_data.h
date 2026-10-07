@@ -42,7 +42,7 @@
 
 #define LQI_PERFECT 255
 
-struct otns_radio_data
+struct radio_data
 {
     struct net_if *iface;
     uint8_t        mac_addr[OT_EXT_ADDRESS_SIZE];
@@ -51,13 +51,13 @@ struct otns_radio_data
     struct k_sem cca_wait;
     struct k_sem ack_tx_done;
 
-    volatile int  tx_result;
-    volatile bool cca_channel_free;
+    int  tx_result;
+    bool cca_channel_free;
 
-    bool              tx_wants_ack;
-    uint8_t           tx_seq;
-    uint8_t           ack_psdu[OT_RADIO_FRAME_MAX_SIZE];
-    volatile uint16_t ack_len;
+    bool     tx_wants_ack;
+    uint8_t  tx_seq;
+    uint8_t  ack_psdu[OT_RADIO_FRAME_MAX_SIZE];
+    uint16_t ack_len;
 
     uint8_t pan_id[PAN_ID_SIZE];
     uint8_t short_addr[SHORT_ADDR_SIZE];
@@ -88,7 +88,7 @@ struct otns_radio_data
     bool    started;
 };
 
-extern struct otns_radio_data data;
+extern struct radio_data data;
 
 extern const struct device *radio_dev;
 

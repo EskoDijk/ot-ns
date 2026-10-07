@@ -101,11 +101,11 @@ static bool src_pan_id_present_2015(uint8_t dst_mode, uint8_t src_mode, bool pc)
     return src_mode != ADDR_MODE_NONE && !pc;
 }
 
-int parse_frame(const uint8_t *psdu, uint16_t len, struct frame_addr_info *info)
+bool parse_frame(const uint8_t *psdu, uint16_t len, struct frame_addr_info *info)
 {
     if (len < MIN_FRAME_SIZE)
     {
-        return -1;
+        return false;
     }
 
     memset(info, 0, sizeof(*info));
@@ -123,7 +123,7 @@ int parse_frame(const uint8_t *psdu, uint16_t len, struct frame_addr_info *info)
     {
         if (off >= len)
         {
-            return -1;
+            return false;
         }
         info->seq = psdu[off];
         off += SEQ_NUM_SIZE;
@@ -159,7 +159,7 @@ int parse_frame(const uint8_t *psdu, uint16_t len, struct frame_addr_info *info)
         off += (info->dst_mode == ADDR_MODE_EXT) ? OT_EXT_ADDRESS_SIZE : SHORT_ADDR_SIZE;
         if (off > len)
         {
-            return -1;
+            return false;
         }
     }
 
@@ -169,7 +169,7 @@ int parse_frame(const uint8_t *psdu, uint16_t len, struct frame_addr_info *info)
         {
             if (off + PAN_ID_SIZE > len)
             {
-                return -1;
+                return false;
             }
             info->src_pan         = sys_get_le16(&psdu[off]);
             info->src_pan_present = true;
@@ -179,16 +179,16 @@ int parse_frame(const uint8_t *psdu, uint16_t len, struct frame_addr_info *info)
         off += (info->src_mode == ADDR_MODE_EXT) ? OT_EXT_ADDRESS_SIZE : SHORT_ADDR_SIZE;
         if (off > len)
         {
-            return -1;
+            return false;
         }
     }
 
-    return 0;
+    return true;
 }
 
 bool frame_is_for_me(const uint8_t *psdu, uint16_t len, struct frame_addr_info *info)
 {
-    if (parse_frame(psdu, len, info) < 0)
+    if (!parse_frame(psdu, len, info))
     {
         return false;
     }
@@ -248,29 +248,27 @@ static bool fpb_ext_contains(const uint8_t *addr)
 
 int fpb_short_add(uint16_t addr)
 {
-    unsigned int key = irq_lock();
-    int          ret = 0;
+    int ret = 0;
 
     if (fpb_short_contains(addr))
     {
-        goto out;
+        ret = 0;
     }
-    if (data.fpb_short_count >= MAX_FPB_ENTRIES)
+    else if (data.fpb_short_count >= MAX_FPB_ENTRIES)
     {
         ret = -ENOMEM;
-        goto out;
     }
-    data.fpb_short[data.fpb_short_count++] = addr;
+    else
+    {
+        data.fpb_short[data.fpb_short_count++] = addr;
+    }
 
-out:
-    irq_unlock(key);
     return ret;
 }
 
 int fpb_short_remove(uint16_t addr)
 {
-    unsigned int key = irq_lock();
-    int          ret = -ENOENT;
+    int ret = -ENOENT;
 
     for (int i = 0; i < data.fpb_short_count; i++)
     {
@@ -282,43 +280,34 @@ int fpb_short_remove(uint16_t addr)
         }
     }
 
-    irq_unlock(key);
     return ret;
 }
 
-void fpb_short_clear(void)
-{
-    unsigned int key = irq_lock();
-
-    data.fpb_short_count = 0;
-    irq_unlock(key);
-}
+void fpb_short_clear(void) { data.fpb_short_count = 0; }
 
 int fpb_ext_add(const uint8_t *addr)
 {
-    unsigned int key = irq_lock();
-    int          ret = 0;
+    int ret = 0;
 
     if (fpb_ext_contains(addr))
     {
-        goto out;
+        ret = 0;
     }
-    if (data.fpb_ext_count >= MAX_FPB_ENTRIES)
+    else if (data.fpb_ext_count >= MAX_FPB_ENTRIES)
     {
         ret = -ENOMEM;
-        goto out;
     }
-    memcpy(data.fpb_ext[data.fpb_ext_count++], addr, OT_EXT_ADDRESS_SIZE);
+    else
+    {
+        memcpy(data.fpb_ext[data.fpb_ext_count++], addr, OT_EXT_ADDRESS_SIZE);
+    }
 
-out:
-    irq_unlock(key);
     return ret;
 }
 
 int fpb_ext_remove(const uint8_t *addr)
 {
-    unsigned int key = irq_lock();
-    int          ret = -ENOENT;
+    int ret = -ENOENT;
 
     for (int i = 0; i < data.fpb_ext_count; i++)
     {
@@ -330,17 +319,10 @@ int fpb_ext_remove(const uint8_t *addr)
         }
     }
 
-    irq_unlock(key);
     return ret;
 }
 
-void fpb_ext_clear(void)
-{
-    unsigned int key = irq_lock();
-
-    data.fpb_ext_count = 0;
-    irq_unlock(key);
-}
+void fpb_ext_clear(void) { data.fpb_ext_count = 0; }
 
 bool frame_pending_for(const uint8_t *psdu, uint16_t len, const struct frame_addr_info *info)
 {
@@ -522,7 +504,7 @@ static int build_enh_ack(const uint8_t                *rx_psdu,
         fcf |= FCF_FRAME_PENDING_BIT;
     }
 
-    ack[FCF_SIZE] = info->seq;
+    ack[SEQ_NUM_OFFSET] = info->seq;
     sys_put_le16(dst_pan, &ack[off]);
     off += PAN_ID_SIZE;
     memcpy(&ack[off], &rx_psdu[info->src_off], addr_len);
@@ -561,19 +543,19 @@ void schedule_ack(const uint8_t *rx_psdu, uint16_t rx_len, int8_t rssi, const st
     }
     else
     {
-        ack[0] = FCF_ACK_CONTROL_BYTE_0; /* FCF: ACK */
+        ack[0] = FCF_ACK_CONTROL_BYTE_0;
         if (frame_pending_for(rx_psdu, rx_len, info))
         {
             ack[0] |= FCF_FRAME_PENDING_BIT;
         }
-        ack[1] = FCF_ACK_CONTROL_BYTE_1;
-        ack[2] = info->seq;
+        ack[1]              = FCF_ACK_CONTROL_BYTE_1;
+        ack[SEQ_NUM_OFFSET] = info->seq;
 
-        uint16_t fcs = crc16(ack, MIN_FRAME_SIZE);
+        uint16_t fcs = crc16(ack, ACK_FCS_OFFSET);
 
-        ack[3]  = fcs & 0xff;
-        ack[4]  = fcs >> 8;
-        ack_len = ACK_FRAME_SIZE;
+        ack[ACK_FCS_OFFSET]     = fcs & 0xff;
+        ack[ACK_FCS_OFFSET + 1] = fcs >> 8;
+        ack_len                 = ACK_FRAME_SIZE;
     }
 
     if (nsi_otns_bottom_tx_after(data.channel, data.txpower, ack, ack_len, AIFS_TURNAROUND_US) == 0)
@@ -608,8 +590,6 @@ int configure_enh_ack_ie(const struct ieee802154_config *config)
             return -EINVAL;
         }
     }
-
-    unsigned int key = irq_lock();
 
     for (int i = 0; i < MAX_ACK_IES; i++)
     {
@@ -649,37 +629,36 @@ int configure_enh_ack_ie(const struct ieee802154_config *config)
         {
             data.ack_ies[slot].valid = false;
         }
-        goto out;
     }
-
-    if (slot < 0)
+    else
     {
-        slot = free_slot;
-    }
-    if (slot < 0)
-    {
-        ret = -ENOMEM;
-        goto out;
-    }
-
-    {
-        struct enh_ack_ie *ie = &data.ack_ies[slot];
-
-        ie->element_id  = element_id;
-        ie->content_len = content_len;
-        memcpy(ie->content, raw + HEADER_IE_HDR_SIZE, content_len);
-        ie->has_short_filter = has_short_filter;
-        ie->short_addr       = short_addr;
-        ie->has_ext_filter   = has_ext_filter;
-        if (has_ext_filter)
+        if (slot < 0)
         {
-            memcpy(ie->ext_addr_be, ext_addr_be, OT_EXT_ADDRESS_SIZE);
+            slot = free_slot;
         }
-        ie->valid = true;
+
+        if (slot < 0)
+        {
+            ret = -ENOMEM;
+        }
+        else
+        {
+            struct enh_ack_ie *ie = &data.ack_ies[slot];
+
+            ie->element_id  = element_id;
+            ie->content_len = content_len;
+            memcpy(ie->content, raw + HEADER_IE_HDR_SIZE, content_len);
+            ie->has_short_filter = has_short_filter;
+            ie->short_addr       = short_addr;
+            ie->has_ext_filter   = has_ext_filter;
+            if (has_ext_filter)
+            {
+                memcpy(ie->ext_addr_be, ext_addr_be, OT_EXT_ADDRESS_SIZE);
+            }
+            ie->valid = true;
+        }
     }
 
-out:
-    irq_unlock(key);
     return ret;
 }
 
@@ -689,8 +668,6 @@ out:
 
 void set_mac_keys(const struct ieee802154_key *keys)
 {
-    unsigned int lock = irq_lock();
-
     for (int i = 0; i < MAX_MAC_KEYS; i++)
     {
         data.mac_keys[i].valid = false;
@@ -703,20 +680,14 @@ void set_mac_keys(const struct ieee802154_key *keys)
         memcpy(data.mac_keys[i].key, keys[i].key_value, MAC_KEY_SIZE);
         data.mac_keys[i].valid = true;
     }
-
-    irq_unlock(lock);
 }
 
 void set_frame_counter(uint32_t counter, bool only_if_larger)
 {
-    unsigned int lock = irq_lock();
-
     if (!only_if_larger || counter > data.mac_frame_counter)
     {
         data.mac_frame_counter = counter;
     }
-
-    irq_unlock(lock);
 }
 
 static const uint8_t *find_mac_key(uint8_t key_id_mode, uint8_t key_id)
@@ -911,7 +882,7 @@ int encrypt_tx_frame(uint8_t *psdu, uint16_t len)
     struct frame_addr_info info;
     int                    footer_len = 0;
 
-    if (parse_frame(psdu, len, &info) < 0)
+    if (!parse_frame(psdu, len, &info))
     {
         LOG_ERR("encrypt_tx_frame: parse_frame failed len=%u", len);
         return -EINVAL;

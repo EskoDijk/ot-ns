@@ -81,7 +81,7 @@ LOG_MODULE_REGISTER(LOG_MODULE_NAME);
 
 #define OPENTHREAD_MTU 1280
 
-struct otns_radio_data data;
+struct radio_data data;
 
 const struct device *radio_dev;
 
@@ -162,7 +162,9 @@ static int set_channel(const struct device *dev, uint16_t channel)
         return channel < kMinChannel ? -ENOTSUP : -EINVAL;
     }
 
-    data.channel = (uint8_t)channel;
+    unsigned int key = irq_lock();
+    data.channel     = (uint8_t)channel;
+    irq_unlock(key);
 
     if (data.started)
     {
@@ -184,6 +186,8 @@ static int filter(const struct device            *dev,
         return -ENOTSUP;
     }
 
+    unsigned int key = irq_lock();
+
     switch (type)
     {
     case IEEE802154_FILTER_TYPE_IEEE_ADDR:
@@ -196,16 +200,20 @@ static int filter(const struct device            *dev,
         {
             ext_addr_be[i] = data.ext_addr[OT_EXT_ADDRESS_SIZE - 1 - i];
         }
+        irq_unlock(key);
         nsi_otns_bottom_send_ext_addr(ext_addr_be);
         return 0;
     }
     case IEEE802154_FILTER_TYPE_SHORT_ADDR:
         sys_put_le16(filter->short_addr, data.short_addr);
+        irq_unlock(key);
         return 0;
     case IEEE802154_FILTER_TYPE_PAN_ID:
         sys_put_le16(filter->pan_id, data.pan_id);
+        irq_unlock(key);
         return 0;
     default:
+        irq_unlock(key);
         return -ENOTSUP;
     }
 }
@@ -214,7 +222,9 @@ static int set_txpower(const struct device *dev, int16_t dbm)
 {
     ARG_UNUSED(dev);
 
-    data.txpower = (int8_t)dbm;
+    unsigned int key = irq_lock();
+    data.txpower     = (int8_t)dbm;
+    irq_unlock(key);
     return 0;
 }
 
@@ -222,7 +232,7 @@ static void log_tx_frame(const uint8_t *psdu, uint16_t len)
 {
     struct frame_addr_info tx_info;
 
-    if (parse_frame(psdu, len, &tx_info) < 0 || tx_info.dst_off == FRAME_OFF_NONE)
+    if (!parse_frame(psdu, len, &tx_info) || tx_info.dst_off == FRAME_OFF_NONE)
     {
         return;
     }
@@ -413,7 +423,7 @@ static int tx(const struct device *dev, enum ieee802154_tx_mode mode, struct net
     }
 
     data.tx_wants_ack = (len >= 1) && (frag->data[0] & FCF_BYTE0_ACK_REQ_BIT);
-    data.tx_seq       = (len >= MIN_FRAME_SIZE) ? frag->data[2] : 0;
+    data.tx_seq       = (len >= MIN_FRAME_SIZE) ? frag->data[SEQ_NUM_OFFSET] : 0;
     data.ack_len      = 0;
     data.tx_result    = 0;
 
@@ -477,11 +487,15 @@ static int configure(const struct device *dev, enum ieee802154_config_type type,
 {
     ARG_UNUSED(dev);
 
+    int ret = 0;
+
+    unsigned int key = irq_lock();
+
     switch (type)
     {
     case IEEE802154_CONFIG_AUTO_ACK_FPB:
         data.auto_ack_fpb_enabled = config->auto_ack_fpb.enabled;
-        return 0;
+        break;
 
     case IEEE802154_CONFIG_ACK_FPB:
         if (config->ack_fpb.addr == NULL)
@@ -494,41 +508,48 @@ static int configure(const struct device *dev, enum ieee802154_config_type type,
             {
                 fpb_short_clear();
             }
-            return 0;
         }
-        if (config->ack_fpb.extended)
+        else if (config->ack_fpb.extended)
         {
-            return config->ack_fpb.enabled ? fpb_ext_add(config->ack_fpb.addr) : fpb_ext_remove(config->ack_fpb.addr);
+            ret = config->ack_fpb.enabled ? fpb_ext_add(config->ack_fpb.addr) : fpb_ext_remove(config->ack_fpb.addr);
         }
-        return config->ack_fpb.enabled ? fpb_short_add(sys_get_le16(config->ack_fpb.addr))
-                                       : fpb_short_remove(sys_get_le16(config->ack_fpb.addr));
+        else
+        {
+            ret = config->ack_fpb.enabled ? fpb_short_add(sys_get_le16(config->ack_fpb.addr))
+                                          : fpb_short_remove(sys_get_le16(config->ack_fpb.addr));
+        }
+        break;
 
     case IEEE802154_CONFIG_CSL_PERIOD:
         data.csl_period = config->csl_period;
-        return 0;
+        break;
 
     case IEEE802154_CONFIG_EXPECTED_RX_TIME:
         data.csl_expected_rx_time_ns = config->expected_rx_time;
-        return 0;
+        break;
 
     case IEEE802154_CONFIG_ENH_ACK_HEADER_IE:
-        return configure_enh_ack_ie(config);
+        ret = configure_enh_ack_ie(config);
+        break;
 
     case IEEE802154_CONFIG_MAC_KEYS:
         set_mac_keys(config->mac_keys);
-        return 0;
+        break;
 
     case IEEE802154_CONFIG_FRAME_COUNTER:
         set_frame_counter(config->frame_counter, false);
-        return 0;
+        break;
 
     case IEEE802154_CONFIG_FRAME_COUNTER_IF_LARGER:
         set_frame_counter(config->frame_counter, true);
-        return 0;
+        break;
 
     default:
-        return 0;
+        break;
     }
+
+    irq_unlock(key);
+    return ret;
 }
 
 IEEE802154_DEFINE_PHY_SUPPORTED_CHANNELS(drv_attr, kMinChannel, kMaxChannel);

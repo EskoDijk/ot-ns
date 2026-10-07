@@ -99,7 +99,7 @@ static void deliver_rx(const struct otns_radio_event *ev, bool acked_with_fpb)
     }
 }
 
-static void handle_rx(const struct otns_radio_event *ev)
+static void handle_rx_done(const struct otns_radio_event *ev)
 {
     if (ev->psdu_len < MIN_FRAME_SIZE)
     {
@@ -110,7 +110,7 @@ static void handle_rx(const struct otns_radio_event *ev)
 
     if ((fcf & FCF_FRAME_TYPE_MASK) == FCF_FRAME_TYPE_ACK)
     {
-        if (data.tx_wants_ack && ev->psdu[2] == data.tx_seq)
+        if (data.tx_wants_ack && ev->psdu[SEQ_NUM_OFFSET] == data.tx_seq)
         {
             uint16_t l = ev->psdu_len;
 
@@ -226,7 +226,7 @@ void isr(const void *arg)
         switch (ev.type)
         {
         case OT_SIM_EVENT_RADIO_RX_DONE:
-            handle_rx(&ev);
+            handle_rx_done(&ev);
             break;
 
         case OT_SIM_EVENT_RADIO_TX_DONE:

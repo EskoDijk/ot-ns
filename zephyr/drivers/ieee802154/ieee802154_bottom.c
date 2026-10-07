@@ -446,7 +446,7 @@ static void handle_rfsim_param_event(uint8_t event_type, const uint8_t *data, ui
     (void)write_event(OT_SIM_EVENT_RFSIM_PARAM_RSP, 0, data_out, sizeof(data_out));
 }
 
-__attribute__((weak)) void nsi_otns_cli_feed_input(const uint8_t *buf, int len)
+__attribute__((weak)) void nsi_otns_cli_feed_input(const uint8_t *buf, size_t len)
 {
     (void)buf;
     (void)len;

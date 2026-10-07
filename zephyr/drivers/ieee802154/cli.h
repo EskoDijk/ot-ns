@@ -30,6 +30,7 @@
 #define OTNS_CLI_H__
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -40,11 +41,11 @@ extern "C" {
 
 bool nsi_otns_cli_is_enabled(void);
 
-void nsi_otns_cli_feed_input(const uint8_t *buf, int len);
+void nsi_otns_cli_feed_input(const uint8_t *buf, size_t len);
 
-int nsi_otns_cli_get_input(uint8_t *buf, int max);
+size_t nsi_otns_cli_get_input(uint8_t *buf, size_t max);
 
-void nsi_otns_cli_output(const uint8_t *buf, int len);
+void nsi_otns_cli_output(const uint8_t *buf, size_t len);
 
 #ifdef __cplusplus
 }

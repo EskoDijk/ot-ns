@@ -108,16 +108,16 @@ static void apply_pending_drift_offset(void)
 
 static void isr(const void *arg)
 {
-    uint8_t buf[INPUT_CHUNK_MAX];
-    int     n;
-
     ARG_UNUSED(arg);
+
+    uint8_t buf[INPUT_CHUNK_MAX];
+    size_t  n;
 
     apply_pending_drift_offset();
 
     while ((n = nsi_otns_cli_get_input(buf, sizeof(buf))) > 0)
     {
-        for (int i = 0; i < n; i++)
+        for (size_t i = 0; i < n; i++)
         {
             char c = (char)buf[i];
 

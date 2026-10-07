@@ -43,6 +43,8 @@
 #define FCF_SIZE 2
 #define MIN_FRAME_SIZE 3
 #define SEQ_NUM_SIZE 1
+#define SEQ_NUM_OFFSET 2
+#define ACK_FCS_OFFSET 3
 #define SHORT_ADDR_SIZE 2
 #define PAN_ID_SIZE sizeof(otPanId)
 #define ACK_FRAME_SIZE 5
@@ -134,7 +136,7 @@ struct frame_addr_info
 
 uint16_t crc16(const uint8_t *data, size_t len);
 
-int  parse_frame(const uint8_t *psdu, uint16_t len, struct frame_addr_info *info);
+bool parse_frame(const uint8_t *psdu, uint16_t len, struct frame_addr_info *info);
 bool frame_is_for_me(const uint8_t *psdu, uint16_t len, struct frame_addr_info *info);
 
 bool frame_pending_for(const uint8_t *psdu, uint16_t len, const struct frame_addr_info *info);

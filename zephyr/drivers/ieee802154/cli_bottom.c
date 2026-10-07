@@ -96,7 +96,7 @@ NSI_TASK(boot, HW_INIT, BOOT_TASK_PRIO);
 
 bool nsi_otns_cli_is_enabled(void) { return enabled; }
 
-void nsi_otns_cli_feed_input(const uint8_t *buf, int len)
+void nsi_otns_cli_feed_input(const uint8_t *buf, size_t len)
 {
     bool woke = false;
 
@@ -105,7 +105,7 @@ void nsi_otns_cli_feed_input(const uint8_t *buf, int len)
         return;
     }
 
-    for (int i = 0; i < len; i++)
+    for (size_t i = 0; i < len; i++)
     {
         uint32_t next = (ring_head + 1U) & RING_MASK;
 
@@ -124,9 +124,9 @@ void nsi_otns_cli_feed_input(const uint8_t *buf, int len)
     }
 }
 
-int nsi_otns_cli_get_input(uint8_t *buf, int max)
+size_t nsi_otns_cli_get_input(uint8_t *buf, size_t max)
 {
-    int count = 0;
+    size_t count = 0;
 
     while (count < max && ring_tail != ring_head)
     {
@@ -136,9 +136,9 @@ int nsi_otns_cli_get_input(uint8_t *buf, int max)
     return count;
 }
 
-void nsi_otns_cli_output(const uint8_t *buf, int len)
+void nsi_otns_cli_output(const uint8_t *buf, size_t len)
 {
-    if (!enabled || len <= 0)
+    if (!enabled || len == 0)
     {
         return;
     }
