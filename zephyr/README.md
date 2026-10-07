@@ -92,3 +92,60 @@ Alternatively, `zephyr.exe` can be launched directly (without the wrapper script
 ```bash
 $ /path/to/your/build/zephyr/zephyr.exe --otns-node-id=1 --otns-socket=/path/to/socket --flash=/tmp/1.flash --seed=1
 ```
+
+## Switch input and light output examples
+
+Two small example apps under [apps/switch_input](apps/switch_input/) and [apps/light_output](apps/light_output/) demonstrate a custom Zephyr application built on the OTNS driver: `switch_input` sends a CoAP command (on/off/toggle) to the realm-local multicast address whenever one of its three simulated buttons is pressed, and `light_output` listens for that CoAP command and drives a simulated LED accordingly. Both apps share the CoAP resource/protocol definitions in [apps/common/switch_light_protocol.h](apps/common/switch_light_protocol.h).
+
+### Building
+
+Build both apps with the dedicated script, which also installs their OTNS-compatible launchers under `ot-versions/`:
+
+```bash
+$ ./script/build_examples
+```
+
+This produces `ot-versions/switch` and `ot-versions/light`, installed from `build/switch` and `build/light` respectively.
+
+### Running
+
+Start OTNS with the Zephyr launchers directory, then add a `switch` node and a `light` node to the same simulated network so they can reach each other over the Thread mesh:
+
+```bash
+$ OTNS_NODES_DIR=./zephyr/ot-versions ./otns
+> add router exe "./zephyr/ot-versions/switch"
+1
+Done
+> add router exe "./zephyr/ot-versions/light"
+2
+Done
+```
+
+### Using the vendor shell commands
+
+Both apps are only built with a `native_sim`-specific OpenThread CLI vendor command (see `src/switch_vendor_cli.c` / `src/light_vendor_cli.c` in each app), reachable through the OTNS shell.
+
+On the `switch` node, press one of the simulated buttons with:
+
+```
+> node <Node ID> "switch press on"
+> node <Node ID> "switch press off"
+> node <Node ID> "switch press toggle"
+```
+
+On the `light` node, read back the current LED state with:
+
+```
+> node <Node ID> "light state"
+on
+```
+
+### Porting to real hardware
+
+Both apps only ever reference their buttons/LED through devicetree aliases. None of that application code is `native_sim`-specific, so porting either app to a real board only requires a new board overlay/config pair, following the same `boards/<board>.overlay` + `boards/<board>.conf` pattern already used for `native_sim`:
+
+- Add `boards/<your_board>.overlay` defining the same `sw0`/`sw1`/`sw2` (or `led0`) aliases against the board's real GPIO pins, instead of the `gpio-keys` block bound to `native_sim`'s `gpio_emul` controller. Many boards already ship these aliases by default (most Nordic/STM32/nRF dev kits define `led0`/`sw0` out of the box), so this file may not even be needed.
+- Add `boards/<your_board>.conf` selecting the board's own IEEE 802.15.4 radio as `zephyr,ieee802154` (dropping the `otns_radio` node and `CONFIG_IEEE802154_OTNS`/`CONFIG_OPENTHREAD_OTNS`, which only exist to hook into OTNS's simulated radio) and whatever flash/settings backend the board supports (dropping `CONFIG_FLASH_SIMULATOR` and `CONFIG_NATIVE_SIM_SLOWDOWN_TO_REAL_TIME`, which are `native_sim`-only).
+- Build with `west build -b <your_board> apps/switch_input` (or `apps/light_output`) instead of going through `script/build_examples`.
+
+The `switch press`/`light state` vendor CLI commands are compiled in only for the "native_sim" board, since they exist purely to simulate a button press without real hardware; a real board doesn't need them, as pressing the physical button already drives the same `button_pressed()` GPIO callback and CoAP exchange.
