@@ -1,7 +1,7 @@
 #include <string.h>
 
-#include <openthread/cli.h>
 #include <zephyr/sys/util.h>
+#include <openthread/cli.h>
 
 #include "switch_input.h"
 #include "switch_light_protocol.h"
@@ -39,7 +39,4 @@ static const otCliCommand sSwitchCommands[] = {
     {"switch", switchCommand},
 };
 
-void otCliVendorSetUserCommands(void)
-{
-    otCliSetUserCommands(sSwitchCommands, ARRAY_SIZE(sSwitchCommands), NULL);
-}
+void otCliVendorSetUserCommands(void) { otCliSetUserCommands(sSwitchCommands, ARRAY_SIZE(sSwitchCommands), NULL); }

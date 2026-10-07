@@ -1,7 +1,7 @@
 #include <string.h>
 
-#include <openthread/cli.h>
 #include <zephyr/sys/util.h>
+#include <openthread/cli.h>
 
 #include "light_output.h"
 
@@ -23,7 +23,4 @@ static const otCliCommand sLightCommands[] = {
     {"light", lightCommand},
 };
 
-void otCliVendorSetUserCommands(void)
-{
-    otCliSetUserCommands(sLightCommands, ARRAY_SIZE(sLightCommands), NULL);
-}
+void otCliVendorSetUserCommands(void) { otCliSetUserCommands(sLightCommands, ARRAY_SIZE(sLightCommands), NULL); }
