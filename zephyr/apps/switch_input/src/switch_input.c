@@ -100,50 +100,18 @@ void switch_input_init(void)
 }
 
 #ifdef CONFIG_GPIO_EMUL
-#include <string.h>
 #include <zephyr/drivers/gpio/gpio_emul.h>
-#include <zephyr/shell/shell.h>
 
-static int cmd_switch_press(const struct shell *sh, size_t argc, char **argv)
+void switch_input_press(enum light_cmd cmd)
 {
-    enum light_cmd cmd;
-
-    if (!strcmp(argv[1], "on"))
-    {
-        cmd = LIGHT_CMD_ON;
-    }
-    else if (!strcmp(argv[1], "off"))
-    {
-        cmd = LIGHT_CMD_OFF;
-    }
-    else if (!strcmp(argv[1], "toggle"))
-    {
-        cmd = LIGHT_CMD_TOGGLE;
-    }
-    else
-    {
-        shell_error(sh, "Usage: switch press <on|off|toggle>");
-        return -EINVAL;
-    }
-
     for (size_t i = 0; i < ARRAY_SIZE(buttons); i++)
     {
         if (buttons[i].cmd == cmd)
         {
-            /* Pulse the emulated line active then back to idle. */
             gpio_emul_input_set_dt(&buttons[i].gpio, 0);
             gpio_emul_input_set_dt(&buttons[i].gpio, 1);
-            return 0;
+            return;
         }
     }
-
-    return -ENODEV;
 }
-
-SHELL_STATIC_SUBCMD_SET_CREATE(
-    switch_subcmd,
-    SHELL_CMD_ARG(press, NULL, "Simulate a button press: on, off or toggle", cmd_switch_press, 2, 0),
-    SHELL_SUBCMD_SET_END);
-
-SHELL_CMD_REGISTER(switch, &switch_subcmd, "Simulated switch input commands", NULL);
-#endif /* CONFIG_GPIO_EMUL */
+#endif

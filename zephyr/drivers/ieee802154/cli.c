@@ -48,7 +48,7 @@ LOG_MODULE_REGISTER(LOG_MODULE_NAME, LOG_LEVEL_INF);
 
 #include "cli.h"
 
-#define LINE_MAX 384
+#define CLI_LINE_MAX 384
 #define MSGQ_DEPTH 8
 #define MSGQ_ALIGN 4
 #define STACK_SIZE 3072
@@ -59,7 +59,7 @@ LOG_MODULE_REGISTER(LOG_MODULE_NAME, LOG_LEVEL_INF);
 
 struct line
 {
-    char buf[LINE_MAX];
+    char buf[CLI_LINE_MAX];
 };
 
 K_MSGQ_DEFINE(msgq, sizeof(struct line), MSGQ_DEPTH, MSGQ_ALIGN);
@@ -67,7 +67,7 @@ K_MSGQ_DEFINE(msgq, sizeof(struct line), MSGQ_DEPTH, MSGQ_ALIGN);
 K_THREAD_STACK_DEFINE(stack, STACK_SIZE);
 static struct k_thread thread;
 
-static char acc[LINE_MAX];
+static char acc[CLI_LINE_MAX];
 static int  acc_len;
 
 static int cli_output_cb(void *context, const char *format, va_list arg)
@@ -138,7 +138,7 @@ static void isr(const void *arg)
                 acc_len = 0;
                 (void)k_msgq_put(&msgq, &line, K_NO_WAIT);
             }
-            else if (acc_len < LINE_MAX - 1)
+            else if (acc_len < CLI_LINE_MAX - 1)
             {
                 acc[acc_len++] = c;
             }

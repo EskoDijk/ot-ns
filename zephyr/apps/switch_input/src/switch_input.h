@@ -29,6 +29,12 @@
 #ifndef SWITCH_INPUT_H_
 #define SWITCH_INPUT_H_
 
+#include "switch_light_protocol.h"
+
 void switch_input_init(void);
+
+#ifdef CONFIG_GPIO_EMUL
+void switch_input_press(enum light_cmd cmd);
+#endif
 
 #endif /* SWITCH_INPUT_H_ */

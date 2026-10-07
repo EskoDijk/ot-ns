@@ -1,5 +1,9 @@
 cmake_minimum_required(VERSION 3.20.0)
 
+if(BOARD STREQUAL "native_sim")
+  set(OT_CLI_VENDOR_EXTENSION "${CMAKE_CURRENT_SOURCE_DIR}/src/light_vendor_cli.cmake" CACHE STRING "" FORCE)
+endif()
+
 find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
 project(light_output)
 
@@ -10,6 +14,10 @@ target_sources(app PRIVATE
   src/coap_server.c
   src/light_output.c
 )
+
+if(BOARD STREQUAL "native_sim")
+  target_sources(app PRIVATE src/light_vendor_cli.c)
+endif()
 
 zephyr_iterable_section(NAME coap_resource_light_coap_service GROUP DATA_REGION ${XIP_ALIGN_WITH_INPUT})
 zephyr_linker_sources(DATA_SECTIONS sections-ram.ld)

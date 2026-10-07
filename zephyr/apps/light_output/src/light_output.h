@@ -31,7 +31,8 @@
 
 #include "switch_light_protocol.h"
 
-void light_output_init(void);
-void light_output_set(enum light_cmd cmd);
+void           light_output_init(void);
+void           light_output_set(enum light_cmd cmd);
+enum light_cmd light_output_get(void);
 
 #endif /* LIGHT_OUTPUT_H_ */

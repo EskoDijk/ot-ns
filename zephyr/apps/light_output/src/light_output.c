@@ -67,3 +67,5 @@ void light_output_set(enum light_cmd cmd)
     gpio_pin_set_dt(&led, state);
     LOG_INF("Light: %s", state ? "ON" : "OFF");
 }
+
+enum light_cmd light_output_get(void) { return state ? LIGHT_CMD_ON : LIGHT_CMD_OFF; }

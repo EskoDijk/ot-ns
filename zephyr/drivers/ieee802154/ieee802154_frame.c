@@ -931,7 +931,7 @@ int encrypt_tx_frame(uint8_t *psdu, uint16_t len)
     if (key == NULL)
     {
         LOG_ERR("encrypt_tx_frame: no MAC key for key_id_mode=%u key_id=%u", key_id_mode, key_id);
-        return -ENOKEY;
+        return -ENOENT;
     }
 
     patch_tx_csl_ie(psdu, len, ie_start, footer_len, ie_present);
