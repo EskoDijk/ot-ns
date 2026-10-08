@@ -1,0 +1,43 @@
+
+config IEEE802154_OTNS
+	bool "OpenThread Network Simulator (OTNS) IEEE 802.15.4 driver"
+	default y
+	depends on DT_HAS_ZEPHYR_IEEE802154_OTNS_ENABLED
+	depends on ARCH_POSIX
+	depends on NATIVE_LIBRARY
+	select NET_PKT_TIMESTAMP
+	help
+	  Virtual IEEE 802.15.4 radio driver for the native_sim board that
+	  connects to the OpenThread Network Simulator (OTNS) over a Unix domain
+	  socket. It lets a Zephyr native_sim node take part in an OTNS
+	  simulation, interoperating with other (ot-cli / ot-rfsim) OTNS nodes.
+
+	  The driver bridges the Zephyr ieee802154_radio_api to the OTNS
+	  simulation-event protocol and synchronizes the native_sim virtual
+	  clock with the OTNS virtual time (lock-step).
+
+if IEEE802154_OTNS
+
+config IEEE802154_OTNS_CLI
+	bool "OTNS OpenThread CLI bridge over stdin/stdout"
+	default y
+	depends on NET_L2_OPENTHREAD
+	select SHELL
+	select OPENTHREAD_SHELL
+	help
+	  Let OTNS drive this node's OpenThread CLI over the process' stdin and
+	  stdout (independently of the radio socket). Commands are read from
+	  stdin and executed via the raw OpenThread CLI; replies are written to
+	  stdout, while all other node output (logs, banner) is redirected to
+	  stderr so stdout carries only the CLI protocol OTNS parses.
+
+	  This is enabled automatically together with the OTNS radio driver and
+	  activates at run time when --otns-cli or --otns-socket is passed. It
+	  selects SHELL and OPENTHREAD_SHELL, which provide the OpenThread CLI
+	  library used to parse and execute the commands.
+
+module = IEEE802154_OTNS
+module-str = ieee802154 OTNS
+source "subsys/logging/Kconfig.template.log_config"
+
+endif # IEEE802154_OTNS

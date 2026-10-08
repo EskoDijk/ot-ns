@@ -1,0 +1,37 @@
+#!/bin/bash
+#
+# Builds the zephyr-based equivalents of ot-rfsim's default ("latest",
+# Thread 1.4) ot-cli-ftd and ot-cli-mtd node executables.
+
+set -euxo pipefail
+
+EXTRA_MTD_OPTIONS=(
+    "-DCONFIG_OPENTHREAD_CSL_RECEIVER=y"
+)
+readonly EXTRA_MTD_OPTIONS
+
+EXTRA_FTD_OPTIONS=(
+    "-DCONFIG_OPENTHREAD_BORDER_ROUTER=y"
+    # Needed so Zephyr's Kconfig turns on OPENTHREAD_PLATFORM_USEC_TIMER (that symbol
+    # has no prompt of its own, and otherwise only defaults on for CSL_RECEIVER/child
+    # builds) - without it, the parent-side CSL transmit scheduler (SubMac::mCslTimer,
+    # a TimerMicro) never fires, so queued CSL transmissions to sleepy children are
+    # scheduled but never actually sent.
+    "-DCONFIG_OPENTHREAD_CSL_RECEIVER=y"
+)
+readonly EXTRA_FTD_OPTIONS
+
+main()
+{
+    mkdir -p ot-versions
+
+    OTNS_NODE_TYPE="latest-ftd" OT_DEVICE_TYPE="ftd" OT_THREAD_VERSION="1_4" ./script/build \
+        "${EXTRA_FTD_OPTIONS[@]}" "$@"
+    ./script/install_exe latest-ftd ot-cli-ftd
+
+    OTNS_NODE_TYPE="latest-mtd" OT_DEVICE_TYPE="mtd" OT_THREAD_VERSION="1_4" ./script/build \
+        "${EXTRA_MTD_OPTIONS[@]}" "$@"
+    ./script/install_exe latest-mtd ot-cli-mtd
+}
+
+main "$@"

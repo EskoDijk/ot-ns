@@ -1,0 +1,10 @@
+/ {
+	chosen {
+		zephyr,ieee802154 = &otns_radio;
+	};
+
+	otns_radio: otns_radio {
+		compatible = "zephyr,ieee802154-otns";
+		status = "okay";
+	};
+};

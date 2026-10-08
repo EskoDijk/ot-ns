@@ -1,0 +1,35 @@
+#!/bin/bash
+#
+# Builds all zephyr-based OTNS node executables (mirrors ot-rfsim's
+# build_all, excluding RCP and CCM variants, which are out of scope for
+# the zephyr build).
+
+printf "\n./script/build_all  --  builds all zephyr OT node versions\n\n"
+
+set -euo pipefail
+
+build_error()
+{
+    printf '\n****************\n  Failed build script: %s - stopping.\n****************\n\n' "$1"
+    exit 1
+}
+
+main()
+{
+    local options=("$@")
+
+    for VER in latest v11 v12 v13 br; do
+        local scriptname="./script/build_${VER}"
+
+        printf 'Node %s: building with script %s\n' "${VER}" "${scriptname}"
+        if "${scriptname}" "${options[@]}"; then
+            printf 'Node %s: completed build with script %s\n' "${VER}" "${scriptname}"
+        else
+            build_error "${scriptname}"
+        fi
+    done
+
+    printf '\nSuccessfully completed building all zephyr OT node versions.\n'
+}
+
+main "$@"

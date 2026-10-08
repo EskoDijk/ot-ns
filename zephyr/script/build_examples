@@ -1,0 +1,20 @@
+#!/bin/bash
+#
+# Builds the light_output and switch_input example apps (see
+# zephyr/apps/light_output, zephyr/apps/switch_input), demonstrating a
+# custom Zephyr application using the OTNS IEEE 802.15.4 driver.
+
+set -euxo pipefail
+
+main()
+{
+    mkdir -p ot-versions
+
+    ZEPHYR_APP="apps/light_output" OTNS_NODE_TYPE="light" OT_DEVICE_TYPE="ftd" OT_THREAD_VERSION="1_4" ./script/build "$@"
+    ./script/install_exe light light
+
+    ZEPHYR_APP="apps/switch_input" OTNS_NODE_TYPE="switch" OT_DEVICE_TYPE="ftd" OT_THREAD_VERSION="1_4" ./script/build "$@"
+    ./script/install_exe switch switch
+}
+
+main "$@"

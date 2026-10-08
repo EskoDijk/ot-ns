@@ -1,0 +1,1 @@
+target_compile_definitions(ot-config INTERFACE "OPENTHREAD_CONFIG_CLI_MAX_USER_CMD_ENTRIES=2")

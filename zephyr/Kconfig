@@ -1,0 +1,3 @@
+# IEEE 802.15.4 OTNS out-of-source driver
+
+rsource "drivers/ieee802154/Kconfig"
