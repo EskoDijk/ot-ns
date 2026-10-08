@@ -95,7 +95,7 @@ $ /path/to/your/build/zephyr/zephyr.exe --otns-node-id=1 --otns-socket=/path/to/
 
 ## Switch input and light output examples
 
-Two small example apps under [apps/switch_input](apps/switch_input/) and [apps/light_output](apps/light_output/) demonstrate a custom Zephyr application built on the OTNS driver: `switch_input` sends a CoAP command (on/off/toggle) to the realm-local multicast address whenever one of its three simulated buttons is pressed, and `light_output` listens for that CoAP command and drives a simulated LED accordingly. Both apps share the CoAP resource/protocol definitions in [apps/common/switch_light_protocol.h](apps/common/switch_light_protocol.h).
+Two small example apps under [apps/switch_input](apps/switch_input/) and [apps/light_output](apps/light_output/) demonstrate a custom Zephyr application built on the OTNS driver: `switch_input` sends a CoAP command (on/off/toggle) to the realm-local multicast address whenever one of its three simulated buttons is pressed, and `light_output` listens for that CoAP command and drives a simulated LED accordingly.
 
 ### Building
 
