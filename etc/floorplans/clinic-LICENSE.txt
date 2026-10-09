@@ -1,0 +1,15 @@
+Clinic floor plan files
+
+  clinic.glb, clinic.json, clinic.yaml, clinic-lights.json,
+  clinic_small.json, clinic_small.yaml, clinic_small-lights.json
+
+These files are derived from the "Medical-Dental Clinic" IFC sample files:
+
+  BSI (2020) "Medical-Dental Test Files," buildingSMART International.
+  https://github.com/buildingsmart-community/Community-Sample-Test-Files
+
+They are licensed under the Creative Commons Attribution 4.0 International
+License (CC BY 4.0): https://creativecommons.org/licenses/by/4.0/
+
+Changes: the first floor was converted to a 3D model, a floor plan and OTNS
+node topologies placed at the light fixtures.

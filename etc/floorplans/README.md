@@ -77,7 +77,7 @@ walls, so that they don't hide each other depending on the camera angle.
 
 ```
 pip install ifcopenshell
-./ifc2glb.py building.ifc building.glb building.json [--no-openings]
+./ifc2glb.py building.ifc [more.ifc[:IfcType,...] ...] building.glb building.json [--no-openings] [--storey=<name>] [--name=<plan name>]
 ```
 
 It converts walls, slabs, roofs, stairs, columns, beams, railings, curtain walls, windows and
@@ -85,7 +85,31 @@ doors (`--no-openings` leaves out windows and doors; walls keep their openings e
 the IFC surface colors and a translucency per element type, one glTF node per storey named after
 it, and writes a plan with the storeys as floors (elevation and height from the IFC) and the walls'
 axis lines as plan walls, ready for a future wall-aware radio model. The building is placed with
-its bounding box corner at plan `(0, 0)`, seen from above with IFC north up.
+its bounding box corner at plan `(0, 0)`, seen from above with IFC north up; the plan's
+`ifcOffset` `[X0, Y0]` records this: IFC point `(X, Y, Z)` (meters) is at plan `(X - X0, Y0 - Y)`
+at height `Z`.
+
+The first IFC file is the main model (storeys, walls). A project split per discipline can add
+elements from its other models, matched to the main model's storeys by name or elevation, e.g.
+the floor slabs that only the structural model has: `Clinic_Structural.ifc:IfcSlab` converts only
+the slabs of that file. `--storey` converts one storey only, which becomes the plan's only floor;
+`--name` sets the plan's name.
+
+`ifc_lights.py` places nodes at the light fixtures of one storey of an IFC model of the same
+project (e.g. the electrical model), on a plan made by `ifc2glb.py`:
+
+```
+./ifc_lights.py electrical.ifc building.json "<storey>" building.yaml building-lights.json
+```
+
+Each fixture (`IfcLightFixtureType` / `IfcLightFixture`) becomes a node at the center of its
+geometry: luminaires and signs as Routers, wall switches as SEDs (`KIND_TYPES` in the script).
+It writes the topology, a JSON file with the IFC GlobalId, fixture type, room and (from a Revit
+export) electrical panel and circuit of each node, and sets the plan's `topology` entry.
+`--rooms=1E*,...` takes a part of the storey: the lights in the rooms whose number matches a
+pattern (plus lights in no room within their area) and the wall switches in those rooms;
+`--name` sets the plan's name. A part gets its own plan: a copy of the storey's plan, using the
+same model.
 
 Other routes: IfcOpenShell's `IfcConvert` command (to OBJ or glTF) followed by Blender's glTF
 export, or assembling a building from a CC0 kit such as Kenney's Building Kit. Check the license
@@ -121,6 +145,31 @@ for a height `h` above that floor.
   ```
   otns -floorplan etc/floorplans/institute.json
   > cv skin space
+  ```
+
+- `clinic.json`, `clinic.glb`, `clinic.yaml`, `clinic-lights.json`: the first floor (52 x 56 m)
+  of a real two-storey medical and dental clinic, with its real lighting installation as the
+  topology: 469 luminaires and 27 exit and warning signs as Routers, 132 wall switches as SEDs
+  (628 nodes). From the "Medical-Dental Clinic" IFC 2x3 test files: BSI (2020) "Medical-Dental
+  Test Files", buildingSMART International,
+  <https://github.com/buildingsmart-community/Community-Sample-Test-Files>, CC BY 4.0. Changes:
+  only the first floor; the model from the architectural model plus the floor slabs of the
+  structural model (`ifc2glb.py`), the nodes from the light fixtures of the electrical model
+  (`ifc_lights.py`); see `clinic-LICENSE.txt` and `studies/clinic-lighting-topology.md`. The
+  topology is loaded at startup:
+
+  ```
+  otns -floorplan etc/floorplans/clinic.json
+  > cv skin space
+  ```
+
+- `clinic_small.json`, `clinic_small.yaml`, `clinic_small-lights.json`: a smaller part of the
+  same floor for quicker simulations: department E (logistics and facilities, rooms `1E*`), a
+  35 x 18 m block, with 101 luminaires and 5 exit signs as Routers and 30 wall switches as SEDs
+  (136 nodes). Same model (`clinic.glb`), source and license as `clinic.json`:
+
+  ```
+  otns -floorplan etc/floorplans/clinic_small.json
   ```
 
 - `bistro.json`, `bistro.yaml`, `bistro-lights.json`: the luminaires of the Godot
