@@ -141,7 +141,8 @@ fi
 info "starting otbr-agent"
 # All otbr-agent output redirected to stderr, so that ot-ctl CLI interactions are not garbled.
 sudo -n otbr-agent --data-path "${DATA_PATH}" -s -v -d 7 -I "${THREAD_IF_NAME}" \
-    -B "${BACKBONE_IF_NAME}" --rest-listen-port "${REST_PORT}" "${AGENT_PARAM}" "${RADIO_URL}" 1>&2 &
+    -B "${BACKBONE_IF_NAME}" --rest-listen-port "${REST_PORT}" "${AGENT_PARAM}" "${RADIO_URL}" \
+    "trel://${BACKBONE_IF_NAME}" 1>&2 &
 SUDO_OTBR_PID=$!
 
 debug "otbr-agent started in background (parent PID=${SUDO_OTBR_PID}) - waiting until ready"
