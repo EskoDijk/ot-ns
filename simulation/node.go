@@ -140,10 +140,10 @@ func newNode(s *Simulation, nodeid NodeId, cfg *NodeConfig, dnode *dispatcher.No
 			cfg.ExecutablePath, nodeid, s.d.GetUnixSocketName())
 		args = append(args, spinelUrl)
 	} else if cfg.Type == MATTER {
-		args = append(args, fmt.Sprintf("--thread-args=%d", nodeid))
-		args = append(args, fmt.Sprintf("--thread-args=%s", s.d.GetUnixSocketName()))
+		args = append(args, fmt.Sprintf("--thread-arg=%d", nodeid))
+		args = append(args, fmt.Sprintf("--thread-arg=%s", s.d.GetUnixSocketName()))
 		if cfg.RandomSeed != 0 {
-			args = append(args, fmt.Sprintf("--thread-args=%d", cfg.RandomSeed))
+			args = append(args, fmt.Sprintf("--thread-arg=%d", cfg.RandomSeed))
 		}
 		exePath = cfg.ExecutablePath
 	} else {
