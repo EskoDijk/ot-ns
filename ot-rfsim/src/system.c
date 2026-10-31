@@ -54,7 +54,9 @@ extern void platformHandleEvent(otInstance *aInstance, struct Event *aEvent);
 extern bool gPlatformPseudoResetWasRequested;
 
 static void socket_init(char *socketFilePath);
+#if !OPENTHREAD_RFSIM_CONFIG_LIBRARY_MODE_ENABLE
 static void handleSignal(int aSignal);
+#endif
 
 volatile bool gTerminate = false;
 uint32_t      gNodeId    = 0;
@@ -74,8 +76,10 @@ void otSysInit(int argc, char *argv[])
         return;
     }
 
+#if !OPENTHREAD_RFSIM_CONFIG_LIBRARY_MODE_ENABLE
     signal(SIGTERM, &handleSignal);
     signal(SIGHUP, &handleSignal);
+#endif
 
     if (argc < 3 || argc > 4)
     {
@@ -102,7 +106,9 @@ void otSysInit(int argc, char *argv[])
         randomSeed = (int32_t)randomSeedParam;
     }
 
+#if !OPENTHREAD_RFSIM_CONFIG_LIBRARY_MODE_ENABLE
     platformLoggingInit(argv[0]);
+#endif
     platformRandomInit(randomSeed);
     socket_init(argv[2]);
     platformAlarmInit();
@@ -234,12 +240,14 @@ static void socket_init(char *socketFilePath)
     }
 }
 
+#if !OPENTHREAD_RFSIM_CONFIG_LIBRARY_MODE_ENABLE
 static void handleSignal(int aSignal)
 {
     OT_UNUSED_VARIABLE(aSignal);
 
     gTerminate = true;
 }
+#endif
 
 #if OPENTHREAD_API_VERSION > 551
 void otSysUpdateEvents(otInstance     *aInstance,
