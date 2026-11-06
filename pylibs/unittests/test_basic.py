@@ -1103,18 +1103,19 @@ class BasicTests(OTNSTestCase):
         # create a simulation with sim_id = 2
         with OTNS(sim_id=2) as ns2:
             ns2.add('router')
+            ns2.go(10)
             ns2.add('router')
+            ns2.go(10)
             ns2.add('router')
             self.assertEqual(3, len(ns2.nodes()))
-            ns2.go(150)
-            ns2.go(10)
+            ns2.go(140)
             self.assertEqual(160.0, ns2.time)
             self.assertEqual(3, len(ns2.nodes()))
 
-            # check number of partitions: usually 1, but can be 2 in rare cases. Each simulation run
-            # uses a unique random seed so the radio model may result in unconnected partitions.
+            # check number of partitions
             ns2_pars = ns2.partitions()
-            self.assertTrue(len(ns2_pars) <= 2)
+            self.assertEqual(1, len(ns2_pars))
+            self.assertNotIn(0, ns2_pars)
 
             # check that 'ns' is untouched
             self.assertEqual(0, len(ns.nodes()))
