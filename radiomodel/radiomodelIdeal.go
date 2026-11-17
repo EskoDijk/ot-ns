@@ -223,7 +223,7 @@ func (rm *RadioModelIdeal) statsTxStart(node *RadioNode, evt *Event) {
 	chStats.NumFrames++
 
 	// node stats
-	node.stats.TxBytes += uint64(len(evt.Data) - 1 + PhyHeaderLenBytes)
+	node.stats.TxBytes += uint64(len(evt.Data) - RadioMessagePsduOffset + PhyHeaderLenBytes)
 	node.stats.TxTimeUs += evt.RadioCommData.Duration
 }
 
