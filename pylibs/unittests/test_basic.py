@@ -458,6 +458,46 @@ class BasicTests(OTNSTestCase):
         self.go(300)
         self.assertFormPartitions(2)  # we expect the 2 groups on different channels to not see each other.
 
+    def testUnwantedLogEntries(self):
+        """
+        This tests the assertNoUnwantedLogEntries() mechanism itself, which is invoked after every
+        unit test is run.
+        """
+        ns: OTNS = self.ns
+        ns.add('router')
+        # provoke an 'error' log entry: it is not an unwanted one by default.
+        with self.assertRaises(errors.OTNSCliError):
+            ns.add('router', executable='ot-cli-nonexistent')
+        ns.close()  # the OTNS log file is complete once OTNS has exited.
+        self.assertNoUnwantedLogEntries()
+
+        # when its message matches a failure signature, the check fails.
+        self.logFailureSignatures = ('simulation add node 2 failed',)
+        with self.assertRaises(AssertionError) as cm:
+            self.assertNoUnwantedLogEntries()
+        self.assertIn('[error] simulation add node 2 failed', str(cm.exception))
+        self.assertIn('has 1 unwanted log entries', str(cm.exception))
+
+        # same, when its level is a failure level.
+        self.logFailureSignatures = ()
+        self.assertNoUnwantedLogEntries()
+        self.logFailureLevels = ('error',)
+        with self.assertRaises(AssertionError):
+            self.assertNoUnwantedLogEntries()
+
+        # without a log file, there is nothing to check: this fails too.
+        os.remove(ns.get_otns_log_file())
+        with self.assertRaises(AssertionError) as cm:
+            self.assertNoUnwantedLogEntries()
+        self.assertIn('not found', str(cm.exception))
+
+        # restore the log file for the check in tearDown() once this test exits,
+        # which uses the defaults again.
+        del self.logFailureLevels
+        del self.logFailureSignatures
+        with OTNS(otns_args=['-log', 'debug']):
+            pass
+
     def testLoglevel(self):
         ns: OTNS = self.ns
         ns.loglevel = "warn"

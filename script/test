@@ -127,6 +127,7 @@ py_quick_tests()
     install_otns
     build_openthread_versions
 
+    python3 "$OTNSDIR"/pylibs/unittests/test_cli_args.py
     python3 "$OTNSDIR"/pylibs/unittests/test_basic.py BasicTests.testKpi
     python3 "$OTNSDIR"/pylibs/unittests/test_border_router.py
     python3 "$OTNSDIR"/pylibs/unittests/test_exe_versions.py
