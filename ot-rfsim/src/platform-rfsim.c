@@ -115,7 +115,9 @@ void platformHandleEvent(otInstance *aInstance, struct Event *aEvent)
 
     case OT_SIM_EVENT_RADIO_COMM_START:
         VERIFY_EVENT_SIZE(struct RadioCommEventData)
-        platformRadioRxStart(aInstance, (struct RadioCommEventData *)evData);
+        platformRadioRxStart(aInstance, evData + sizeof(struct RadioCommEventData),
+                             aEvent->mDataLength - sizeof(struct RadioCommEventData),
+                             (struct RadioCommEventData *)evData);
         break;
 
     case OT_SIM_EVENT_RADIO_RX_DONE:
