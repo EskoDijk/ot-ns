@@ -29,6 +29,7 @@
 
 import unittest
 
+from OTNSTestCase import parse_otns_log_line
 from otns.cli import OTNS
 
 
@@ -90,6 +91,55 @@ class OutputDirTests(unittest.TestCase):
 
     def test_empty_value_falls_back_to_default(self):
         self.assertEqual('tmp', OTNS._output_dir_from_args(['-output=']))
+
+
+class LogLineTests(unittest.TestCase):
+    """Tests for parsing the lines of the otns log file, which OTNSTestCase can check after each unit test."""
+
+    def parse(self, line):
+        return parse_otns_log_line(line)
+
+    def test_all_levels(self):
+        # Layout as written by logger/logger.go: timestamp, level and message, tab-separated.
+        for level in ('debug', 'info', 'warn', 'error', 'panic', 'fatal'):
+            line = f'2026-11-16 18:06:11.019\t{level}\tdispatcher started\n'
+            self.assertEqual((level, 'dispatcher started'), self.parse(line), line)
+
+    def test_node_log_line(self):
+        line = '2026-11-16 18:06:11.019\terror\tNode<4>     15670937 [C] StdErr--------: assert failed at a.cpp:1\n'
+        self.assertEqual(('error', 'Node<4>     15670937 [C] StdErr--------: assert failed at a.cpp:1'),
+                         self.parse(line))
+
+    def test_line_endings(self):
+        for ending in ('', '\n', '\r\n'):
+            self.assertEqual(('warn', 'msg'), self.parse('2026-11-16 18:06:11.019\twarn\tmsg' + ending))
+
+    def test_message_keeps_its_own_whitespace(self):
+        self.assertEqual(('info', 'a\tb  c '), self.parse('2026-11-16 18:06:11.019\tinfo\ta\tb  c \n'))
+
+    def test_empty_message(self):
+        self.assertEqual(('warn', ''), self.parse('2026-11-16 18:06:11.019\twarn\t\n'))
+        self.assertEqual(('warn', ''), self.parse('2026-11-16 18:06:11.019\twarn\n'))
+
+    def test_other_lines_are_not_log_entries(self):
+        for line in (
+                '',
+                '\n',
+                '#\n',  # log file header
+                '# OTNS log for sim-ID 0 created 2026-11-17T18:27:49+01:00\n',
+                '2026-11-16 18:06:11.019         Log level changed to debug\n',  # unformatted notice
+                '> !add router x 100 y 100\n',  # CLI command
+                'Done\n',  # CLI command output
+                'Error: node 5 not found\n',
+                'goroutine 1 [running]:\n',  # continuation line of a stack trace
+                '\tmain.go:12 +0x1d\n',
+                'error\t2026-11-16 18:06:11.019\tlevel first\n',
+                '2026-11-16 18:06:11.019\tnote\tunknown level\n',
+                '2026-11-16 18:06:11.019\tWARN\tuppercase level\n',
+                '2026-11-16 18:06:11.019 warn spaces instead of tabs\n',
+                'prefix 2026-11-16 18:06:11.019\twarn\tnot at line start\n',
+        ):
+            self.assertIsNone(self.parse(line), repr(line))
 
 
 if __name__ == '__main__':

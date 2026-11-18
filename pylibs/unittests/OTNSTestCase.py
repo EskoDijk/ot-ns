@@ -26,10 +26,12 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 import logging
+import re
 import tracemalloc
 import unittest
 
 from pathlib import Path
+from typing import Optional, Tuple
 
 from otns.cli import OTNS
 
@@ -38,22 +40,58 @@ from otns.cli import OTNS
 OTNS_OUTPUT_PATH = 'tmp'
 OTNS_SIM_ID = 0
 
+# Layout of one log line in the OTNS log file: '<timestamp>\t<level>\t<message>'. This must match
+# the encoder config and 'dateTimeFormat' in logger/logger.go.
+_OTNS_LOG_LINE_RE = re.compile(
+    r'\d{4}-\d\d-\d\d \d\d:\d\d:\d\d\.\d{3}\t(debug|info|warn|error|panic|fatal)(?:\t(.*))?')
+
+
+def parse_otns_log_line(line: str) -> Optional[Tuple[str, str]]:
+    """
+    Parse one line of the OTNS log file.
+
+    :param line: the line, with or without its line ending.
+    :return: (level, message) tuple if the line is a log line, or None for any other line in the
+             file: a CLI command or its output, a continuation line of a multi-line log message
+             (e.g. a stack trace), or the 'Log level changed' notice.
+    """
+    m = _OTNS_LOG_LINE_RE.fullmatch(line.rstrip('\r\n'))
+    if m is None:
+        return None
+    return m.group(1), m.group(2) or ''
+
 
 class OTNSTestCase(unittest.TestCase):
 
-    # Default substrings of OTNS warn/error log messages that fail the test in tearDown.
-    # Subclasses may rebind this at the class level. Inside an individual test,
-    # mutate self.logFailureSignatures (a per-instance copy made in setUp) to add or
-    # remove signatures without affecting other OTNS unit tests.
-    logFailureSignatures = {
-        'received unexpected event', 'RfSimEvent with unexpected param', 'received unexpected (longer) node output',
-        'received from unknown Node', 'gRPC server could not listen', 'gRPC server quit with error',
-        'visualization error: ', 'RecvEvents timeout: alive nodes are', 'processEvent() detects unknown node',
+    # After each test, tearDown scans the OTNS log file and fails the test for any unwanted log
+    # entry. See assertNoUnwantedLogEntries(). A subclass may rebind the two attributes below. An
+    # individual test may assign self.logFailureLevels or self.logFailureSignatures, e.g. to an
+    # empty tuple for a test in which OTNS is expected to log such an entry.
+
+    # Levels of the OTNS log entries that are always unwanted.
+    logFailureLevels = ('panic', 'fatal')
+
+    # Substrings of the OTNS log messages of level 'warn' or 'error' that are unwanted. Each must
+    # match the format string of a log call in the Go code.
+    logFailureSignatures = (
+        'RfSimEvent with unexpected param',
+        'received unexpected (longer) node output',
+        'received from unknown Node',
+        'gRPC server could not listen',
+        'gRPC server quit with error',
+        'RecvEvents timeout: alive nodes are',
+        'processEvent() detects unknown node',
         'New node did not send a correct init event EventTypeNodeInfo',
-        'sent incomplete event data, closing node connection', 'received unknown status push: ',
-        ' received from apparent duplicate Node ', 'Node did not exit in time, sending SIGKILL',
-        'Kill existing grpcwebproxy process failed'
-    }
+        'sent incomplete event data, closing node connection',
+        'received unknown status push: ',
+        ' received from apparent duplicate Node ',
+        'dispatcher handle task failed',
+        'Kill existing grpcwebproxy process failed',
+        'expectEvent: expected event type ',
+    )
+
+    # Max number of unwanted log entries that a test failure message lists.
+    LOG_FAILURE_MAX_SHOWN = 20
 
     @classmethod
     def setUpClass(cls) -> None:
@@ -72,30 +110,49 @@ class OTNSTestCase(unittest.TestCase):
         # sim ID is responsible for cleaning that directory itself.
         for f in Path(OTNS_OUTPUT_PATH).glob(f'{OTNS_SIM_ID}_*.flash'):
             f.unlink(missing_ok=True)
+        # Remove the OTNS log file of an earlier test. OTNS creates it anew, but not if OTNS exits
+        # on an error at startup before log file creation: then the old file would mistakenly be used otherwise.
+        Path(OTNS_OUTPUT_PATH, f'{OTNS_SIM_ID}_otns.log').unlink(missing_ok=True)
         self.ns = OTNS(otns_args=['-log', 'debug'])  # may add '-watch', 'trace' to see detailed OT node traces.
-        # Per-instance mutable copy: tests may add/remove from self.logFailureSignatures
-        # without bleeding into other tests via the shared class-level set.
-        self.logFailureSignatures = set(type(self).logFailureSignatures)
 
     def tearDown(self) -> None:
         self.ns.close()
         self.ns.save_pcap(f"{OTNS_OUTPUT_PATH}/unittest_pcap", self.name() + ".pcap")
+        self.assertNoUnwantedLogEntries()
 
-        # Fail test if any panic/fatal log entries were recorded
-        log_entries = self.ns.get_log_entries(levels={'panic', 'fatal'})
-        if log_entries:
-            msg = "OTNS emitted %d panic/fatal log entries during the test:" % len(log_entries)
-            for level, message in log_entries:
-                msg += f"\n  [{level}] {message}"
-            self.fail(msg)
+    def assertNoUnwantedLogEntries(self) -> None:
+        """
+        Fail the test if the log file of the OTNS instance self.ns has an unwanted log entry: one of
+        a level in self.logFailureLevels, or one of level 'warn' or 'error' with a message that
+        contains any of self.logFailureSignatures.
 
-        # Fail test for specific warnings/errors we never want to see
-        log_entries = self.ns.get_log_entries(levels={'warn', 'error'})
-        matched = [(lv, msg) for lv, msg in log_entries if any(sig in msg for sig in self.logFailureSignatures)]
-        if matched:
-            msg = "OTNS emitted %d warning/error log entries matching a failure signature:" % len(matched)
-            for level, message in matched:
+        Call this after self.ns.close(), when OTNS has exited and its log file is complete. OTNS
+        creates the log file anew at each start: if a test invokes multiple OTNS instances in a sequence, with the
+        same sim ID and output directory, only the log of the last instance can be checked here.
+        """
+        log_file = Path(self.ns.get_otns_log_file())
+        if not log_file.is_file():
+            self.fail(f"OTNS log file '{log_file}' not found: can't check it for unwanted log entries. "
+                      "OTNS did not start up, or it uses a non-standard output directory or sim ID.")
+
+        unwanted = []
+        with log_file.open(errors='replace') as f:
+            for line in f:
+                entry = parse_otns_log_line(line)
+                if entry is None:
+                    continue
+                level, message = entry
+                if level in self.logFailureLevels:
+                    unwanted.append(entry)
+                elif level in ('warn', 'error') and any(sig in message for sig in self.logFailureSignatures):
+                    unwanted.append(entry)
+
+        if unwanted:
+            msg = f"OTNS log file '{log_file}' has {len(unwanted)} unwanted log entries:"
+            for level, message in unwanted[:self.LOG_FAILURE_MAX_SHOWN]:
                 msg += f"\n  [{level}] {message}"
+            if len(unwanted) > self.LOG_FAILURE_MAX_SHOWN:
+                msg += f"\n  ... and {len(unwanted) - self.LOG_FAILURE_MAX_SHOWN} more"
             self.fail(msg)
 
     def go(self, duration: float) -> None:
