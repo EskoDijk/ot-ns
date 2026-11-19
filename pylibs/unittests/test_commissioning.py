@@ -145,10 +145,10 @@ class CommissioningTests(OTNSTestCase):
         ns = self.ns
         ns.radiomodel = 'MIDisc'
 
-        n1 = ns.add("router", radio_range=110)
-        n2 = ns.add("router", radio_range=110)
-        n3 = ns.add("router", radio_range=110)
-        n4 = ns.add("router", radio_range=110)
+        n1 = ns.add("router", x=100, y=100, radio_range=110)
+        n2 = ns.add("router", x=200, y=100, radio_range=110)
+        n3 = ns.add("router", x=300, y=100, radio_range=110)
+        n4 = ns.add("router", x=400, y=100, radio_range=110)
 
         self.setFirstNodeDataset(n1)
         ns.ifconfig_up(n1)

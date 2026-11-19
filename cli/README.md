@@ -169,7 +169,7 @@ Done
 Configure visualization options.
 
 ```shell
-cv [<option> on|off] ...
+cv [<option> on|off] ... [skin <name>]
 ```
 
 Visualization Options:
@@ -179,6 +179,15 @@ Visualization Options:
 - `ack`: ACK message
 - `rtb`: router table
 - `ctb`: child table
+- `pid`: partition ID of nodes (shown as a colored dot)
+- `skin`: visual style of the network visualization (see [GUIDE](../GUIDE.md#network-visualization-skins)). The value is a skin preset: a skin combined with predefined values of some of the above options. Selecting a preset applies only those options; the others keep their value. Any options given in the same command are applied after the preset. Presets:
+
+  - `thread`: Thread network diagram style, partition mark hidden (`pid off ack off`)
+  - `thread+`: Thread network diagram style, partition mark shown (`pid on ack off`)
+  - `classic`: the original OTNS style, partition mark shown (`pid on ack off`) - the default
+  - `clas_ack`: `classic` with ACK messages shown (`pid on ack on`)
+
+  The `skin=` output line shows the last selected preset, also when options were changed afterwards.
 
 ```bash
 > cv
@@ -187,6 +196,8 @@ uni=on
 ack=off
 rtb=on
 ctb=on
+pid=on
+skin=classic
 Done
 > cv bro off
 bro=off
@@ -194,13 +205,26 @@ uni=on
 ack=off
 rtb=on
 ctb=on
+pid=on
+skin=classic
 Done
-> cv bro on uni on ack on rtb on ctb on
+> cv skin thread
+bro=off
+uni=on
+ack=off
+rtb=on
+ctb=on
+pid=off
+skin=thread
+Done
+> cv bro on uni on ack on rtb on ctb on skin classic
 bro=on
 uni=on
 ack=on
 rtb=on
 ctb=on
+pid=on
+skin=classic
 Done
 ```
 
@@ -583,13 +607,13 @@ Done
 
 ### nodes
 
-List current nodes in the simulation and key status information. The attribute 'failed' represents whether the node is currently in a simulated radio failure (true), or not (false).
+List current nodes in the simulation and key status information. The attribute 'rr' is the node's radio range. The attribute 'failed' represents whether the node is currently in a simulated radio failure (true), or not (false).
 
 ```bash
 > nodes
-id=1	extaddr=62cfcf3c5556ac7c	rloc16=c000	x=200	y=300	failed=false
-id=2	extaddr=6a7d9d31e3511147	rloc16=3000	x=278	y=708	failed=false
-id=3	extaddr=266db93fad653782	rloc16=2800	x=207	y=666	failed=false
+id=1	type=router  extaddr=62cfcf3c5556ac7c  rloc16=c000  x=200	y=300	z=0	rr=330	state=leader	failed=false	exe=ot-cli-ftd
+id=2	type=router  extaddr=6a7d9d31e3511147  rloc16=3000  x=278	y=708	z=0	rr=330	state=router	failed=false	exe=ot-cli-ftd
+id=3	type=sed     extaddr=266db93fad653782  rloc16=2801  x=207	y=666	z=0	rr=150	state=child	failed=false	exe=ot-cli-mtd
 Done
 ```
 
