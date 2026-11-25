@@ -31,6 +31,9 @@ import filecmp
 import logging
 import os.path
 import re
+import stat
+import subprocess
+import tempfile
 import time
 import unittest
 from typing import Dict
@@ -1176,10 +1179,29 @@ class BasicTests(OTNSTestCase):
             self.assertEqual(160.0, ns2.time)
             self.assertEqual(3, len(ns2.nodes()))
 
-            # check sockets differ per simulation
+            # check sockets differ per simulation, are named after the sim ID and exist where pyOTNS expects them
             sock1 = ns.get_otns_socket()
             sock2 = ns2.get_otns_socket()
             self.assertTrue(sock1 != sock2)
+            self.assertEqual('0_otns.sock', sock1)
+            self.assertEqual('2_otns.sock', sock2)
+            for sock in (sock1, sock2):
+                self.assertTrue(stat.S_ISSOCK(os.stat(sock).st_mode), sock)
+
+            # check that an OTNS with an already used sim ID exits with an error, leaving the other's socket
+            with tempfile.TemporaryDirectory() as output_dir:
+                args = ['-autogo=false', '-web=false', '-listen', 'localhost:9020', '-output', output_dir]
+                proc = subprocess.run([ns2._otns_path] + args,
+                                      stdin=subprocess.DEVNULL,
+                                      capture_output=True,
+                                      text=True,
+                                      timeout=10)
+            self.assertNotEqual(0, proc.returncode)
+            self.assertIn('simulation ID 2 is already in use', proc.stderr)
+            self.assertTrue(stat.S_ISSOCK(os.stat(sock2).st_mode))
+            ns2.add('router')
+            ns2.go(10)
+            self.assertEqual(4, len(ns2.nodes()))
 
     def testCoapObserve(self):
         ns: OTNS = self.ns
