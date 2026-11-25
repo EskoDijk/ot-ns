@@ -76,7 +76,7 @@ class OTNS(object):
         # Note: given otns_args may override i.e. revert the default_args
         self._otns_args = default_args + list(otns_args or [])
         # Track the output directory that otns itself will use, so that save_pcap(), kpi_save()
-        # and get_otns_socket() look in the right place.
+        # and get_otns_log_file() look in the right place.
         self._sim_output_path = self._output_dir_from_args(self._otns_args)
         logging.info("otns found: %s", self._otns_path)
 
@@ -1397,10 +1397,12 @@ class OTNS(object):
 
     def get_otns_socket(self) -> str:
         """
-        Get the full path to the OTNS Unix socket that nodes use to connect to the current simulation.
+        Get the path to the OTNS Unix socket that nodes use to connect to the current simulation.
         The current simulation is identified by the sim_id constructor argument (default 0).
+        OTNS creates the socket in its working directory, which is the working directory of this
+        Python process at the time OTNS was launched. The returned path is relative to that directory.
         """
-        return os.path.join(self._sim_output_path, f'socket_{self._sim_id}')
+        return f'{self._sim_id}_otns.sock'
 
     @staticmethod
     def _expect_int(output: List[str]) -> int:

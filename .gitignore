@@ -27,6 +27,7 @@ tmp*/
 *.log
 *.rep
 *.replay
+*_otns.sock
 
 # Python/NodeJS generated
 *.pyc

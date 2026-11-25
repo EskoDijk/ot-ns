@@ -78,7 +78,7 @@ $ otns
 
 The standard binaries (version latest, v11, v12, v13, etc) are found in the `ot-rfsim/ot-versions` directory of the repo that OTNS was installed from. Node executables in the current working directory, or in its `./ot-rfsim/ot-versions` subdirectory, always take preference over these: so when OTNS is run from another (e.g. newer) checkout of this repo, the nodes built in that checkout are used. Alternatively, the environment variable `OTNS_NODES_DIR` can be set to one or more directories (separated by `:`) that are searched for node executables before all other locations. The `exe` CLI command displays the search paths used, and which executables were found there.
 
-All files that a simulation produces - the OTNS log, node logs, the packet capture, statistics, KPI results, energy results, node flash files and the Unix socket used to talk to nodes - are written into a single output directory. This is `tmp` in the current working directory by default, and can be changed with the `-output` commandline argument. Files are named `<simulation ID>_<name>`, so a default simulation writes for example `tmp/0_otns.log` and `tmp/0_otns.pcap`.
+All files that a simulation produces - the OTNS log, node logs, the packet capture, statistics, KPI results, energy results, and node flash files - are written into a single output directory. This is `tmp` in the current working directory by default, and can be changed with the `-output` commandline argument. Files are named `<simulation ID>_<name>`, so a default simulation writes for example `tmp/0_otns.log` and `tmp/0_otns.pcap`.
 
 If started successfully, OTNS by default opens a web browser for network visualization and management. To see what command-line parameters are supported for OTNS, use `-h`:
 
@@ -249,10 +249,12 @@ OTNS allows a user to start an OpenThread node executable externally, outside th
 Below, an example is given how to add a new node to a running OTNS instance. We assume there is already a running OTNS simulation with a single Router node with node ID 1. Then, to start a second node with node ID 2 from a script or via a shell command:
 
 ```bash
-$ ./ot-rfsim/ot-versions/ot-cli-ftd 2 ./tmp/socket_0
+$ ./ot-rfsim/ot-versions/ot-cli-ftd 2 0_otns.sock
 ```
 
-The first argument is the node ID (2), and the second argument is the Unix socket used by OTNS to communicate with all node processes. This socket is created in the simulation output directory, named `socket_<simulation ID>`. The value '0' in the socket filename refers to the simulation ID used by the running OTNS instance. By default, always simulation ID '0' is used. This can be changed by using the `-listen` OTNS commandline argument with a value higher than 9000 for the port number. Port 9010 gets simulation ID 1, 9020 gets simulation ID 2, and so on.
+The first argument is the node ID (2), and the second argument is the Unix socket used by OTNS to communicate with all node processes. This socket is created in the current working directory where OTNS was started, named `<simulation ID>_otns.sock`. The value '0' in the socket filename refers to the simulation ID used by the running OTNS instance. By default, always simulation ID '0' is used. This can be changed by using the `-listen` OTNS commandline argument with a value higher than 9000 for the port number. Port 9010 gets simulation ID 1, 9020 gets simulation ID 2, and so on.
+
+The example above runs the node from the directory where OTNS was started. From another directory, give the path to the socket instead. Note that a Unix socket path is limited to 107 bytes on Linux and 103 on macOS, so a short relative path is best: only the path as given counts, not the absolute path it resolves to. With `-log info`, OTNS logs the full socket path at startup.
 
 An OpenThread node that is added to the simulation will get a special node type "ext" assigned, for "external". This is done because OTNS does not necessarily know the exact type of the newly added node (such as Router, Border Router, FED, etc.).
 
