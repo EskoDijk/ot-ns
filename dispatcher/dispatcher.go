@@ -35,12 +35,12 @@ import (
 	"math"
 	"net"
 	"os"
+	"path/filepath"
 	"slices"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/openthread/ot-ns/dissectpkt"
@@ -160,8 +160,8 @@ type Dispatcher struct {
 
 func NewDispatcher(ctx *progctx.ProgCtx, cfg *Config, cbHandler CallbackHandler) *Dispatcher {
 	logger.AssertTrue(!cfg.Realtime || cfg.Speed == 1.0)
-	var err error
-	ln, unixSocketFile := newUnixSocket(cfg.OutputDir, cfg.SimulationId)
+	ln, unixSocketFile, err := newUnixSocket(cfg.SimulationId)
+	logger.FatalfIfError(err, "%v", err)
 	vis := visualize.NewNopVisualizer()
 
 	d := &Dispatcher{
@@ -211,25 +211,21 @@ func NewDispatcher(ctx *progctx.ProgCtx, cfg *Config, cbHandler CallbackHandler)
 	return d
 }
 
-func newUnixSocket(socketDir string, socketId int) (net.Listener, string) {
-	unixSocketFile := fmt.Sprintf("%s/socket_%d", socketDir, socketId) // remove old socket
-
-	if !isValidUnixSocketPath(unixSocketFile) {
-		logger.Fatalf("unix socket path too long: %s", unixSocketFile)
+// newUnixSocket creates the listening OTNS Unix socket for simulation simId, which all node processes connect to.
+func newUnixSocket(simId int) (net.Listener, string, error) {
+	path := fmt.Sprintf("%d_otns.sock", simId)
+	// A socket file left behind by an earlier OTNS instance that has ended is replaced. But a socket that another
+	// OTNS instance is still listening on is kept, because nodes could otherwise connect to the wrong simulation.
+	if conn, err := net.DialTimeout("unix", path, time.Second); err == nil {
+		_ = conn.Close()
+		return nil, "", fmt.Errorf("simulation ID %d is already in use by another running OTNS instance "+
+			"(its Unix socket: %s)", simId, path)
 	}
-
-	err := os.Remove(unixSocketFile)
-	if err != nil && errors.Is(err, os.ErrNotExist) {
-		err = nil
+	if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return nil, "", err
 	}
-	logger.FatalIfError(err, err)
-	ln, err := net.Listen("unix", unixSocketFile)
-	logger.FatalIfError(err, err)
-	return ln, unixSocketFile
-}
-
-func isValidUnixSocketPath(path string) bool {
-	return len(path) < len(syscall.RawSockaddrUnix{}.Path)
+	ln, err := net.Listen("unix", path)
+	return ln, path, err
 }
 
 func (d *Dispatcher) Stop() {
@@ -809,7 +805,8 @@ func (d *Dispatcher) eventsReader() {
 	defer os.Remove(d.socketName) // delete Unix socket file when done.
 	defer d.udpln.Close()
 
-	logger.Debugf("dispatcher listening on socket %s ...", d.socketName)
+	cwd, _ := os.Getwd()
+	logger.Infof("dispatcher listening on Unix socket %s", filepath.Join(cwd, d.socketName))
 	for {
 		// Wait for OT nodes to connect.
 		conn, err := d.udpln.Accept()
